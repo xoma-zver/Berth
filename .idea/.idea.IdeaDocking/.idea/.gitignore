@@ -1,0 +1,21 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Rider ignored files
+/modules.xml
+/contentModel.xml
+/projectSettingsUpdater.xml
+/.idea.RaspberryPiScience.iml
+# Ignored default folder with query files
+/queries/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+# Avalonia & Android & Rider
+/avalonia.xml
+/AndroidProjectSystem.xml
+/deploymentTargetSelector.xml
+/deviceManager.xml
+/libraries/
