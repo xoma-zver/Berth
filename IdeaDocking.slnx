@@ -1,11 +1,11 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/IdeaDocking.Avalonia/IdeaDocking.Avalonia.csproj" />
-    <Project Path="src/IdeaDocking.Core/IdeaDocking.Core.csproj" />
+    <Project Path="src/Berth.Avalonia/Berth.Avalonia.csproj" />
+    <Project Path="src/Berth.Core/Berth.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/IdeaDocking.Avalonia.Tests/IdeaDocking.Avalonia.Tests.csproj" />
-    <Project Path="tests/IdeaDocking.Core.Tests/IdeaDocking.Core.Tests.csproj" />
+    <Project Path="tests/Berth.Avalonia.Tests/Berth.Avalonia.Tests.csproj" />
+    <Project Path="tests/Berth.Core.Tests/Berth.Core.Tests.csproj" />
   </Folder>
   <Project Path="IdeaDocking.Android/IdeaDocking.Android.csproj">
     <Deploy />

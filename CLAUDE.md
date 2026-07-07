@@ -1,6 +1,6 @@
-# IdeaDocking
+# Berth
 
-Библиотека докинга для Avalonia по строгой модели IntelliJ IDEA (не free-form). Карта документации: `docs/README.md`; решения: `docs/adr/`; поведение: `docs/spec/`; задачи: `docs/BACKLOG.md`.
+Библиотека докинга для Avalonia по строгой модели IntelliJ IDEA (не free-form). Пакеты `Berth.Core`/`Berth.Avalonia`, пространства имён `Berth`/`Berth.Controls` — без сегмента «Avalonia» (ADR-0007). Карта документации: `docs/README.md`; решения: `docs/adr/`; поведение: `docs/spec/`; задачи: `docs/BACKLOG.md`.
 
 ## Языки
 
@@ -9,16 +9,16 @@
 ## Команды
 
 ```sh
-dotnet build src/IdeaDocking.Core && dotnet build src/IdeaDocking.Avalonia
-dotnet test tests/IdeaDocking.Core.Tests
-dotnet test tests/IdeaDocking.Avalonia.Tests   # headless UI-тесты
+dotnet build src/Berth.Core && dotnet build src/Berth.Avalonia
+dotnet test tests/Berth.Core.Tests
+dotnet test tests/Berth.Avalonia.Tests   # headless UI-тесты
 ```
 
 Полное решение (`IdeaDocking.slnx`) включает мобильные хосты и требует workloads — для задач библиотеки собирать только `src/` и `tests/`.
 
 ## Архитектурные правила
 
-- `src/IdeaDocking.Core` не ссылается на Avalonia (граница закреплена `ArchitectureTests`). Вся логика раскладки — в Core; UI-слой только материализует состояние и переводит ввод в команды ядра.
+- `src/Berth.Core` не ссылается на Avalonia (граница закреплена `ArchitectureTests`). Вся логика раскладки — в Core; UI-слой только материализует состояние и переводит ввод в команды ядра.
 - Поведение определяется `docs/spec/*`. Изменение поведения = сначала правка/дополнение спеки, затем код и тест с id пункта (`TW-…`, `INV-…`) в имени.
 - Каждый жест DnD завершается вызовом команды ядра, доступной также из меню/кода (ADR-0004).
 - Пиксели не проникают в Core — только веса/доли (ADR-0002).

@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Berth.Controls</RootNamespace>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <Description>Avalonia controls materializing the IdeaDocking.Core layout model.</Description>
+    <Description>Avalonia controls materializing the Berth docking layout model.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,6 +11,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../IdeaDocking.Core/IdeaDocking.Core.csproj" />
+    <ProjectReference Include="../Berth.Core/Berth.Core.csproj" />
   </ItemGroup>
 </Project>

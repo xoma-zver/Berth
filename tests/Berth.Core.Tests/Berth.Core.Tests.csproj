@@ -11,6 +11,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/IdeaDocking.Core/IdeaDocking.Core.csproj" />
+    <ProjectReference Include="../../src/Berth.Core/Berth.Core.csproj" />
   </ItemGroup>
 </Project>

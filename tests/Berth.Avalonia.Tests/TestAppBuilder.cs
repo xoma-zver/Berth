@@ -1,11 +1,11 @@
 using Avalonia;
 using Avalonia.Headless;
 using Avalonia.Themes.Fluent;
-using IdeaDocking.Avalonia.Tests;
+using Berth.Controls.Tests;
 
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]
 
-namespace IdeaDocking.Avalonia.Tests;
+namespace Berth.Controls.Tests;
 
 public sealed class TestApp : Application
 {

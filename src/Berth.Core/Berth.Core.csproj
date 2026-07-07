@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Berth</RootNamespace>
     <Description>Docking layout model and operations. UI-framework-free core.</Description>
   </PropertyGroup>
 </Project>

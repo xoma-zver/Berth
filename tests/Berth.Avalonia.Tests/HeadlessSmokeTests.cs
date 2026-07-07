@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Xunit;
 
-namespace IdeaDocking.Avalonia.Tests;
+namespace Berth.Controls.Tests;
 
 /// <summary>Proves the headless test pipeline works before any real controls exist.</summary>
 public class HeadlessSmokeTests
