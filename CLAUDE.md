@@ -1,6 +1,6 @@
 # Berth
 
-Библиотека докинга для Avalonia по строгой модели IntelliJ IDEA (не free-form). Пакеты `Berth.Core`/`Berth.Avalonia`, пространства имён `Berth`/`Berth.Controls` — без сегмента «Avalonia» (ADR-0007). Карта документации: `docs/README.md`; решения: `docs/adr/`; поведение: `docs/spec/`; задачи: `docs/BACKLOG.md`.
+Библиотека докинга для Avalonia по строгой модели IntelliJ IDEA (не free-form). Карта документации: `docs/README.md`; решения: `docs/adr/`; поведение: `docs/spec/`; задачи: `docs/BACKLOG.md`.
 
 ## Языки
 

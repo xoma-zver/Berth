@@ -6,7 +6,7 @@
 
 **Статус: фаза 0 — каркас и спецификации.** Кода библиотеки ещё нет.
 
-- Пакеты: `Berth.Core` (модель, без зависимостей на UI) и `Berth.Avalonia` (контролы); пространства имён `Berth` / `Berth.Controls` (ADR-0007)
+- Пакеты: `Berth.Core` (модель, без зависимостей на UI) и `Berth.Avalonia` (контролы); пространства имён `Berth` / `Berth.Controls`
 - Документация и спецификации: [docs/](docs/README.md)
 - Поведенческая спека тул-панелей: [docs/spec/tool-windows.md](docs/spec/tool-windows.md)
 - План работ: [docs/BACKLOG.md](docs/BACKLOG.md)
