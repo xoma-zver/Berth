@@ -25,6 +25,7 @@ Berth.InvariantViolation.ToolWindowId.get -> string?
 Berth.InvariantViolation.ToolWindowId.init -> void
 Berth.LayoutDefaults
 Berth.LayoutInvariants
+Berth.LayoutOperations
 Berth.LayoutState
 Berth.LayoutState.<Clone>$() -> Berth.LayoutState!
 Berth.LayoutState.ActiveToolWindowId.get -> string?
@@ -152,6 +153,14 @@ static Berth.FloatingBounds.operator ==(Berth.FloatingBounds left, Berth.Floatin
 static Berth.InvariantViolation.operator !=(Berth.InvariantViolation? left, Berth.InvariantViolation? right) -> bool
 static Berth.InvariantViolation.operator ==(Berth.InvariantViolation? left, Berth.InvariantViolation? right) -> bool
 static Berth.LayoutInvariants.Validate(Berth.LayoutState! state, Berth.ToolWindowRegistry! registry) -> System.Collections.Immutable.ImmutableArray<Berth.InvariantViolation!>
+static Berth.LayoutOperations.ActivateDocument(this Berth.LayoutState! state) -> Berth.LayoutState!
+static Berth.LayoutOperations.Close(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
+static Berth.LayoutOperations.HideAll(this Berth.LayoutState! state) -> Berth.LayoutState!
+static Berth.LayoutOperations.Move(this Berth.LayoutState! state, string! id, Berth.ToolWindowSlot slot, int index) -> Berth.LayoutState!
+static Berth.LayoutOperations.Open(this Berth.LayoutState! state, string! id, bool activate = true) -> Berth.LayoutState!
+static Berth.LayoutOperations.SetIconVisible(this Berth.LayoutState! state, string! id, bool visible) -> Berth.LayoutState!
+static Berth.LayoutOperations.SetMode(this Berth.LayoutState! state, string! id, Berth.ToolWindowMode mode, Berth.FloatingBounds? screenBounds = null) -> Berth.LayoutState!
+static Berth.LayoutOperations.SetQuickAccessSide(this Berth.LayoutState! state, Berth.QuickAccessSide side) -> Berth.LayoutState!
 static Berth.LayoutState.Empty.get -> Berth.LayoutState!
 static Berth.LayoutState.operator !=(Berth.LayoutState? left, Berth.LayoutState? right) -> bool
 static Berth.LayoutState.operator ==(Berth.LayoutState? left, Berth.LayoutState? right) -> bool
