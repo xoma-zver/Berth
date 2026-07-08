@@ -14,7 +14,7 @@ dotnet test tests/Berth.Core.Tests
 dotnet test tests/Berth.Avalonia.Tests   # headless UI-тесты
 ```
 
-Полное решение (`IdeaDocking.slnx`) включает мобильные хосты и требует workloads — для задач библиотеки собирать только `src/` и `tests/`.
+Полное решение (`Berth.slnx`) включает демо-хосты (`samples/Berth.Demo*`, в т.ч. мобильные) и требует workloads — для задач библиотеки собирать только `src/` и `tests/`.
 
 ## Архитектурные правила
 

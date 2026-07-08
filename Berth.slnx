@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Berth.Avalonia/Berth.Avalonia.csproj" />
+    <Project Path="src/Berth.Core/Berth.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Berth.Avalonia.Tests/Berth.Avalonia.Tests.csproj" />
+    <Project Path="tests/Berth.Core.Tests/Berth.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Berth.Demo/Berth.Demo.csproj" />
+    <Project Path="samples/Berth.Demo.Android/Berth.Demo.Android.csproj">
+      <Deploy />
+    </Project>
+    <Project Path="samples/Berth.Demo.Browser/Berth.Demo.Browser.csproj" />
+    <Project Path="samples/Berth.Demo.Desktop/Berth.Demo.Desktop.csproj" />
+    <Project Path="samples/Berth.Demo.iOS/Berth.Demo.iOS.csproj">
+      <Deploy />
+    </Project>
+  </Folder>
+</Solution>
