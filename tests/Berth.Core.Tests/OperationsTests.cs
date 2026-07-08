@@ -301,6 +301,22 @@ public class OperationsTests
     }
 
     [Fact]
+    public void TW_5_7_moving_open_undock_window_evicts_only_the_overlay_occupant() // TW-5.7, INV-2
+    {
+        var layout = Layout(
+            Window("a", LeftPrimary, 0) with { IsOpen = true, Mode = ToolWindowMode.Undock, LastInternalMode = ToolWindowMode.Undock },
+            Window("b", RightPrimary, 0) with { IsOpen = true, Mode = ToolWindowMode.Undock, LastInternalMode = ToolWindowMode.Undock },
+            Window("c", RightPrimary, 1) with { IsOpen = true });
+
+        var result = layout.Move("a", RightPrimary, 0);
+
+        Assert.Equal(RightPrimary, Get(result, "a").Slot);
+        Assert.True(Get(result, "a").IsOpen); // the mover stays open in the new slot
+        Assert.False(Get(result, "b").IsOpen); // overlay occupant evicted («the mover wins»)
+        Assert.True(Get(result, "c").IsOpen); // docked occupant is a different layer, untouched (INV-2)
+    }
+
+    [Fact]
     public void TW_5_7_move_index_is_clamped()
     {
         var layout = Layout(
