@@ -63,6 +63,8 @@ public class InvariantPropertyTests
             from present in Gen.Bool
             select present ? (FloatingBounds?)new FloatingBounds(10, 20, 300, 200) : null;
         var genQuickAccess = Gen.OneOfConst(QuickAccessSide.Left, QuickAccessSide.Right);
+        var genSide = Gen.OneOfConst(ToolWindowSide.Left, ToolWindowSide.Right, ToolWindowSide.Bottom);
+        var genFraction = Gen.Double[0.05, 0.95]; // valid fractions: strictly within the (0..1) invariant (INV-4)
 
         return Gen.OneOf(
             from id in genId from activate in Gen.Bool select (Op)new OpenOp(id, activate),
@@ -72,7 +74,11 @@ public class InvariantPropertyTests
             from id in genId from slot in genSlot from index in Gen.Int[0, n + 1] select (Op)new MoveOp(id, slot, index),
             from id in genId from visible in Gen.Bool select (Op)new SetIconVisibleOp(id, visible),
             Gen.Const((Op)new HideAllOp()),
-            from side in genQuickAccess select (Op)new SetQuickAccessOp(side));
+            from side in genQuickAccess select (Op)new SetQuickAccessOp(side),
+            from side in genSide from weight in genFraction select (Op)new SetSideSizeOp(side, weight),
+            from side in genSide from share in genFraction select (Op)new SetSideRatioOp(side, share),
+            from id in genId from weight in genFraction select (Op)new SetUndockWeightOp(id, weight),
+            from id in genId select (Op)new SetFloatingBoundsOp(id));
     }
 
     private abstract record Op
@@ -118,5 +124,26 @@ public class InvariantPropertyTests
     private sealed record SetQuickAccessOp(QuickAccessSide Side) : Op
     {
         public override LayoutState Apply(LayoutState state) => state.SetQuickAccessSide(Side);
+    }
+
+    private sealed record SetSideSizeOp(ToolWindowSide Side, double Weight) : Op
+    {
+        public override LayoutState Apply(LayoutState state) => state.SetSideSize(Side, Weight);
+    }
+
+    private sealed record SetSideRatioOp(ToolWindowSide Side, double PrimaryShare) : Op
+    {
+        public override LayoutState Apply(LayoutState state) => state.SetSideRatio(Side, PrimaryShare);
+    }
+
+    private sealed record SetUndockWeightOp(string Id, double Weight) : Op
+    {
+        public override LayoutState Apply(LayoutState state) => state.SetUndockWeight(Id, Weight);
+    }
+
+    private sealed record SetFloatingBoundsOp(string Id) : Op
+    {
+        public override LayoutState Apply(LayoutState state) =>
+            state.SetFloatingBounds(Id, new FloatingBounds(10, 20, 300, 200));
     }
 }

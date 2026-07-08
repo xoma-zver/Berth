@@ -158,9 +158,13 @@ static Berth.LayoutOperations.Close(this Berth.LayoutState! state, string! id) -
 static Berth.LayoutOperations.HideAll(this Berth.LayoutState! state) -> Berth.LayoutState!
 static Berth.LayoutOperations.Move(this Berth.LayoutState! state, string! id, Berth.ToolWindowSlot slot, int index) -> Berth.LayoutState!
 static Berth.LayoutOperations.Open(this Berth.LayoutState! state, string! id, bool activate = true) -> Berth.LayoutState!
+static Berth.LayoutOperations.SetFloatingBounds(this Berth.LayoutState! state, string! id, Berth.FloatingBounds bounds) -> Berth.LayoutState!
 static Berth.LayoutOperations.SetIconVisible(this Berth.LayoutState! state, string! id, bool visible) -> Berth.LayoutState!
 static Berth.LayoutOperations.SetMode(this Berth.LayoutState! state, string! id, Berth.ToolWindowMode mode, Berth.FloatingBounds? screenBounds = null) -> Berth.LayoutState!
 static Berth.LayoutOperations.SetQuickAccessSide(this Berth.LayoutState! state, Berth.QuickAccessSide side) -> Berth.LayoutState!
+static Berth.LayoutOperations.SetSideRatio(this Berth.LayoutState! state, Berth.ToolWindowSide side, double primaryShare) -> Berth.LayoutState!
+static Berth.LayoutOperations.SetSideSize(this Berth.LayoutState! state, Berth.ToolWindowSide side, double weight) -> Berth.LayoutState!
+static Berth.LayoutOperations.SetUndockWeight(this Berth.LayoutState! state, string! id, double weight) -> Berth.LayoutState!
 static Berth.LayoutState.Empty.get -> Berth.LayoutState!
 static Berth.LayoutState.operator !=(Berth.LayoutState? left, Berth.LayoutState? right) -> bool
 static Berth.LayoutState.operator ==(Berth.LayoutState? left, Berth.LayoutState? right) -> bool
