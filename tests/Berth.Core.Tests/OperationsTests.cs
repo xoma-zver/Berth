@@ -430,17 +430,7 @@ public class OperationsTests
         Assert.Equal(QuickAccessSide.Right, result.QuickAccessSide);
     }
 
-    // ---- TW-6.5 activation ----
-
-    [Fact]
-    public void TW_6_5_activate_document_clears_active_tool_window()
-    {
-        var layout = Layout(Window("a", LeftPrimary, 0) with { IsOpen = true }) with { ActiveToolWindowId = "a" };
-
-        var result = layout.ActivateDocument();
-
-        Assert.Null(result.ActiveToolWindowId);
-    }
+    // TW-6.5: активацию документа теперь выполняет ActivateTab — тест в DockOperationsTests (DA-6.2).
 
     // ---- error handling ----
 

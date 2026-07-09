@@ -69,7 +69,6 @@ public class InvariantPropertyTests
         return Gen.OneOf(
             from id in genId from activate in Gen.Bool select (Op)new OpenOp(id, activate),
             from id in genId select (Op)new CloseOp(id),
-            Gen.Const((Op)new ActivateDocumentOp()),
             from id in genId from mode in genMode from bounds in genBounds select (Op)new SetModeOp(id, mode, bounds),
             from id in genId from slot in genSlot from index in Gen.Int[0, n + 1] select (Op)new MoveOp(id, slot, index),
             from id in genId from visible in Gen.Bool select (Op)new SetIconVisibleOp(id, visible),
@@ -94,11 +93,6 @@ public class InvariantPropertyTests
     private sealed record CloseOp(string Id) : Op
     {
         public override LayoutState Apply(LayoutState state) => state.Close(Id);
-    }
-
-    private sealed record ActivateDocumentOp : Op
-    {
-        public override LayoutState Apply(LayoutState state) => state.ActivateDocument();
     }
 
     private sealed record SetModeOp(string Id, ToolWindowMode Mode, FloatingBounds? Bounds) : Op

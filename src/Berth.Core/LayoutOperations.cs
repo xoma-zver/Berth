@@ -61,15 +61,6 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Activates a document in the dock area, which clears the active tool window (spec TW-6.5).
-    /// </summary>
-    public static LayoutState ActivateDocument(this LayoutState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-        return state.ActiveToolWindowId is null ? state : state with { ActiveToolWindowId = null };
-    }
-
-    /// <summary>
     /// Changes the presentation mode of a tool window (spec TW-5.6). Openness is not affected.
     /// Entering <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> keeps the saved
     /// <see cref="ToolWindowState.FloatingBounds"/>, or adopts <paramref name="screenBounds"/> when none

@@ -11,11 +11,17 @@ Berth.DockAreaState.Root.get -> Berth.TabTreeNode!
 Berth.DockAreaState.Root.init -> void
 Berth.DockAreaState.Windows.get -> System.Collections.Immutable.ImmutableArray<Berth.DocumentWindowState!>
 Berth.DockAreaState.Windows.init -> void
+Berth.DockGroupRef
+Berth.DockGroupRef.DockGroupRef() -> void
+Berth.DockGroupRef.Equals(Berth.DockGroupRef other) -> bool
+Berth.DockGroupRef.Host.get -> Berth.DockHost
+Berth.DockGroupRef.TabId.get -> string?
 Berth.DockHost
 Berth.DockHost.DockHost() -> void
 Berth.DockHost.DocumentWindowIndex.get -> int?
 Berth.DockHost.Equals(Berth.DockHost other) -> bool
 Berth.DockHost.IsMainWindow.get -> bool
+Berth.DockOperations
 Berth.DocumentWindowState
 Berth.DocumentWindowState.<Clone>$() -> Berth.DocumentWindowState!
 Berth.DocumentWindowState.Bounds.get -> Berth.FloatingBounds
@@ -86,6 +92,11 @@ Berth.SideState.Weight.get -> double
 Berth.SideState.Weight.init -> void
 Berth.SplitChild
 Berth.SplitChild.Deconstruct(out Berth.TabTreeNode! Node, out double Share) -> void
+Berth.SplitDirection
+Berth.SplitDirection.Down = 3 -> Berth.SplitDirection
+Berth.SplitDirection.Left = 0 -> Berth.SplitDirection
+Berth.SplitDirection.Right = 1 -> Berth.SplitDirection
+Berth.SplitDirection.Up = 2 -> Berth.SplitDirection
 Berth.SplitChild.Equals(Berth.SplitChild other) -> bool
 Berth.SplitChild.Node.get -> Berth.TabTreeNode!
 Berth.SplitChild.Node.init -> void
@@ -194,6 +205,7 @@ const Berth.TabTreeNormalization.ShareSumTolerance = 1E-09 -> double
 override Berth.DockAreaState.Equals(object? obj) -> bool
 override Berth.DockAreaState.GetHashCode() -> int
 override Berth.DockAreaState.ToString() -> string!
+override Berth.DockGroupRef.GetHashCode() -> int
 override Berth.DockHost.GetHashCode() -> int
 override Berth.DocumentWindowState.Equals(object? obj) -> bool
 override Berth.DocumentWindowState.GetHashCode() -> int
@@ -232,6 +244,10 @@ override sealed Berth.TabGroupNode.Equals(Berth.TabTreeNode? other) -> bool
 static Berth.DockAreaState.Empty.get -> Berth.DockAreaState!
 static Berth.DockAreaState.operator !=(Berth.DockAreaState? left, Berth.DockAreaState? right) -> bool
 static Berth.DockAreaState.operator ==(Berth.DockAreaState? left, Berth.DockAreaState? right) -> bool
+static Berth.DockGroupRef.AtTab(string! tabId) -> Berth.DockGroupRef
+static Berth.DockGroupRef.HostRoot(Berth.DockHost host) -> Berth.DockGroupRef
+static Berth.DockGroupRef.operator !=(Berth.DockGroupRef left, Berth.DockGroupRef right) -> bool
+static Berth.DockGroupRef.operator ==(Berth.DockGroupRef left, Berth.DockGroupRef right) -> bool
 static Berth.DockHost.DocumentWindow(int index) -> Berth.DockHost
 static Berth.DockHost.MainWindow.get -> Berth.DockHost
 static Berth.DockHost.operator !=(Berth.DockHost left, Berth.DockHost right) -> bool
@@ -243,7 +259,15 @@ static Berth.FloatingBounds.operator ==(Berth.FloatingBounds left, Berth.Floatin
 static Berth.InvariantViolation.operator !=(Berth.InvariantViolation? left, Berth.InvariantViolation? right) -> bool
 static Berth.InvariantViolation.operator ==(Berth.InvariantViolation? left, Berth.InvariantViolation? right) -> bool
 static Berth.LayoutInvariants.Validate(Berth.LayoutState! state, Berth.ToolWindowRegistry! registry) -> System.Collections.Immutable.ImmutableArray<Berth.InvariantViolation!>
-static Berth.LayoutOperations.ActivateDocument(this Berth.LayoutState! state) -> Berth.LayoutState!
+static Berth.DockOperations.ActivateTab(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
+static Berth.DockOperations.CloseTab(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
+static Berth.DockOperations.MoveTab(this Berth.LayoutState! state, string! id, Berth.DockGroupRef target, int index) -> Berth.LayoutState!
+static Berth.DockOperations.MoveTabToNewWindow(this Berth.LayoutState! state, string! id, Berth.FloatingBounds bounds) -> Berth.LayoutState!
+static Berth.DockOperations.OpenDocument(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
+static Berth.DockOperations.RotateSplit(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
+static Berth.DockOperations.SetDocumentWindowBounds(this Berth.LayoutState! state, string! id, Berth.FloatingBounds bounds) -> Berth.LayoutState!
+static Berth.DockOperations.SetSplitShares(this Berth.LayoutState! state, Berth.DockHost host, System.Collections.Immutable.ImmutableArray<int> path, System.Collections.Immutable.ImmutableArray<double> shares) -> Berth.LayoutState!
+static Berth.DockOperations.SplitTab(this Berth.LayoutState! state, string! id, Berth.SplitDirection direction) -> Berth.LayoutState!
 static Berth.LayoutOperations.Close(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
 static Berth.LayoutOperations.HideAll(this Berth.LayoutState! state) -> Berth.LayoutState!
 static Berth.LayoutOperations.Move(this Berth.LayoutState! state, string! id, Berth.ToolWindowSlot slot, int index) -> Berth.LayoutState!
@@ -283,6 +307,8 @@ static Berth.ToolWindowState.operator ==(Berth.ToolWindowState? left, Berth.Tool
 virtual Berth.TabTreeNode.EqualityContract.get -> System.Type!
 virtual Berth.TabTreeNode.Equals(Berth.TabTreeNode? other) -> bool
 virtual Berth.TabTreeNode.PrintMembers(System.Text.StringBuilder! builder) -> bool
+~override Berth.DockGroupRef.Equals(object obj) -> bool
+~override Berth.DockGroupRef.ToString() -> string
 ~override Berth.DockHost.Equals(object obj) -> bool
 ~override Berth.DockHost.ToString() -> string
 ~override Berth.FloatingBounds.Equals(object obj) -> bool
