@@ -4,9 +4,9 @@ using Xunit;
 namespace Berth.Core.Tests;
 
 /// <summary>
-/// Dock-area commands (spec document-area v0.5, section 5): DA-5.1…DA-5.9 with the activity
+/// Dock-area commands (spec document-area, section 5): DA-5.1…DA-5.9 with the activity
 /// rules DA-6.1…DA-6.3. Catalog edge cases are referenced by their DA-E ids; canHost cases
-/// (DA-E6/E7/E11/E12) arrive with panel trees (backlog 1.8), Apply cases — with 1.6.
+/// (DA-E6/E7/E11/E12) arrive with panel trees (backlog 1.8), Apply cases — DockApplyTests.
 /// </summary>
 public class DockOperationsTests
 {
@@ -200,6 +200,19 @@ public class DockOperationsTests
 
         AssertGroup(result.DockArea.Root, "a", "a", "b");
         Assert.Equal("a", result.DockArea.CurrentTabId);
+    }
+
+    [Fact]
+    public void DA_E28_fallbacks_do_not_distinguish_sleeping_tabs()
+    {
+        // Владелец S не зарегистрирован — «спящая» вкладка для структуры и фолбэков ничем
+        // не отличается от живой (DA-9.4): активной и текущей становится она.
+        var state = Layout(new DockAreaState { Root = GroupActive("a", "a", "s"), CurrentTabId = "a" });
+
+        var result = state.CloseTab("a");
+
+        AssertGroup(result.DockArea.Root, "s", "s");
+        Assert.Equal("s", result.DockArea.CurrentTabId);
     }
 
     [Fact]

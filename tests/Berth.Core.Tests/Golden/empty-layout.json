@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "toolWindows": [],
+  "sides": {
+    "left": {
+      "weight": 0.33,
+      "currentRatio": 0.5
+    },
+    "right": {
+      "weight": 0.33,
+      "currentRatio": 0.5
+    },
+    "bottom": {
+      "weight": 0.33,
+      "currentRatio": 0.5
+    }
+  },
+  "quickAccessSide": "left",
+  "activeToolWindowId": null,
+  "dockArea": {
+    "root": {
+      "type": "group",
+      "tabs": [],
+      "activeTabId": null
+    },
+    "currentTabId": null,
+    "windows": [],
+    "activeDockHost": null
+  }
+}

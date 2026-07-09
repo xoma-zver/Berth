@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "toolWindows": [
+    {
+      "id": "project",
+      "side": "left",
+      "group": "primary",
+      "order": 0,
+      "mode": "dockPinned",
+      "lastInternalMode": "dockPinned",
+      "isOpen": true,
+      "isIconVisible": true,
+      "pairRatio": 0.75,
+      "undockWeight": 0.33,
+      "floatingBounds": null
+    },
+    {
+      "id": "structure",
+      "side": "left",
+      "group": "primary",
+      "order": 1,
+      "mode": "undock",
+      "lastInternalMode": "undock",
+      "isOpen": false,
+      "isIconVisible": true,
+      "pairRatio": 0.5,
+      "undockWeight": 0.25,
+      "floatingBounds": null
+    },
+    {
+      "id": "terminal",
+      "side": "bottom",
+      "group": "secondary",
+      "order": 0,
+      "mode": "window",
+      "lastInternalMode": "dockPinned",
+      "isOpen": false,
+      "isIconVisible": true,
+      "pairRatio": 0.5,
+      "undockWeight": 0.33,
+      "floatingBounds": {
+        "x": 10,
+        "y": 20,
+        "width": 640,
+        "height": 480
+      }
+    },
+    {
+      "id": "sleeper",
+      "side": "right",
+      "group": "primary",
+      "order": 0,
+      "mode": "dockPinned",
+      "lastInternalMode": "dockPinned",
+      "isOpen": false,
+      "isIconVisible": false,
+      "pairRatio": 0.5,
+      "undockWeight": 0.33,
+      "floatingBounds": null
+    }
+  ],
+  "sides": {
+    "left": {
+      "weight": 0.25,
+      "currentRatio": 0.75
+    },
+    "right": {
+      "weight": 0.3,
+      "currentRatio": 0.6
+    },
+    "bottom": {
+      "weight": 0.45,
+      "currentRatio": 0.55
+    }
+  },
+  "quickAccessSide": "right",
+  "activeToolWindowId": "project",
+  "dockArea": {
+    "root": {
+      "type": "split",
+      "orientation": "row",
+      "children": [
+        {
+          "share": 0.25,
+          "node": {
+            "type": "group",
+            "tabs": [
+              "doc1",
+              "doc2"
+            ],
+            "activeTabId": "doc1"
+          }
+        },
+        {
+          "share": 0.75,
+          "node": {
+            "type": "split",
+            "orientation": "column",
+            "children": [
+              {
+                "share": 0.5,
+                "node": {
+                  "type": "group",
+                  "tabs": [
+                    "doc3"
+                  ],
+                  "activeTabId": "doc3"
+                }
+              },
+              {
+                "share": 0.5,
+                "node": {
+                  "type": "group",
+                  "tabs": [
+                    "doc4"
+                  ],
+                  "activeTabId": "doc4"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "currentTabId": "doc1",
+    "windows": [
+      {
+        "bounds": {
+          "x": 100,
+          "y": 100,
+          "width": 800,
+          "height": 600
+        },
+        "root": {
+          "type": "group",
+          "tabs": [
+            "doc5"
+          ],
+          "activeTabId": "doc5"
+        },
+        "currentTabId": "doc5"
+      }
+    ],
+    "activeDockHost": 0
+  }
+}

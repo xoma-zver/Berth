@@ -1,0 +1,2 @@
+# Golden-файлы формата сравниваются байт-в-байт (TW-10.1) — autocrlf не должен их трогать
+tests/**/Golden/*.json text eol=lf

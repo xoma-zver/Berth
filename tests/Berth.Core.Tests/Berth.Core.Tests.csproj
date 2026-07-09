@@ -14,4 +14,9 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Berth.Core/Berth.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Эталоны формата персистентности (TW-10.1): сравнение байт-в-байт -->
+    <Content Include="Golden/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

@@ -1,4 +1,50 @@
 #nullable enable
+Berth.AppliedFix
+Berth.AppliedFix.<Clone>$() -> Berth.AppliedFix!
+Berth.AppliedFix.AppliedFix(string! Rule, string? SubjectId, string! Message) -> void
+Berth.AppliedFix.Deconstruct(out string! Rule, out string? SubjectId, out string! Message) -> void
+Berth.AppliedFix.Equals(Berth.AppliedFix? other) -> bool
+Berth.AppliedFix.Message.get -> string!
+Berth.AppliedFix.Message.init -> void
+Berth.AppliedFix.Rule.get -> string!
+Berth.AppliedFix.Rule.init -> void
+Berth.AppliedFix.SubjectId.get -> string?
+Berth.AppliedFix.SubjectId.init -> void
+Berth.ApplyResult
+Berth.ApplyResult.<Clone>$() -> Berth.ApplyResult!
+Berth.ApplyResult.ApplyResult(Berth.LayoutState! State, System.Collections.Immutable.ImmutableArray<Berth.AppliedFix!> Fixes) -> void
+Berth.ApplyResult.Deconstruct(out Berth.LayoutState! State, out System.Collections.Immutable.ImmutableArray<Berth.AppliedFix!> Fixes) -> void
+Berth.ApplyResult.Equals(Berth.ApplyResult? other) -> bool
+Berth.ApplyResult.Fixes.get -> System.Collections.Immutable.ImmutableArray<Berth.AppliedFix!>
+Berth.ApplyResult.Fixes.init -> void
+Berth.ApplyResult.State.get -> Berth.LayoutState!
+Berth.ApplyResult.State.init -> void
+Berth.ApplyScope
+Berth.ApplyScope.Arrangement = 1 -> Berth.ApplyScope
+Berth.ApplyScope.Full = 0 -> Berth.ApplyScope
+Berth.BoundsValidator
+Berth.LayoutApply
+Berth.LayoutFormatException
+Berth.LayoutFormatException.LayoutFormatException() -> void
+Berth.LayoutFormatException.LayoutFormatException(string! message) -> void
+Berth.LayoutFormatException.LayoutFormatException(string! message, System.Exception! innerException) -> void
+Berth.LayoutPersistence
+const Berth.LayoutPersistence.SchemaVersion = 1 -> int
+override Berth.AppliedFix.Equals(object? obj) -> bool
+override Berth.AppliedFix.GetHashCode() -> int
+override Berth.AppliedFix.ToString() -> string!
+override Berth.ApplyResult.Equals(object? obj) -> bool
+override Berth.ApplyResult.GetHashCode() -> int
+override Berth.ApplyResult.ToString() -> string!
+static Berth.AppliedFix.operator !=(Berth.AppliedFix? left, Berth.AppliedFix? right) -> bool
+static Berth.AppliedFix.operator ==(Berth.AppliedFix? left, Berth.AppliedFix? right) -> bool
+static Berth.ApplyResult.operator !=(Berth.ApplyResult? left, Berth.ApplyResult? right) -> bool
+static Berth.ApplyResult.operator ==(Berth.ApplyResult? left, Berth.ApplyResult? right) -> bool
+static Berth.LayoutApply.Apply(this Berth.LayoutState! current, Berth.LayoutState! snapshot, Berth.ApplyScope scope, Berth.ToolWindowRegistry! registry, Berth.BoundsValidator? validateBounds = null) -> Berth.ApplyResult!
+static Berth.LayoutApply.ResetToDefaults(Berth.ToolWindowRegistry! registry) -> Berth.LayoutState!
+static Berth.LayoutPersistence.Deserialize(string! json) -> Berth.LayoutState!
+static Berth.LayoutPersistence.Serialize(Berth.LayoutState! state) -> string!
+virtual Berth.BoundsValidator.Invoke(Berth.FloatingBounds saved) -> Berth.FloatingBounds?
 Berth.DockAreaState
 Berth.DockAreaState.<Clone>$() -> Berth.DockAreaState!
 Berth.DockAreaState.ActiveDockHost.get -> Berth.DockHost
