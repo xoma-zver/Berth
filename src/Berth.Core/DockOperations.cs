@@ -330,10 +330,12 @@ public static class DockOperations
     /// <param name="id">Id of the tab to move out.</param>
     /// <param name="bounds">Screen bounds of the new window.</param>
     /// <exception cref="ArgumentException">No such tab exists in the dock area.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number (TW-5.9).</exception>
     public static LayoutState MoveTabToNewWindow(this LayoutState state, string id, FloatingBounds bounds)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        bounds.ThrowIfNotFinite(nameof(bounds));
 
         var area = state.DockArea;
         var (host, path, group) = FindTab(area, id) ?? throw NotInDockArea(id);
@@ -359,10 +361,12 @@ public static class DockOperations
     /// <param name="id">Id of a tab of the document window.</param>
     /// <param name="bounds">New screen bounds of the window.</param>
     /// <exception cref="ArgumentException">No such tab exists, or the tab lives in the main window.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number (TW-5.9).</exception>
     public static LayoutState SetDocumentWindowBounds(this LayoutState state, string id, FloatingBounds bounds)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        bounds.ThrowIfNotFinite(nameof(bounds));
 
         var area = state.DockArea;
         var (host, _, _) = FindTab(area, id) ?? throw NotInDockArea(id);

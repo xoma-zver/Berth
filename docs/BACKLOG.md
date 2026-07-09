@@ -59,5 +59,6 @@
 ## Хозяйственное (вне фаз, по решению владельца)
 
 - [x] Переезд имени Berth: `IdeaDocking.slnx` → `Berth.slnx`, демо-хосты `IdeaDocking*` → `Berth.Demo*` перенесены в `samples/` (ветка chore/berth-rename; требует перезапуска IDE). Осталось опционально: переименование папки репозитория `RiderProjects/IdeaDocking` → `Berth` — делается вручную, меняет рабочий путь
+- [x] Конечность экранных границ в командах ядра (по ревью задачи 1.6): guard NaN/∞ в `SetFloatingBounds`/`SetMode`/`MoveTabToNewWindow`/`SetDocumentWindowBounds` — иначе `Serialize` падал на состоянии, произведённом штатной операцией; спека tool-windows v0.7 (TW-5.9), тесты на все четыре команды (ветка task/finite-bounds-guard, поверх task/1.6-persistence)
 - [ ] `dotnet format --verify-no-changes` в CI
 - [ ] Периодические сессии-уборки (консолидация, упрощение) — заводить сюда по мере накопления

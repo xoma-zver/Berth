@@ -238,6 +238,21 @@ public class GeometryTests
             () => LayoutState.Empty.SetFloatingBounds("ghost", new FloatingBounds(0, 0, 1, 1)));
     }
 
+    [Theory]
+    [InlineData(double.NaN, 0, 10, 10)]
+    [InlineData(0, double.PositiveInfinity, 10, 10)]
+    [InlineData(0, 0, double.NegativeInfinity, 10)]
+    [InlineData(0, 0, 10, double.NaN)]
+    public void TW_5_9_set_floating_bounds_rejects_non_finite_components(
+        double x, double y, double width, double height)
+    {
+        // A non-finite component is a caller error: it would make the state unserializable (TW-10.1).
+        var layout = Layout(Window("a", LeftPrimary, 0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => layout.SetFloatingBounds("a", new FloatingBounds(x, y, width, height)));
+    }
+
     // ---- invariants preserved across a geometry sequence ----
 
     [Fact]

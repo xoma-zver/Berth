@@ -396,7 +396,7 @@ public static class LayoutApply
                 continue;
             }
 
-            if (!IsFinite(bounds))
+            if (!bounds.IsFinite)
             {
                 windows = windows.SetItem(i, window with { FloatingBounds = null });
                 fixes.Add(new AppliedFix(
@@ -534,8 +534,4 @@ public static class LayoutApply
     }
 
     private static bool IsValidFraction(double value) => value > 0 && value < 1;
-
-    private static bool IsFinite(FloatingBounds bounds) =>
-        double.IsFinite(bounds.X) && double.IsFinite(bounds.Y)
-        && double.IsFinite(bounds.Width) && double.IsFinite(bounds.Height);
 }

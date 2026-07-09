@@ -75,10 +75,12 @@ public static class LayoutOperations
     /// with no saved bounds (spec TW-5.6). The core never invents pixels (ADR-0002).
     /// </param>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="screenBounds"/> is not a finite number (TW-5.9).</exception>
     public static LayoutState SetMode(
         this LayoutState state, string id, ToolWindowMode mode, FloatingBounds? screenBounds = null)
     {
         var target = state.Require(id);
+        screenBounds?.ThrowIfNotFinite(nameof(screenBounds));
 
         var updated = target with { Mode = mode };
         if (mode.IsInternal())
@@ -273,9 +275,11 @@ public static class LayoutOperations
     /// <param name="id">Id of a tool window present in the layout.</param>
     /// <param name="bounds">New screen bounds to remember.</param>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number (TW-5.9).</exception>
     public static LayoutState SetFloatingBounds(this LayoutState state, string id, FloatingBounds bounds)
     {
         _ = state.Require(id);
+        bounds.ThrowIfNotFinite(nameof(bounds));
         return state.MapWindow(id, w => w with { FloatingBounds = bounds });
     }
 

@@ -169,6 +169,15 @@ public class OperationsTests
     }
 
     [Fact]
+    public void TW_5_6_setmode_rejects_non_finite_screen_bounds() // TW-5.9
+    {
+        var layout = Layout(Window("a", LeftPrimary, 0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => layout.SetMode("a", ToolWindowMode.Float, new FloatingBounds(double.NaN, 0, 10, 10)));
+    }
+
+    [Fact]
     public void TW_5_6_return_to_dock_evicts_slot_occupant() // E6
     {
         var bounds = new FloatingBounds(0, 0, 100, 100);

@@ -788,6 +788,15 @@ public class DockOperationsTests
         Assert.Equal(DockHost.MainWindow, result.DockArea.ActiveDockHost);
     }
 
+    [Fact]
+    public void DA_5_7_rejects_non_finite_bounds() // TW-5.9
+    {
+        var state = Layout(new DockAreaState { Root = GroupActive("m", "m"), CurrentTabId = "m" });
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => state.MoveTabToNewWindow("m", new FloatingBounds(0, double.NaN, 100, 100)));
+    }
+
     // ---- DA-5.8 SetDocumentWindowBounds ----
 
     [Fact]
@@ -813,6 +822,20 @@ public class DockOperationsTests
         var state = Layout(new DockAreaState { Root = GroupActive("m", "m"), CurrentTabId = "m" });
 
         Assert.Throws<ArgumentException>(() => state.SetDocumentWindowBounds("m", Bounds));
+    }
+
+    [Fact]
+    public void DA_5_8_rejects_non_finite_bounds() // TW-5.9
+    {
+        var state = Layout(new DockAreaState
+        {
+            Root = GroupActive("m", "m"),
+            CurrentTabId = "m",
+            Windows = [new DocumentWindowState(Bounds, GroupActive("x", "x"), "x")],
+        });
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => state.SetDocumentWindowBounds("x", new FloatingBounds(0, 0, double.PositiveInfinity, 100)));
     }
 
     // ---- DA-5.9 RotateSplit ----
