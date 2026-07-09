@@ -1,4 +1,31 @@
 #nullable enable
+Berth.DockAreaState
+Berth.DockAreaState.<Clone>$() -> Berth.DockAreaState!
+Berth.DockAreaState.ActiveDockHost.get -> Berth.DockHost
+Berth.DockAreaState.ActiveDockHost.init -> void
+Berth.DockAreaState.CurrentTabId.get -> string?
+Berth.DockAreaState.CurrentTabId.init -> void
+Berth.DockAreaState.DockAreaState() -> void
+Berth.DockAreaState.Equals(Berth.DockAreaState? other) -> bool
+Berth.DockAreaState.Root.get -> Berth.TabTreeNode!
+Berth.DockAreaState.Root.init -> void
+Berth.DockAreaState.Windows.get -> System.Collections.Immutable.ImmutableArray<Berth.DocumentWindowState!>
+Berth.DockAreaState.Windows.init -> void
+Berth.DockHost
+Berth.DockHost.DockHost() -> void
+Berth.DockHost.DocumentWindowIndex.get -> int?
+Berth.DockHost.Equals(Berth.DockHost other) -> bool
+Berth.DockHost.IsMainWindow.get -> bool
+Berth.DocumentWindowState
+Berth.DocumentWindowState.<Clone>$() -> Berth.DocumentWindowState!
+Berth.DocumentWindowState.Bounds.get -> Berth.FloatingBounds
+Berth.DocumentWindowState.Bounds.init -> void
+Berth.DocumentWindowState.CurrentTabId.get -> string!
+Berth.DocumentWindowState.CurrentTabId.init -> void
+Berth.DocumentWindowState.DocumentWindowState(Berth.FloatingBounds bounds, Berth.TabTreeNode! root, string! currentTabId) -> void
+Berth.DocumentWindowState.Equals(Berth.DocumentWindowState? other) -> bool
+Berth.DocumentWindowState.Root.get -> Berth.TabTreeNode!
+Berth.DocumentWindowState.Root.init -> void
 Berth.FloatingBounds
 Berth.FloatingBounds.Deconstruct(out double X, out double Y, out double Width, out double Height) -> void
 Berth.FloatingBounds.Equals(Berth.FloatingBounds other) -> bool
@@ -32,6 +59,8 @@ Berth.LayoutState.ActiveToolWindowId.get -> string?
 Berth.LayoutState.ActiveToolWindowId.init -> void
 Berth.LayoutState.Bottom.get -> Berth.SideState!
 Berth.LayoutState.Bottom.init -> void
+Berth.LayoutState.DockArea.get -> Berth.DockAreaState!
+Berth.LayoutState.DockArea.init -> void
 Berth.LayoutState.Equals(Berth.LayoutState? other) -> bool
 Berth.LayoutState.GetSide(Berth.ToolWindowSide side) -> Berth.SideState!
 Berth.LayoutState.LayoutState() -> void
@@ -55,6 +84,35 @@ Berth.SideState.Equals(Berth.SideState? other) -> bool
 Berth.SideState.SideState(double Weight = 0.33, double CurrentRatio = 0.5) -> void
 Berth.SideState.Weight.get -> double
 Berth.SideState.Weight.init -> void
+Berth.SplitChild
+Berth.SplitChild.Deconstruct(out Berth.TabTreeNode! Node, out double Share) -> void
+Berth.SplitChild.Equals(Berth.SplitChild other) -> bool
+Berth.SplitChild.Node.get -> Berth.TabTreeNode!
+Berth.SplitChild.Node.init -> void
+Berth.SplitChild.Share.get -> double
+Berth.SplitChild.Share.init -> void
+Berth.SplitChild.SplitChild() -> void
+Berth.SplitChild.SplitChild(Berth.TabTreeNode! Node, double Share) -> void
+Berth.SplitNode
+Berth.SplitNode.Children.get -> System.Collections.Immutable.ImmutableArray<Berth.SplitChild>
+Berth.SplitNode.Children.init -> void
+Berth.SplitNode.Equals(Berth.SplitNode? other) -> bool
+Berth.SplitNode.Orientation.get -> Berth.SplitOrientation
+Berth.SplitNode.Orientation.init -> void
+Berth.SplitNode.SplitNode() -> void
+Berth.SplitOrientation
+Berth.SplitOrientation.Column = 1 -> Berth.SplitOrientation
+Berth.SplitOrientation.Row = 0 -> Berth.SplitOrientation
+Berth.TabGroupNode
+Berth.TabGroupNode.ActiveTabId.get -> string?
+Berth.TabGroupNode.ActiveTabId.init -> void
+Berth.TabGroupNode.Equals(Berth.TabGroupNode? other) -> bool
+Berth.TabGroupNode.TabGroupNode() -> void
+Berth.TabGroupNode.Tabs.get -> System.Collections.Immutable.ImmutableArray<string!>
+Berth.TabGroupNode.Tabs.init -> void
+Berth.TabTreeNode
+Berth.TabTreeNode.TabTreeNode(Berth.TabTreeNode! original) -> void
+Berth.TabTreeNormalization
 Berth.ToolWindowDescriptor
 Berth.ToolWindowDescriptor.<Clone>$() -> Berth.ToolWindowDescriptor!
 Berth.ToolWindowDescriptor.DefaultMode.get -> Berth.ToolWindowMode
@@ -126,11 +184,20 @@ Berth.ToolWindowState.Slot.init -> void
 Berth.ToolWindowState.ToolWindowState(string! id, Berth.ToolWindowSlot slot, int order) -> void
 Berth.ToolWindowState.UndockWeight.get -> double
 Berth.ToolWindowState.UndockWeight.init -> void
+abstract Berth.TabTreeNode.<Clone>$() -> Berth.TabTreeNode!
 const Berth.LayoutDefaults.CurrentRatio = 0.5 -> double
 const Berth.LayoutDefaults.LastInternalMode = Berth.ToolWindowMode.DockPinned -> Berth.ToolWindowMode
 const Berth.LayoutDefaults.PairRatio = 0.5 -> double
 const Berth.LayoutDefaults.SideWeight = 0.33 -> double
 const Berth.LayoutDefaults.UndockWeight = 0.33 -> double
+const Berth.TabTreeNormalization.ShareSumTolerance = 1E-09 -> double
+override Berth.DockAreaState.Equals(object? obj) -> bool
+override Berth.DockAreaState.GetHashCode() -> int
+override Berth.DockAreaState.ToString() -> string!
+override Berth.DockHost.GetHashCode() -> int
+override Berth.DocumentWindowState.Equals(object? obj) -> bool
+override Berth.DocumentWindowState.GetHashCode() -> int
+override Berth.DocumentWindowState.ToString() -> string!
 override Berth.FloatingBounds.GetHashCode() -> int
 override Berth.InvariantViolation.Equals(object? obj) -> bool
 override Berth.InvariantViolation.GetHashCode() -> int
@@ -141,6 +208,18 @@ override Berth.LayoutState.ToString() -> string!
 override Berth.SideState.Equals(object? obj) -> bool
 override Berth.SideState.GetHashCode() -> int
 override Berth.SideState.ToString() -> string!
+override Berth.SplitChild.GetHashCode() -> int
+override Berth.SplitNode.<Clone>$() -> Berth.SplitNode!
+override Berth.SplitNode.Equals(object? obj) -> bool
+override Berth.SplitNode.GetHashCode() -> int
+override Berth.SplitNode.ToString() -> string!
+override Berth.TabGroupNode.<Clone>$() -> Berth.TabGroupNode!
+override Berth.TabGroupNode.Equals(object? obj) -> bool
+override Berth.TabGroupNode.GetHashCode() -> int
+override Berth.TabGroupNode.ToString() -> string!
+override Berth.TabTreeNode.Equals(object? obj) -> bool
+override Berth.TabTreeNode.GetHashCode() -> int
+override Berth.TabTreeNode.ToString() -> string!
 override Berth.ToolWindowDescriptor.Equals(object? obj) -> bool
 override Berth.ToolWindowDescriptor.GetHashCode() -> int
 override Berth.ToolWindowDescriptor.ToString() -> string!
@@ -148,6 +227,17 @@ override Berth.ToolWindowSlot.GetHashCode() -> int
 override Berth.ToolWindowState.Equals(object? obj) -> bool
 override Berth.ToolWindowState.GetHashCode() -> int
 override Berth.ToolWindowState.ToString() -> string!
+override sealed Berth.SplitNode.Equals(Berth.TabTreeNode? other) -> bool
+override sealed Berth.TabGroupNode.Equals(Berth.TabTreeNode? other) -> bool
+static Berth.DockAreaState.Empty.get -> Berth.DockAreaState!
+static Berth.DockAreaState.operator !=(Berth.DockAreaState? left, Berth.DockAreaState? right) -> bool
+static Berth.DockAreaState.operator ==(Berth.DockAreaState? left, Berth.DockAreaState? right) -> bool
+static Berth.DockHost.DocumentWindow(int index) -> Berth.DockHost
+static Berth.DockHost.MainWindow.get -> Berth.DockHost
+static Berth.DockHost.operator !=(Berth.DockHost left, Berth.DockHost right) -> bool
+static Berth.DockHost.operator ==(Berth.DockHost left, Berth.DockHost right) -> bool
+static Berth.DocumentWindowState.operator !=(Berth.DocumentWindowState? left, Berth.DocumentWindowState? right) -> bool
+static Berth.DocumentWindowState.operator ==(Berth.DocumentWindowState? left, Berth.DocumentWindowState? right) -> bool
 static Berth.FloatingBounds.operator !=(Berth.FloatingBounds left, Berth.FloatingBounds right) -> bool
 static Berth.FloatingBounds.operator ==(Berth.FloatingBounds left, Berth.FloatingBounds right) -> bool
 static Berth.InvariantViolation.operator !=(Berth.InvariantViolation? left, Berth.InvariantViolation? right) -> bool
@@ -170,6 +260,17 @@ static Berth.LayoutState.operator !=(Berth.LayoutState? left, Berth.LayoutState?
 static Berth.LayoutState.operator ==(Berth.LayoutState? left, Berth.LayoutState? right) -> bool
 static Berth.SideState.operator !=(Berth.SideState? left, Berth.SideState? right) -> bool
 static Berth.SideState.operator ==(Berth.SideState? left, Berth.SideState? right) -> bool
+static Berth.SplitChild.operator !=(Berth.SplitChild left, Berth.SplitChild right) -> bool
+static Berth.SplitChild.operator ==(Berth.SplitChild left, Berth.SplitChild right) -> bool
+static Berth.SplitNode.operator !=(Berth.SplitNode? left, Berth.SplitNode? right) -> bool
+static Berth.SplitNode.operator ==(Berth.SplitNode? left, Berth.SplitNode? right) -> bool
+static Berth.TabGroupNode.Empty.get -> Berth.TabGroupNode!
+static Berth.TabGroupNode.operator !=(Berth.TabGroupNode? left, Berth.TabGroupNode? right) -> bool
+static Berth.TabGroupNode.operator ==(Berth.TabGroupNode? left, Berth.TabGroupNode? right) -> bool
+static Berth.TabTreeNode.operator !=(Berth.TabTreeNode? left, Berth.TabTreeNode? right) -> bool
+static Berth.TabTreeNode.operator ==(Berth.TabTreeNode? left, Berth.TabTreeNode? right) -> bool
+static Berth.TabTreeNormalization.Normalize(Berth.DockAreaState! area) -> Berth.DockAreaState!
+static Berth.TabTreeNormalization.Normalize(Berth.TabTreeNode! root) -> Berth.TabTreeNode!
 static Berth.ToolWindowDescriptor.operator !=(Berth.ToolWindowDescriptor? left, Berth.ToolWindowDescriptor? right) -> bool
 static Berth.ToolWindowDescriptor.operator ==(Berth.ToolWindowDescriptor? left, Berth.ToolWindowDescriptor? right) -> bool
 static Berth.ToolWindowModeExtensions.GetLayer(this Berth.ToolWindowMode mode) -> Berth.ToolWindowLayer
@@ -179,7 +280,14 @@ static Berth.ToolWindowSlot.operator !=(Berth.ToolWindowSlot left, Berth.ToolWin
 static Berth.ToolWindowSlot.operator ==(Berth.ToolWindowSlot left, Berth.ToolWindowSlot right) -> bool
 static Berth.ToolWindowState.operator !=(Berth.ToolWindowState? left, Berth.ToolWindowState? right) -> bool
 static Berth.ToolWindowState.operator ==(Berth.ToolWindowState? left, Berth.ToolWindowState? right) -> bool
+virtual Berth.TabTreeNode.EqualityContract.get -> System.Type!
+virtual Berth.TabTreeNode.Equals(Berth.TabTreeNode? other) -> bool
+virtual Berth.TabTreeNode.PrintMembers(System.Text.StringBuilder! builder) -> bool
+~override Berth.DockHost.Equals(object obj) -> bool
+~override Berth.DockHost.ToString() -> string
 ~override Berth.FloatingBounds.Equals(object obj) -> bool
 ~override Berth.FloatingBounds.ToString() -> string
+~override Berth.SplitChild.Equals(object obj) -> bool
+~override Berth.SplitChild.ToString() -> string
 ~override Berth.ToolWindowSlot.Equals(object obj) -> bool
 ~override Berth.ToolWindowSlot.ToString() -> string
