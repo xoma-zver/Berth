@@ -75,13 +75,18 @@ public sealed class StripeButton : Decorator
         if (_pressed && e.InitialPressMouseButton == MouseButton.Left)
         {
             // TW-5.4: the click toggles openness, regardless of the window's activity.
+            // Openness is read from the command's input state, so the lambda does not
+            // depend on the projection being rebuilt after every command.
             var id = ToolWindowId;
-            _workspace.Execute(s => IsOpen ? s.Close(id) : s.Open(id));
+            _workspace.Execute(s => IsOpenIn(s, id) ? s.Close(id) : s.Open(id));
             e.Handled = true;
         }
 
         _pressed = false;
     }
+
+    private static bool IsOpenIn(LayoutState state, string id) =>
+        state.ToolWindows.Any(w => string.Equals(w.Id, id, StringComparison.Ordinal) && w.IsOpen);
 
     /// <inheritdoc/>
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)

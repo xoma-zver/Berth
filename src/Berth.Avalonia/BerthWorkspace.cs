@@ -155,7 +155,7 @@ public sealed class BerthWorkspace : Decorator
                 MinWidth = 0, // theme minimums would widen the 4px separator
                 MinHeight = 0,
             };
-            splitter.DragCompleted += (_, _) =>
+            SplitterGrid.CommitOnDragEnd(splitter, () =>
             {
                 var total = starPanes.Sum(p => p.Bounds.Width);
                 if (total > 0)
@@ -163,7 +163,7 @@ public sealed class BerthWorkspace : Decorator
                     var weight = BerthMetrics.ClampFraction(pane.Bounds.Width / total);
                     workspace.Execute(s => s.SetSideSize(side, weight));
                 }
-            };
+            });
             return splitter;
         }
 

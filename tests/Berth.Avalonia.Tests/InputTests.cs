@@ -214,6 +214,34 @@ public class InputTests
     }
 
     [AvaloniaFact]
+    public void TW_5_16_full_menu_opens_from_both_hosts()
+    {
+        // Один MenuFlyout обслуживает и кнопку «⋮», и контекст заголовка: ShowAt
+        // переанкоривает попап на каждый показ — контракт закреплён смоук-тестом.
+        var registry = Registry("a");
+        var state = LayoutState.Empty with
+        {
+            ToolWindows = [Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true }],
+        };
+        var window = Show(state, registry);
+        var menuButton = (Button)Part(window, "PART_MenuButton");
+        var flyout = (MenuFlyout)menuButton.Flyout!;
+
+        Click(window, menuButton);
+        Assert.True(flyout.IsOpen, "open via the menu button");
+        flyout.Hide();
+        Dispatcher.UIThread.RunJobs();
+
+        RightClick(window, Part(window, "PART_Header"));
+        Assert.True(flyout.IsOpen, "open via the header context after the button");
+        flyout.Hide();
+        Dispatcher.UIThread.RunJobs();
+
+        Click(window, menuButton);
+        Assert.True(flyout.IsOpen, "open via the menu button again after the header");
+    }
+
+    [AvaloniaFact]
     public void TW_5_16_floating_record_offers_the_dock_return() // E27
     {
         var registry = Registry("a", "b");
@@ -286,6 +314,28 @@ public class InputTests
     }
 
     [AvaloniaFact]
+    public void TW_8_2_quick_access_list_is_sorted_by_title()
+    {
+        // Порядок регистрации (beta раньше) — дискриминатор: без сортировки beta шла бы первой.
+        var registry = Registry("z:beta", "a:Alpha");
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("z", ToolWindowSide.Left, ToolWindowGroup.Primary, order: 0) with { IsIconVisible = false },
+                Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary, order: 1) with { IsIconVisible = false },
+            ],
+        };
+        var window = Show(state, registry);
+
+        var flyout = (MenuFlyout)FlyoutBase.GetAttachedFlyout(Part(window, "PART_QuickAccess"))!;
+
+        Assert.Equal(
+            ["Alpha", "beta"],
+            flyout.Items.OfType<MenuItem>().Select(i => (string)i.Header!));
+    }
+
+    [AvaloniaFact]
     public void TW_5_15_quick_access_context_menu_moves_the_button()
     {
         var registry = Registry("a");
@@ -338,6 +388,61 @@ public class InputTests
 
         Assert.Equal((paneWidth + 100) / total, workspace.State!.Left.Weight, 0.02);
         Assert.Equal(LayoutDefaults.SideWeight, workspace.State!.Right.Weight); // чужая сторона не тронута
+    }
+
+    [AvaloniaFact]
+    public void TW_5_9_side_splitter_with_both_sides_open_commits_only_its_side()
+    {
+        // Самый нетривиальный геометрический путь: три звёздных колонки, GridSplitter
+        // ресайзит только соседнюю пару — правая панель не движется ни в рендере, ни в весе.
+        var registry = Registry("a", "c");
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true },
+                Win("c", ToolWindowSide.Right, ToolWindowGroup.Primary) with { IsOpen = true },
+            ],
+        };
+        var window = Show(state, registry);
+        var leftWidth = Part(window, "PART_LeftPane").Bounds.Width;
+        var rightWidth = Part(window, "PART_RightPane").Bounds.Width;
+        var total = leftWidth + Part(window, "PART_DockArea").Bounds.Width + rightWidth;
+
+        var start = Center(Part(window, "PART_LeftSideSplitter"), window);
+        var end = new Point(start.X + 100, start.Y);
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(end);
+        window.MouseUp(end, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal((leftWidth + 100) / total, St(window).Left.Weight, 0.02);
+        Assert.Equal(LayoutDefaults.SideWeight, St(window).Right.Weight); // чужой вес не тронут
+        Assert.Equal(rightWidth, Part(window, "PART_RightPane").Bounds.Width, 1.5); // и рендер тоже
+    }
+
+    [AvaloniaFact]
+    public void TW_5_9_click_on_a_splitter_without_movement_commits_nothing()
+    {
+        // Thumb шлёт DragCompleted и при нулевом перемещении: без гейта клик защёлкивал бы
+        // клемпнутый рендер в состояние и дрейфовал вес на пиксельном округлении (ADR-0004).
+        var registry = Registry("a", "b");
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true },
+                Win("b", ToolWindowSide.Left, ToolWindowGroup.Secondary) with { IsOpen = true },
+            ],
+        };
+        var window = Show(state, registry);
+        var workspace = Workspace(window);
+        var initial = workspace.State!;
+
+        Click(window, Part(window, "PART_LeftSideSplitter")); // путь BuildMainRow
+        Click(window, Part(window, "PART_PairSplitter")); // путь SplitterGrid
+
+        Assert.Same(initial, workspace.State);
     }
 
     [AvaloniaFact]

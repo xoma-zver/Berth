@@ -18,7 +18,7 @@ internal static class ToolWindowMenus
     private static readonly string[] SlotHeaders =
         ["Left Top", "Left Bottom", "Right Top", "Right Bottom", "Bottom Left", "Bottom Right"];
 
-    /// <summary>The compact stripe-icon context menu: Hide — icon hiding (TW-5.10) — Move to, and «Dock» for a floating record (spec TW-5.16).</summary>
+    /// <summary>The compact stripe-icon context menu: Hide — icon hiding (TW-5.10) — then «Dock» for a floating record, then Move to (spec TW-5.16).</summary>
     public static MenuFlyout BuildIconMenu(ToolWindowState window, BerthWorkspace workspace)
     {
         var id = window.Id;
@@ -93,7 +93,9 @@ internal static class ToolWindowMenus
         else
         {
             // A floating record offers only the return: Float/Window are hidden while the
-            // platform cannot materialize them (TW-7.6, TW-7.7).
+            // platform cannot materialize them (TW-7.6, TW-7.7). Unreachable until floating
+            // windows materialize (phase 6) — no decorator is built for such a record yet;
+            // the same DockItem is live and tested in the icon menu.
             root.Items.Add(DockItem(window, workspace));
         }
 
@@ -118,9 +120,11 @@ internal static class ToolWindowMenus
     private static MenuItem DockItem(ToolWindowState window, BerthWorkspace workspace)
     {
         var id = window.Id;
-        var target = window.LastInternalMode;
         var item = new MenuItem { Header = "Dock" };
-        item.Click += (_, _) => workspace.Execute(s => s.SetMode(id, target));
+        // The return target is read from the command's input state, not captured — like the
+        // stripe toggle, the lambda stays independent of the rebuild-per-command contract.
+        item.Click += (_, _) => workspace.Execute(s => s.SetMode(
+            id, s.ToolWindows.First(w => string.Equals(w.Id, id, StringComparison.Ordinal)).LastInternalMode));
         return item;
     }
 
