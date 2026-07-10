@@ -17,7 +17,11 @@ namespace Berth.Controls;
 /// (TW-5.9, TW-2.7 R2). Every command assigns its result back to <see cref="State"/> —
 /// observe user-driven changes with <c>GetObservable(StateProperty)</c>. The subtree is
 /// rebuilt from scratch on each change (a deliberately simple skeleton), reading titles and
-/// icons from <see cref="Registry"/> at rebuild time (ADR-0003). With a
+/// icons from <see cref="Registry"/> at rebuild time (ADR-0003). Known limitation of the full
+/// rebuild: live Control content survives as one instance but loses keyboard focus, and
+/// template-built views are recreated — incremental materialization replaces the rebuild as
+/// the first task of phase 3 (docs/BACKLOG.md), before activation starts changing the state
+/// on every focus transfer. With a
 /// <see cref="Lifecycle"/> attached, decorator bodies materialize through the factory bridge
 /// and every gesture command reports its transition to the coordinator (TW-9.3). Registry
 /// mutations are invisible to the property system — and the live registration operations of
