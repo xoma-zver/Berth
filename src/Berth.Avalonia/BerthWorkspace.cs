@@ -17,8 +17,10 @@ namespace Berth.Controls;
 /// (TW-5.9, TW-2.7 R2). Every command assigns its result back to <see cref="State"/> —
 /// observe user-driven changes with <c>GetObservable(StateProperty)</c>. The subtree is
 /// rebuilt from scratch on each change (a deliberately simple skeleton), reading titles and
-/// icons from <see cref="Registry"/> at rebuild time (ADR-0003). Registry mutations are
-/// invisible to the property system — and the live registration operations of
+/// icons from <see cref="Registry"/> at rebuild time (ADR-0003). With a
+/// <see cref="Lifecycle"/> attached, decorator bodies materialize through the factory bridge
+/// and every gesture command reports its transition to the coordinator (TW-9.3). Registry
+/// mutations are invisible to the property system — and the live registration operations of
 /// <see cref="ContentLifecycle"/> may return a value-equal state, which assignment
 /// deduplicates — so call <see cref="Refresh"/> after them.
 /// </summary>
@@ -31,6 +33,10 @@ public sealed class BerthWorkspace : Decorator
     /// <summary>Defines the <see cref="Registry"/> property.</summary>
     public static readonly StyledProperty<ToolWindowRegistry?> RegistryProperty =
         AvaloniaProperty.Register<BerthWorkspace, ToolWindowRegistry?>(nameof(Registry));
+
+    /// <summary>Defines the <see cref="Lifecycle"/> property.</summary>
+    public static readonly StyledProperty<ContentLifecycle?> LifecycleProperty =
+        AvaloniaProperty.Register<BerthWorkspace, ContentLifecycle?>(nameof(Lifecycle));
 
     /// <summary>The layout to materialize; null renders nothing.</summary>
     public LayoutState? State
@@ -47,6 +53,22 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
+    /// Optional content coordinator. When set, decorator bodies materialize through the
+    /// factory bridge (spec TW-9.3, TW-9.5): a <see cref="Control"/> content object is hosted
+    /// directly, anything else is presented by a <see cref="ContentControl"/> and resolved by
+    /// the application's data templates. Every gesture command reports its transition to
+    /// <see cref="ContentLifecycle.NotifyTransition"/> — exactly one call per command
+    /// (ADR-0004); transitions the application performs itself — direct <see cref="State"/>
+    /// assignments, Apply, ResetToDefaults — remain the application's to report. Null keeps
+    /// the static skeleton: bodies stay placeholders.
+    /// </summary>
+    public ContentLifecycle? Lifecycle
+    {
+        get => GetValue(LifecycleProperty);
+        set => SetValue(LifecycleProperty, value);
+    }
+
+    /// <summary>
     /// Rebuilds the projection from the current <see cref="State"/> and <see cref="Registry"/>.
     /// Required after operations that mutate the registry in place — the live registration
     /// lifecycle (<see cref="ContentLifecycle.Register"/>, RegisterDockContent, Unregister):
@@ -59,12 +81,18 @@ public sealed class BerthWorkspace : Decorator
     /// <summary>
     /// Applies one core command to the live <see cref="State"/> and assigns the result back —
     /// the single funnel of every completed input gesture (ADR-0004). A no-op without a state.
+    /// One gesture is one command, so the transition report satisfies the one-call-per-operation
+    /// contract of <see cref="ContentLifecycle.NotifyTransition"/> by construction (TW-9.2).
     /// </summary>
     internal void Execute(Func<LayoutState, LayoutState> command)
     {
         if (State is { } state)
         {
-            State = command(state);
+            var result = command(state);
+            // Assign first: the rebuild drops released content from the visual tree before the
+            // coordinator hands it back to its factory.
+            State = result;
+            Lifecycle?.NotifyTransition(state, result);
         }
     }
 
@@ -72,7 +100,9 @@ public sealed class BerthWorkspace : Decorator
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == StateProperty || change.Property == RegistryProperty)
+        if (change.Property == StateProperty
+            || change.Property == RegistryProperty
+            || change.Property == LifecycleProperty)
         {
             Rebuild();
         }

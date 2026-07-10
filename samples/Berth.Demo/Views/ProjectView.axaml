@@ -1,0 +1,7 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Berth.Demo.ViewModels"
+             x:Class="Berth.Demo.Views.ProjectView"
+             x:DataType="vm:ProjectViewModel">
+    <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}"/>
+</UserControl>

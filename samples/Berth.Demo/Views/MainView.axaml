@@ -3,6 +3,7 @@
                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                 xmlns:vm="using:Berth.Demo.ViewModels"
+                xmlns:berth="using:Berth.Controls"
                 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
                 x:Class="Berth.Demo.Views.MainView"
                 x:DataType="vm:MainViewModel">
@@ -12,5 +13,9 @@ to set the actual DataContext for runtime, set the DataContext property in code 
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <!-- State is two-way: workspace gestures assign the command result back and the view
+         model observes it (persistence hooks onto this property in a real application). -->
+    <berth:BerthWorkspace State="{Binding State, Mode=TwoWay}"
+                          Registry="{Binding Registry}"
+                          Lifecycle="{Binding Lifecycle}"/>
 </UserControl>

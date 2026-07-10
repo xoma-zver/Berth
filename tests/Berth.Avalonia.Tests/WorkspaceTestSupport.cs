@@ -14,13 +14,18 @@ namespace Berth.Controls.Tests;
 /// </summary>
 internal static class WorkspaceTestSupport
 {
-    public static Window Show(LayoutState state, ToolWindowRegistry registry, double width = 800, double height = 600)
+    public static Window Show(
+        LayoutState state,
+        ToolWindowRegistry registry,
+        double width = 800,
+        double height = 600,
+        ContentLifecycle? lifecycle = null)
     {
         var window = new Window
         {
             Width = width,
             Height = height,
-            Content = new BerthWorkspace { State = state, Registry = registry },
+            Content = new BerthWorkspace { State = state, Registry = registry, Lifecycle = lifecycle },
         };
         window.Show();
         Dispatcher.UIThread.RunJobs();

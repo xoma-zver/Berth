@@ -1,6 +1,8 @@
 #nullable enable
 Berth.Controls.BerthWorkspace
 Berth.Controls.BerthWorkspace.BerthWorkspace() -> void
+Berth.Controls.BerthWorkspace.Lifecycle.get -> Berth.ContentLifecycle?
+Berth.Controls.BerthWorkspace.Lifecycle.set -> void
 Berth.Controls.BerthWorkspace.Registry.get -> Berth.ToolWindowRegistry?
 Berth.Controls.BerthWorkspace.Registry.set -> void
 Berth.Controls.BerthWorkspace.State.get -> Berth.LayoutState?
@@ -11,6 +13,7 @@ Berth.Controls.StripeButton.ToolWindowId.get -> string!
 Berth.Controls.ToolWindowDecorator
 Berth.Controls.ToolWindowDecorator.Title.get -> string!
 Berth.Controls.ToolWindowDecorator.ToolWindowId.get -> string!
+static readonly Berth.Controls.BerthWorkspace.LifecycleProperty -> Avalonia.StyledProperty<Berth.ContentLifecycle?>!
 static readonly Berth.Controls.BerthWorkspace.RegistryProperty -> Avalonia.StyledProperty<Berth.ToolWindowRegistry?>!
 static readonly Berth.Controls.BerthWorkspace.StateProperty -> Avalonia.StyledProperty<Berth.LayoutState?>!
 Berth.Controls.BerthWorkspace.Refresh() -> void
