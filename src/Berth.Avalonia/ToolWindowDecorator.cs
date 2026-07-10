@@ -191,6 +191,9 @@ public sealed class ToolWindowDecorator : Decorator
             return; // retried by OnAttachedToLogicalTree
         }
 
+        // The template is selected once per content object: a live DataTemplates or theme
+        // swap does not re-select the built view — a conscious v1 limitation (spec section
+        // 12); the view's own controls theme normally.
         var view = this.FindDataTemplate(_bodyContent)?.Build(_bodyContent)
             ?? new TextBlock { Text = _bodyContent.ToString() };
         view.DataContext = _bodyContent;

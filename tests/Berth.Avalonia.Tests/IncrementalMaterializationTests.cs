@@ -256,6 +256,31 @@ public class IncrementalMaterializationTests
     }
 
     [AvaloniaFact]
+    public void TW_9_13_focus_survives_inside_a_template_built_view()
+    {
+        // Симметрия с Control-путём: фокусируемый элемент внутри построенного шаблоном
+        // вида переживает неактивирующие изменения — вид не пересобирается (TW-9.13).
+        var (registry, lifecycle, state, _) =
+            TemplatedSetup(new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Secondary));
+        var window = new Window { Width = 800, Height = 600 };
+        window.DataTemplates.Add(new FuncDataTemplate<BodyModel>((_, _) => new TextBox()));
+        window.Content = new BerthWorkspace { State = state.Open("a"), Registry = registry, Lifecycle = lifecycle };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var box = Assert.IsType<TextBox>(ContentOf(Decorator(window, "a")).Child);
+        Assert.True(box.Focus());
+
+        var workspace = Workspace(window);
+        workspace.State = workspace.State!.Open("b", activate: false); // пара образовалась
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(box.IsFocused);
+
+        workspace.State = workspace.State!.SetSideSize(ToolWindowSide.Left, 0.5);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(box.IsFocused);
+    }
+
+    [AvaloniaFact]
     public void TW_9_13_dispose_on_close_drops_the_view()
     {
         var (registry, lifecycle, state, factory) = TemplatedSetup(
