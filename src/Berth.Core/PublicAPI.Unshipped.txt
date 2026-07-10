@@ -422,3 +422,5 @@ static Berth.DockOperations.OpenPanelTab(this Berth.LayoutState! state, string! 
 static Berth.DockOperations.MoveTab(this Berth.LayoutState! state, string! id, Berth.DockGroupRef target, int index, Berth.ToolWindowRegistry! registry) -> Berth.LayoutState!
 static Berth.DockOperations.SetSplitShares(this Berth.LayoutState! state, string! toolWindowId, System.Collections.Immutable.ImmutableArray<int> path, System.Collections.Immutable.ImmutableArray<double> shares) -> Berth.LayoutState!
 Berth.ContentLifecycle.RegisterDockContent(Berth.LayoutState! state, Berth.ITabContentFactory! factory) -> Berth.LayoutState!
+Berth.QuickAccess
+static Berth.QuickAccess.List(Berth.LayoutState! state, Berth.ToolWindowRegistry! registry) -> System.Collections.Immutable.ImmutableArray<Berth.ToolWindowDescriptor!>
