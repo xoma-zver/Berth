@@ -1,9 +1,6 @@
 namespace Berth;
 
-/// <summary>
-/// Registration descriptor of a tool window (spec TW-9.1). Content lifecycle policy and
-/// the content factory are added by the content lifecycle contracts (backlog task 1.7).
-/// </summary>
+/// <summary>Registration descriptor of a tool window (spec TW-9.1).</summary>
 public sealed record ToolWindowDescriptor
 {
     /// <summary>Creates a descriptor.</summary>
@@ -45,4 +42,22 @@ public sealed record ToolWindowDescriptor
 
     /// <summary>Default share of the side within a group pair (spec TW-2.5).</summary>
     public double DefaultPairRatio { get; init; } = LayoutDefaults.PairRatio;
+
+    /// <summary>When the body content is created (spec TW-9.2).</summary>
+    public ContentCreationPolicy CreationPolicy { get; init; } = ContentCreationPolicy.OnFirstOpen;
+
+    /// <summary>How long the body content is retained (spec TW-9.2).</summary>
+    public ContentRetentionPolicy RetentionPolicy { get; init; } = ContentRetentionPolicy.KeepWhileRegistered;
+
+    /// <summary>
+    /// Factory of the tool window body content; null for a window whose content is materialized
+    /// by the application shell outside the core-managed lifecycle (spec TW-9.1, TW-9.3).
+    /// </summary>
+    public IToolWindowContentFactory? ContentFactory { get; init; }
+
+    /// <summary>
+    /// Tab content factory claiming this window's tabs (spec TW-9.11). Null claims nothing:
+    /// previously sleeping tabs of this owner keep sleeping after registration (spec DA-9.4).
+    /// </summary>
+    public ITabContentFactory? TabFactory { get; init; }
 }

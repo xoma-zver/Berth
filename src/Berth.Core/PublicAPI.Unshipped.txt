@@ -363,3 +363,55 @@ virtual Berth.TabTreeNode.PrintMembers(System.Text.StringBuilder! builder) -> bo
 ~override Berth.SplitChild.ToString() -> string
 ~override Berth.ToolWindowSlot.Equals(object obj) -> bool
 ~override Berth.ToolWindowSlot.ToString() -> string
+Berth.ContentCreationPolicy
+Berth.ContentCreationPolicy.Eager = 1 -> Berth.ContentCreationPolicy
+Berth.ContentCreationPolicy.OnFirstOpen = 0 -> Berth.ContentCreationPolicy
+Berth.ContentLifecycle
+Berth.ContentLifecycle.ContentLifecycle(Berth.ToolWindowRegistry! registry) -> void
+Berth.ContentLifecycle.GetOrCreateToolWindowContent(string! id) -> object?
+Berth.ContentLifecycle.MaterializeTab(Berth.LayoutState! state, string! tabId) -> Berth.TabMaterialization!
+Berth.ContentLifecycle.NotifyTransition(Berth.LayoutState! before, Berth.LayoutState! after) -> void
+Berth.ContentLifecycle.Register(Berth.LayoutState! state, Berth.ToolWindowDescriptor! descriptor) -> Berth.LayoutState!
+Berth.ContentLifecycle.ReleaseAll() -> void
+Berth.ContentLifecycle.Unregister(Berth.LayoutState! state, string! toolWindowId) -> Berth.LayoutState!
+Berth.ContentRetentionPolicy
+Berth.ContentRetentionPolicy.DisposeOnClose = 1 -> Berth.ContentRetentionPolicy
+Berth.ContentRetentionPolicy.KeepWhileRegistered = 0 -> Berth.ContentRetentionPolicy
+Berth.ITabContentFactory
+Berth.ITabContentFactory.CreateContent(string! tabId) -> object?
+Berth.ITabContentFactory.OwnsTab(string! tabId) -> bool
+Berth.ITabContentFactory.ReleaseContent(string! tabId, object! content) -> void
+Berth.IToolWindowContentFactory
+Berth.IToolWindowContentFactory.CreateContent(string! toolWindowId) -> object!
+Berth.IToolWindowContentFactory.ReleaseContent(string! toolWindowId, object! content) -> void
+Berth.TabMaterialization
+Berth.TabMaterialization.Content.get -> object?
+Berth.TabMaterialization.Kind.get -> Berth.TabMaterializationKind
+Berth.TabMaterialization.State.get -> Berth.LayoutState!
+Berth.TabMaterializationKind
+Berth.TabMaterializationKind.Materialized = 0 -> Berth.TabMaterializationKind
+Berth.TabMaterializationKind.Refused = 2 -> Berth.TabMaterializationKind
+Berth.TabMaterializationKind.Sleeping = 1 -> Berth.TabMaterializationKind
+Berth.TabOwner
+Berth.TabOwner.Equals(Berth.TabOwner other) -> bool
+Berth.TabOwner.IsDockArea.get -> bool
+Berth.TabOwner.TabOwner() -> void
+Berth.TabOwner.ToolWindowId.get -> string?
+Berth.ToolWindowDescriptor.ContentFactory.get -> Berth.IToolWindowContentFactory?
+Berth.ToolWindowDescriptor.ContentFactory.init -> void
+Berth.ToolWindowDescriptor.CreationPolicy.get -> Berth.ContentCreationPolicy
+Berth.ToolWindowDescriptor.CreationPolicy.init -> void
+Berth.ToolWindowDescriptor.RetentionPolicy.get -> Berth.ContentRetentionPolicy
+Berth.ToolWindowDescriptor.RetentionPolicy.init -> void
+Berth.ToolWindowDescriptor.TabFactory.get -> Berth.ITabContentFactory?
+Berth.ToolWindowDescriptor.TabFactory.init -> void
+Berth.ToolWindowRegistry.RegisterDockContent(Berth.ITabContentFactory! factory) -> void
+Berth.ToolWindowRegistry.ResolveTabOwner(string! tabId) -> Berth.TabOwner?
+Berth.ToolWindowRegistry.Unregister(string! id) -> void
+override Berth.TabOwner.GetHashCode() -> int
+static Berth.TabOwner.DockArea.get -> Berth.TabOwner
+static Berth.TabOwner.operator !=(Berth.TabOwner left, Berth.TabOwner right) -> bool
+static Berth.TabOwner.operator ==(Berth.TabOwner left, Berth.TabOwner right) -> bool
+static Berth.TabOwner.ToolWindow(string! toolWindowId) -> Berth.TabOwner
+~override Berth.TabOwner.Equals(object obj) -> bool
+~override Berth.TabOwner.ToString() -> string

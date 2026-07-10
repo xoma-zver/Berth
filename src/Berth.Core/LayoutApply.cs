@@ -235,7 +235,8 @@ public static class LayoutApply
         return added is null ? snapshot : snapshot with { ToolWindows = snapshot.ToolWindows.AddRange(added) };
     }
 
-    private static ToolWindowState FromDescriptor(ToolWindowDescriptor descriptor, int order) =>
+    /// <summary>The default state of a freshly registered tool window (spec TW-10.3); shared with the live registration path (<see cref="ContentLifecycle.Register"/>).</summary>
+    internal static ToolWindowState FromDescriptor(ToolWindowDescriptor descriptor, int order) =>
         new ToolWindowState(descriptor.Id, descriptor.DefaultSlot, order) with
         {
             Mode = descriptor.DefaultMode,

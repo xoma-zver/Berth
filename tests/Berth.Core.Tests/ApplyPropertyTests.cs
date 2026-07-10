@@ -100,6 +100,25 @@ public class ApplyPropertyTests
             iter: 10_000);
     }
 
+    [Fact]
+    public void DA_9_2_apply_never_drops_a_distinct_tab_id()
+    {
+        // Несущее свойство diff-освобождения контента (ContentLifecycle): дедуп оставляет
+        // первое вхождение, INV-D6 удаляет только бестабовые окна — различимое множество
+        // id вкладок Apply сохраняет в точности, и освобождение по диффу поверх Apply
+        // корректно по построению.
+        GenGarbage.Sample(
+            snapshot =>
+            {
+                var result = LayoutState.Empty.Apply(snapshot, ApplyScope.Full, new ToolWindowRegistry());
+
+                var before = AllTabs(snapshot.DockArea).ToHashSet(StringComparer.Ordinal);
+                var after = AllTabs(result.State.DockArea).ToHashSet(StringComparer.Ordinal);
+                Assert.True(before.SetEquals(after), "Apply must keep the distinct set of tab ids intact");
+            },
+            iter: 5_000);
+    }
+
     // ---- the reflective witness ----
 
     private static readonly JsonSerializerOptions WitnessOptions = CreateWitnessOptions();
