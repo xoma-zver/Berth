@@ -6,12 +6,25 @@ namespace Berth.Core.Tests;
 public class DefaultsTests
 {
     [Fact]
-    public void TW_2_5_side_defaults_are_weight_033_and_ratio_05()
+    public void TW_2_5_side_default_weight_is_033()
     {
-        var side = new SideState();
+        Assert.Equal(0.33, new SideState().Weight);
+    }
 
-        Assert.Equal(0.33, side.Weight);
-        Assert.Equal(0.5, side.CurrentRatio);
+    [Fact]
+    public void TW_2_5_default_preferences_form_a_consistent_pair()
+    {
+        // 0.5 + 0.5 = 1: the derived pair ratio of two untaught windows is exactly 0.5 (R1).
+        var layout = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                new ToolWindowState("p", new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Primary), 0) with { IsOpen = true },
+                new ToolWindowState("s", new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Secondary), 0) with { IsOpen = true },
+            ],
+        };
+
+        Assert.Equal(0.5, layout.GetPairRatio(ToolWindowSide.Left));
     }
 
     [Fact]
@@ -24,7 +37,6 @@ public class DefaultsTests
         Assert.False(state.IsOpen);
         Assert.True(state.IsIconVisible);
         Assert.Equal(0.5, state.PairRatio);
-        Assert.Equal(0.33, state.UndockWeight);
         Assert.Null(state.FloatingBounds);
     }
 

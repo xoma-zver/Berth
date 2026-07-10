@@ -3,16 +3,13 @@
   "toolWindows": [],
   "sides": {
     "left": {
-      "weight": 0.33,
-      "currentRatio": 0.5
+      "weight": 0.33
     },
     "right": {
-      "weight": 0.33,
-      "currentRatio": 0.5
+      "weight": 0.33
     },
     "bottom": {
-      "weight": 0.33,
-      "currentRatio": 0.5
+      "weight": 0.33
     }
   },
   "quickAccessSide": "left",

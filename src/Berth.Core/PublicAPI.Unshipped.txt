@@ -129,11 +129,7 @@ Berth.QuickAccessSide.Left = 0 -> Berth.QuickAccessSide
 Berth.QuickAccessSide.Right = 1 -> Berth.QuickAccessSide
 Berth.SideState
 Berth.SideState.<Clone>$() -> Berth.SideState!
-Berth.SideState.CurrentRatio.get -> double
-Berth.SideState.CurrentRatio.init -> void
-Berth.SideState.Deconstruct(out double Weight, out double CurrentRatio) -> void
 Berth.SideState.Equals(Berth.SideState? other) -> bool
-Berth.SideState.SideState(double Weight = 0.33, double CurrentRatio = 0.5) -> void
 Berth.SideState.Weight.get -> double
 Berth.SideState.Weight.init -> void
 Berth.SplitChild
@@ -239,14 +235,10 @@ Berth.ToolWindowState.PairRatio.init -> void
 Berth.ToolWindowState.Slot.get -> Berth.ToolWindowSlot
 Berth.ToolWindowState.Slot.init -> void
 Berth.ToolWindowState.ToolWindowState(string! id, Berth.ToolWindowSlot slot, int order) -> void
-Berth.ToolWindowState.UndockWeight.get -> double
-Berth.ToolWindowState.UndockWeight.init -> void
 abstract Berth.TabTreeNode.<Clone>$() -> Berth.TabTreeNode!
-const Berth.LayoutDefaults.CurrentRatio = 0.5 -> double
 const Berth.LayoutDefaults.LastInternalMode = Berth.ToolWindowMode.DockPinned -> Berth.ToolWindowMode
 const Berth.LayoutDefaults.PairRatio = 0.5 -> double
 const Berth.LayoutDefaults.SideWeight = 0.33 -> double
-const Berth.LayoutDefaults.UndockWeight = 0.33 -> double
 const Berth.TabTreeNormalization.ShareSumTolerance = 1E-09 -> double
 override Berth.DockAreaState.Equals(object? obj) -> bool
 override Berth.DockAreaState.GetHashCode() -> int
@@ -322,7 +314,6 @@ static Berth.LayoutOperations.SetMode(this Berth.LayoutState! state, string! id,
 static Berth.LayoutOperations.SetQuickAccessSide(this Berth.LayoutState! state, Berth.QuickAccessSide side) -> Berth.LayoutState!
 static Berth.LayoutOperations.SetSideRatio(this Berth.LayoutState! state, Berth.ToolWindowSide side, double primaryShare) -> Berth.LayoutState!
 static Berth.LayoutOperations.SetSideSize(this Berth.LayoutState! state, Berth.ToolWindowSide side, double weight) -> Berth.LayoutState!
-static Berth.LayoutOperations.SetUndockWeight(this Berth.LayoutState! state, string! id, double weight) -> Berth.LayoutState!
 static Berth.LayoutState.Empty.get -> Berth.LayoutState!
 static Berth.LayoutState.operator !=(Berth.LayoutState? left, Berth.LayoutState? right) -> bool
 static Berth.LayoutState.operator ==(Berth.LayoutState? left, Berth.LayoutState? right) -> bool
@@ -424,3 +415,6 @@ static Berth.DockOperations.SetSplitShares(this Berth.LayoutState! state, string
 Berth.ContentLifecycle.RegisterDockContent(Berth.LayoutState! state, Berth.ITabContentFactory! factory) -> Berth.LayoutState!
 Berth.QuickAccess
 static Berth.QuickAccess.List(Berth.LayoutState! state, Berth.ToolWindowRegistry! registry) -> System.Collections.Immutable.ImmutableArray<Berth.ToolWindowDescriptor!>
+Berth.SideState.Deconstruct(out double Weight) -> void
+Berth.SideState.SideState(double Weight = 0.33) -> void
+Berth.LayoutState.GetPairRatio(Berth.ToolWindowSide side) -> double?

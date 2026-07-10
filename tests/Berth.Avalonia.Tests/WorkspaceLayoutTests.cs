@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Berth;
 using Xunit;
@@ -90,17 +91,16 @@ public class WorkspaceLayoutTests
     }
 
     [AvaloniaFact]
-    public void TW_2_3_side_pair_stacks_vertically_at_the_current_ratio()
+    public void TW_2_3_side_pair_stacks_vertically_at_the_derived_pair_ratio()
     {
         var registry = Registry("p", "s");
         var state = LayoutState.Empty with
         {
             ToolWindows =
             [
-                Win("p", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true },
-                Win("s", ToolWindowSide.Left, ToolWindowGroup.Secondary) with { IsOpen = true },
+                Win("p", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true, PairRatio = 0.7 },
+                Win("s", ToolWindowSide.Left, ToolWindowGroup.Secondary) with { IsOpen = true, PairRatio = 0.3 },
             ],
-            Left = new SideState(CurrentRatio: 0.7),
         };
 
         var window = Show(state, registry);
@@ -108,7 +108,7 @@ public class WorkspaceLayoutTests
         var primary = BoundsIn(Decorator(pane, "p"), window);
         var secondary = BoundsIn(Decorator(pane, "s"), window);
 
-        // Primary сверху, Secondary снизу (TW-2.3); сплиттер пары — в позиции CurrentRatio.
+        // Primary сверху, Secondary снизу (TW-2.3); сплиттер пары — по выводимой доле R1.
         Assert.Equal(primary.X, secondary.X, 1.0);
         Assert.True(primary.Bottom <= secondary.Y);
         var stack = pane.Bounds.Height - SplitterThickness;
@@ -117,17 +117,16 @@ public class WorkspaceLayoutTests
     }
 
     [AvaloniaFact]
-    public void TW_2_4_bottom_pair_splits_horizontally_at_the_current_ratio()
+    public void TW_2_4_bottom_pair_splits_horizontally_at_the_derived_pair_ratio()
     {
         var registry = Registry("p", "s");
         var state = LayoutState.Empty with
         {
             ToolWindows =
             [
-                Win("p", ToolWindowSide.Bottom, ToolWindowGroup.Primary) with { IsOpen = true },
-                Win("s", ToolWindowSide.Bottom, ToolWindowGroup.Secondary) with { IsOpen = true },
+                Win("p", ToolWindowSide.Bottom, ToolWindowGroup.Primary) with { IsOpen = true, PairRatio = 0.6 },
+                Win("s", ToolWindowSide.Bottom, ToolWindowGroup.Secondary) with { IsOpen = true, PairRatio = 0.4 },
             ],
-            Bottom = new SideState(CurrentRatio: 0.6),
         };
 
         var window = Show(state, registry);
@@ -163,7 +162,7 @@ public class WorkspaceLayoutTests
     }
 
     [AvaloniaFact]
-    public void TW_3_3_undock_overlay_takes_the_full_extent_above_the_docked_layout()
+    public void TW_3_3_undock_overlay_takes_the_full_extent_at_the_side_weight()
     {
         var registry = Registry("l", "b", "u");
         var state = LayoutState.Empty with
@@ -177,24 +176,27 @@ public class WorkspaceLayoutTests
                     IsOpen = true,
                     Mode = ToolWindowMode.Undock,
                     LastInternalMode = ToolWindowMode.Undock,
-                    UndockWeight = 0.4,
                 },
             ],
+            Left = new SideState(Weight: 0.4),
         };
 
         var window = Show(state, registry);
         var stripeWidth = Part(window, "PART_LeftStripe").Bounds.Width;
         var overlay = BoundsIn(Decorator(Part(window, "PART_UndockOverlay"), "u"), window);
         var bottom = BoundsIn(Part(window, "PART_BottomPane"), window);
+        var pane = Part(window, "PART_LeftPane");
 
         // Оверлей прижат к стороне прописки на полную высоту — поверх области нижней панели —
-        // толщиной UndockWeight; размеры докированных соседей не изменились (TW-3.3).
+        // толщиной, равной весу стороны: он накрывает докированную соседку (TW-3.3), чьи
+        // размеры показом не изменились.
         Assert.Equal(stripeWidth, overlay.X, 1.0);
         Assert.Equal(window.ClientSize.Height, overlay.Height, 1.0);
         Assert.True(overlay.Bottom > bottom.Y); // поверх нижней панели
         Assert.Equal(0.4 * CenterWidth(window), overlay.Width, 1.0);
-        var expectedPane = LayoutDefaults.SideWeight * (CenterWidth(window) - SplitterThickness);
-        Assert.Equal(expectedPane, Part(window, "PART_LeftPane").Bounds.Width, 1.0);
+        var expectedPane = 0.4 * (CenterWidth(window) - SplitterThickness);
+        Assert.Equal(expectedPane, pane.Bounds.Width, 1.0);
+        Assert.True(overlay.Right >= BoundsIn(pane, window).Right - 1.0); // накрывает докированную
     }
 
     [AvaloniaFact]
@@ -210,9 +212,9 @@ public class WorkspaceLayoutTests
                     IsOpen = true,
                     Mode = ToolWindowMode.Undock,
                     LastInternalMode = ToolWindowMode.Undock,
-                    UndockWeight = 0.4,
                 },
             ],
+            Bottom = new SideState(Weight: 0.4),
         };
 
         var window = Show(state, registry);
@@ -221,6 +223,34 @@ public class WorkspaceLayoutTests
         Assert.Equal(CenterWidth(window), overlay.Width, 1.0);
         Assert.Equal(0.4 * window.ClientSize.Height, overlay.Height, 1.0);
         Assert.Equal(window.ClientSize.Height, overlay.Bottom, 1.0);
+    }
+
+    [AvaloniaFact]
+    public void TW_3_3_undock_overlay_backdrop_is_opaque()
+    {
+        var registry = Registry("l", "u");
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("l", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true },
+                Win("u", ToolWindowSide.Left, ToolWindowGroup.Secondary) with
+                {
+                    IsOpen = true,
+                    Mode = ToolWindowMode.Undock,
+                    LastInternalMode = ToolWindowMode.Undock,
+                },
+            ],
+        };
+
+        var window = Show(state, registry);
+
+        // Панели под оверлеем не просвечивают (TW-3.3): скелетные кисти полупрозрачны,
+        // поэтому у каждой записи оверлея — непрозрачная подложка.
+        var backdrop = Assert.IsAssignableFrom<Border>(Part(window, "PART_OverlayBackdrop"));
+        var brush = Assert.IsAssignableFrom<ISolidColorBrush>(backdrop.Background);
+        Assert.Equal(0xFF, brush.Color.A);
+        Assert.NotNull(Decorator(backdrop, "u")); // подложка оборачивает именно оверлейный декоратор
     }
 
     [AvaloniaFact]

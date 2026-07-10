@@ -42,11 +42,8 @@ public sealed record ToolWindowState
     /// <summary>Whether the stripe icon is present (spec TW-5.10; INV-6: open implies visible icon).</summary>
     public bool IsIconVisible { get; init; } = true;
 
-    /// <summary>Own share of the side within a group pair, in (0..1) (spec TW-2.5).</summary>
+    /// <summary>Own preferred share of the side within a group pair, in (0..1) (spec TW-2.5); the pair's effective ratio derives from both preferences (rule R1, <see cref="LayoutState.GetPairRatio"/>).</summary>
     public double PairRatio { get; init; } = LayoutDefaults.PairRatio;
-
-    /// <summary>Thickness of the Undock overlay as a fraction of the workspace, in (0..1) (spec TW-3.3).</summary>
-    public double UndockWeight { get; init; } = LayoutDefaults.UndockWeight;
 
     /// <summary>Saved screen bounds for Float/Window modes, if any (spec TW-3.1).</summary>
     public FloatingBounds? FloatingBounds { get; init; }

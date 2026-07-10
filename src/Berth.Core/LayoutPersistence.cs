@@ -181,7 +181,6 @@ public static class LayoutPersistence
         writer.WriteBoolean("isOpen", window.IsOpen);
         writer.WriteBoolean("isIconVisible", window.IsIconVisible);
         writer.WriteNumber("pairRatio", window.PairRatio);
-        writer.WriteNumber("undockWeight", window.UndockWeight);
         if (window.FloatingBounds is { } bounds)
         {
             writer.WritePropertyName("floatingBounds");
@@ -201,7 +200,6 @@ public static class LayoutPersistence
     {
         writer.WriteStartObject(name);
         writer.WriteNumber("weight", side.Weight);
-        writer.WriteNumber("currentRatio", side.CurrentRatio);
         writer.WriteEndObject();
     }
 
@@ -351,7 +349,6 @@ public static class LayoutPersistence
             IsOpen = ReadBool(element, "isOpen", defaultValue: false),
             IsIconVisible = ReadBool(element, "isIconVisible", defaultValue: true),
             PairRatio = ReadLenientNumber(element, "pairRatio", LayoutDefaults.PairRatio),
-            UndockWeight = ReadLenientNumber(element, "undockWeight", LayoutDefaults.UndockWeight),
             FloatingBounds = ReadOptionalBounds(element),
             ContentTree = TryGetElement(element, "contentTree", out var contentTree)
                 ? ReadNode(contentTree)
@@ -367,9 +364,7 @@ public static class LayoutPersistence
         }
 
         RequireKind(element, JsonValueKind.Object, $"The '{name}' side must be an object.");
-        return new SideState(
-            ReadLenientNumber(element, "weight", LayoutDefaults.SideWeight),
-            ReadLenientNumber(element, "currentRatio", LayoutDefaults.CurrentRatio));
+        return new SideState(ReadLenientNumber(element, "weight", LayoutDefaults.SideWeight));
     }
 
     private static DockAreaState ReadDockArea(JsonElement element)

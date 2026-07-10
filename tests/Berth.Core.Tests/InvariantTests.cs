@@ -160,13 +160,14 @@ public class InvariantTests
     }
 
     [Fact]
-    public void INV_4_out_of_range_pair_ratio_and_undock_weight_are_reported()
+    public void INV_4_out_of_range_pair_ratio_is_reported()
     {
-        var layout = Layout(Window("a", LeftPrimary, 0) with { PairRatio = 1.0, UndockWeight = 0.0 });
+        var layout = Layout(Window("a", LeftPrimary, 0) with { PairRatio = 1.0 });
 
         var violations = LayoutInvariants.Validate(layout, new ToolWindowRegistry());
-        Assert.Equal(2, violations.Count(v => v.InvariantId == "INV-4"));
-        Assert.All(violations, v => Assert.Equal("a", v.ToolWindowId));
+        var violation = Assert.Single(violations);
+        Assert.Equal("INV-4", violation.InvariantId);
+        Assert.Equal("a", violation.ToolWindowId);
     }
 
     [Fact]

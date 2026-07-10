@@ -76,7 +76,6 @@ public class InvariantPropertyTests
             from side in genQuickAccess select (Op)new SetQuickAccessOp(side),
             from side in genSide from weight in genFraction select (Op)new SetSideSizeOp(side, weight),
             from side in genSide from share in genFraction select (Op)new SetSideRatioOp(side, share),
-            from id in genId from weight in genFraction select (Op)new SetUndockWeightOp(id, weight),
             from id in genId select (Op)new SetFloatingBoundsOp(id));
     }
 
@@ -128,11 +127,6 @@ public class InvariantPropertyTests
     private sealed record SetSideRatioOp(ToolWindowSide Side, double PrimaryShare) : Op
     {
         public override LayoutState Apply(LayoutState state) => state.SetSideRatio(Side, PrimaryShare);
-    }
-
-    private sealed record SetUndockWeightOp(string Id, double Weight) : Op
-    {
-        public override LayoutState Apply(LayoutState state) => state.SetUndockWeight(Id, Weight);
     }
 
     private sealed record SetFloatingBoundsOp(string Id) : Op

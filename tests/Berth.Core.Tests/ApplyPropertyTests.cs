@@ -208,7 +208,7 @@ public class ApplyPropertyTests
     }
 
     private static readonly Gen<Op> GenOp =
-        from kind in Gen.Int[0, 18]
+        from kind in Gen.Int[0, 17]
         from a in Gen.Int[0, 1023]
         from b in Gen.Int[0, 1023]
         from c in Gen.Int[0, 1023]
@@ -248,16 +248,14 @@ public class ApplyPropertyTests
                 case 7:
                     return state.SetSideRatio((ToolWindowSide)(B % 3), fraction);
                 case 8:
-                    return state.SetUndockWeight(id, fraction);
-                case 9:
                     return state.SetFloatingBounds(id, new FloatingBounds(A, B, 100 + C, 200));
-                case 10:
+                case 9:
                     return state.OpenDocument($"d{A % 8}", SharedRegistry);
-                case 11:
+                case 10:
                     return tabs.Count == 0 ? state : state.CloseTab(Tab(A));
-                case 12:
+                case 11:
                     return tabs.Count == 0 ? state : state.ActivateTab(Tab(A));
-                case 13:
+                case 12:
                 {
                     if (tabs.Count == 0)
                     {
@@ -277,11 +275,11 @@ public class ApplyPropertyTests
 
                     return state.MoveTab(moved, DockGroupRef.AtTab(target), C - 2, SharedRegistry);
                 }
-                case 14:
+                case 13:
                     return tabs.Count == 0 ? state : state.SplitTab(Tab(A), (SplitDirection)(B % 4));
-                case 15:
+                case 14:
                     return tabs.Count == 0 ? state : state.MoveTabToNewWindow(Tab(A), Bounds);
-                case 16:
+                case 15:
                 {
                     var windowTabs = TabsInWindows(state.DockArea);
                     return windowTabs.Count == 0
@@ -290,13 +288,13 @@ public class ApplyPropertyTests
                             windowTabs[A % windowTabs.Count], new FloatingBounds(A, B, 100 + C, 150));
                 }
 
-                case 17:
+                case 16:
                 {
                     var rotatable = RotatableTabs(state);
                     return rotatable.Count == 0 ? state : state.RotateSplit(rotatable[A % rotatable.Count]);
                 }
 
-                case 18:
+                case 17:
                     return state.OpenPanelTab($"tw{A % 2}:t{B % 4}", SharedRegistry);
 
                 default:
@@ -327,7 +325,6 @@ public class ApplyPropertyTests
         from isOpen in Gen.Bool
         from icon in Gen.Bool
         from pair in GenBadFraction
-        from undock in GenBadFraction
         from boundsKind in Gen.Int[0, 2]
         from tree in GenGarbageNode(2)
         select new ToolWindowState($"tw{id}", ToolWindowSlot.All[slot], 0) with
@@ -338,7 +335,6 @@ public class ApplyPropertyTests
             IsOpen = isOpen,
             IsIconVisible = icon,
             PairRatio = pair,
-            UndockWeight = undock,
             FloatingBounds = boundsKind switch
             {
                 0 => null,
@@ -394,20 +390,17 @@ public class ApplyPropertyTests
         from windowCount in Gen.Int[0, 5]
         from windows in GenGarbageWindow.Array[windowCount]
         from leftWeight in GenBadFraction
-        from leftRatio in GenBadFraction
         from rightWeight in GenBadFraction
-        from rightRatio in GenBadFraction
         from bottomWeight in GenBadFraction
-        from bottomRatio in GenBadFraction
         from quickAccess in Gen.OneOfConst(QuickAccessSide.Left, QuickAccessSide.Right)
         from activeKind in Gen.Int[0, 2]
         from area in GenGarbageArea
         select LayoutState.Empty with
         {
             ToolWindows = [.. windows],
-            Left = new SideState(leftWeight, leftRatio),
-            Right = new SideState(rightWeight, rightRatio),
-            Bottom = new SideState(bottomWeight, bottomRatio),
+            Left = new SideState(leftWeight),
+            Right = new SideState(rightWeight),
+            Bottom = new SideState(bottomWeight),
             QuickAccessSide = quickAccess,
             ActiveToolWindowId = activeKind switch { 0 => null, 1 => "tw0", _ => "ghost" },
             DockArea = area,

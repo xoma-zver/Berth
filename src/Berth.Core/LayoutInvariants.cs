@@ -101,20 +101,17 @@ public static class LayoutInvariants
         }
     }
 
-    /// <summary>INV-4: side weights and ratios, pair ratios and undock weights are strictly within (0..1).</summary>
+    /// <summary>INV-4: side weights and pair preferences are strictly within (0..1); the derived pair ratio (R1) is then within (0..1) by construction.</summary>
     private static void CheckFractions(LayoutState state, ImmutableArray<InvariantViolation>.Builder violations)
     {
         foreach (var side in new[] { ToolWindowSide.Left, ToolWindowSide.Right, ToolWindowSide.Bottom })
         {
-            var geometry = state.GetSide(side);
-            CheckFraction(violations, geometry.Weight, $"{side} side Weight", toolWindowId: null);
-            CheckFraction(violations, geometry.CurrentRatio, $"{side} side CurrentRatio", toolWindowId: null);
+            CheckFraction(violations, state.GetSide(side).Weight, $"{side} side Weight", toolWindowId: null);
         }
 
         foreach (var window in state.ToolWindows)
         {
             CheckFraction(violations, window.PairRatio, $"PairRatio of '{window.Id}'", window.Id);
-            CheckFraction(violations, window.UndockWeight, $"UndockWeight of '{window.Id}'", window.Id);
         }
     }
 

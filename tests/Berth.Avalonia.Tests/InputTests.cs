@@ -470,9 +470,11 @@ public class InputTests
         Dispatcher.UIThread.RunJobs();
 
         var result = St(window);
-        Assert.Equal((primaryHeight + 60) / total, result.Left.CurrentRatio, 0.02);
-        Assert.Equal(result.Left.CurrentRatio, Get(window, "a").PairRatio); // R2 «учит обе»
-        Assert.Equal(1 - result.Left.CurrentRatio, Get(window, "b").PairRatio);
+        var dragged = (primaryHeight + 60) / total;
+        Assert.Equal(dragged, Get(window, "a").PairRatio, 0.02); // R2 «учит обе»
+        Assert.Equal(1 - Get(window, "a").PairRatio, Get(window, "b").PairRatio);
+        // Выводимая доля R1 воспроизводит позицию драга точно (TW-2.7).
+        Assert.Equal(Get(window, "a").PairRatio, result.GetPairRatio(ToolWindowSide.Left));
     }
 
     [AvaloniaFact]

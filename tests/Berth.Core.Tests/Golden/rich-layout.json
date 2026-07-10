@@ -11,7 +11,6 @@
       "isOpen": true,
       "isIconVisible": true,
       "pairRatio": 0.75,
-      "undockWeight": 0.33,
       "floatingBounds": null,
       "contentTree": {
         "type": "group",
@@ -30,8 +29,7 @@
       "lastInternalMode": "undock",
       "isOpen": false,
       "isIconVisible": true,
-      "pairRatio": 0.5,
-      "undockWeight": 0.25,
+      "pairRatio": 0.4,
       "floatingBounds": null,
       "contentTree": {
         "type": "group",
@@ -49,7 +47,6 @@
       "isOpen": false,
       "isIconVisible": true,
       "pairRatio": 0.5,
-      "undockWeight": 0.33,
       "floatingBounds": {
         "x": 10,
         "y": 20,
@@ -75,7 +72,6 @@
       "isOpen": false,
       "isIconVisible": false,
       "pairRatio": 0.5,
-      "undockWeight": 0.33,
       "floatingBounds": null,
       "contentTree": {
         "type": "group",
@@ -86,16 +82,13 @@
   ],
   "sides": {
     "left": {
-      "weight": 0.25,
-      "currentRatio": 0.75
+      "weight": 0.25
     },
     "right": {
-      "weight": 0.3,
-      "currentRatio": 0.6
+      "weight": 0.3
     },
     "bottom": {
-      "weight": 0.45,
-      "currentRatio": 0.55
+      "weight": 0.45
     }
   },
   "quickAccessSide": "right",

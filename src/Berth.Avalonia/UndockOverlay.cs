@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Styling;
 
 namespace Berth.Controls;
 
@@ -7,9 +8,10 @@ namespace Berth.Controls;
 /// Overlay layer of the open Undock tool windows (spec TW-3.3): each entry hugs the side of
 /// its placement at full extent — a side overlay takes the whole workspace height, including
 /// the bottom pane area; the bottom overlay takes the whole width between the stripes — with
-/// the thickness given by the window's <see cref="ToolWindowState.UndockWeight"/>, clamped to
-/// the render minimum (TW-2.8). The overlay paints above the docked layout and never affects
-/// its sizes.
+/// the thickness given by the side's <see cref="SideState.Weight"/> (the docked layer and the
+/// overlay share one side width), clamped to the render minimum (TW-2.8). The overlay paints
+/// above the docked layout on an opaque backdrop — the panels underneath must not show
+/// through — and never affects their sizes.
 /// </summary>
 internal sealed class UndockOverlay : Panel
 {
@@ -19,8 +21,9 @@ internal sealed class UndockOverlay : Panel
 
     public void AddOverlay(Control control, ToolWindowSide side, double weight)
     {
-        _entries.Add((control, side, weight));
-        Children.Add(control);
+        var entry = new OverlayBackdrop(control);
+        _entries.Add((entry, side, weight));
+        Children.Add(entry);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -58,4 +61,24 @@ internal sealed class UndockOverlay : Panel
 
     private static double Thickness(double weight, double extent) =>
         Math.Min(extent, Math.Max(BerthMetrics.MinPaneSize, weight * extent));
+
+    /// <summary>
+    /// Opaque backdrop of one overlay entry (spec TW-3.3): the skeleton brushes are
+    /// translucent, so without a backdrop the panels underneath would show through the
+    /// overlay. The surface color follows the theme variant; real theming is a later concern.
+    /// </summary>
+    private sealed class OverlayBackdrop : Border
+    {
+        public OverlayBackdrop(Control child)
+        {
+            Name = "PART_OverlayBackdrop";
+            Child = child;
+            ActualThemeVariantChanged += (_, _) => UpdateBackground();
+            UpdateBackground();
+        }
+
+        private void UpdateBackground() => Background = ActualThemeVariant == ThemeVariant.Dark
+            ? BerthBrushes.DarkOverlaySurface
+            : BerthBrushes.LightOverlaySurface;
+    }
 }

@@ -545,11 +545,6 @@ public static class LayoutApply
                 window = window with { PairRatio = LayoutDefaults.PairRatio };
             }
 
-            if (!IsValidFraction(window.UndockWeight))
-            {
-                window = window with { UndockWeight = LayoutDefaults.UndockWeight };
-            }
-
             if (window.Mode.IsInternal())
             {
                 if (window.LastInternalMode != window.Mode)
@@ -619,9 +614,8 @@ public static class LayoutApply
         };
     }
 
-    private static SideState NormalizeSide(SideState side) => new(
-        IsValidFraction(side.Weight) ? side.Weight : LayoutDefaults.SideWeight,
-        IsValidFraction(side.CurrentRatio) ? side.CurrentRatio : LayoutDefaults.CurrentRatio);
+    private static SideState NormalizeSide(SideState side) =>
+        new(IsValidFraction(side.Weight) ? side.Weight : LayoutDefaults.SideWeight);
 
     /// <summary>
     /// Saved floating bounds of tool windows: non-numeric values are reset to null (TW-10.4 —

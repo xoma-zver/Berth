@@ -3,9 +3,11 @@ using Xunit;
 namespace Berth.Core.Tests;
 
 /// <summary>
-/// Workspace geometry: side weight inheritance (TW-2.6), the pair ratio rules R1–R3 (TW-2.7) and the
-/// resize commands SetSideSize/SetSideRatio/SetUndockWeight/SetFloatingBounds (TW-5.9). The render-time
-/// min-size clamp (TW-2.8) is [UI] and out of core scope.
+/// Workspace geometry: side weight inheritance (TW-2.6), the pair ratio rules R1–R4 (TW-2.7)
+/// and the resize commands SetSideSize/SetSideRatio/SetFloatingBounds (TW-5.9). R1 is a
+/// derived value — the normalization of the pair's preferences — so the tests read it through
+/// GetPairRatio instead of asserting stored state. The render-time min-size clamp (TW-2.8) is
+/// [UI] and out of core scope.
 /// </summary>
 public class GeometryTests
 {
@@ -21,48 +23,69 @@ public class GeometryTests
     private static ToolWindowState Get(LayoutState state, string id) =>
         state.ToolWindows.First(w => string.Equals(w.Id, id, StringComparison.Ordinal));
 
-    // ---- TW-2.7 R1: open into a pair sets CurrentRatio from the opened window's preference ----
+    // ---- TW-2.7 R1: the pair ratio derives from the normalized preferences ----
 
     [Fact]
-    public void TW_2_7_R1_open_into_pair_sets_current_ratio_from_primary_preference() // E19
+    public void TW_2_7_R1_consistent_pair_degenerates_to_the_primary_preference() // E19
     {
-        // The side pair is open (P in Primary, S in Secondary); X is opened into the Primary group.
+        // The pair was taught together (preferences sum to 1): «Primary диктует» exactly.
         var layout = Layout(
-            Window("p", LeftPrimary, 0) with { IsOpen = true },
-            Window("x", LeftPrimary, 1) with { PairRatio = 0.7 },
-            Window("s", LeftSecondary, 0) with { IsOpen = true });
+            Window("p", LeftPrimary, 0) with { IsOpen = true, PairRatio = 0.7 },
+            Window("s", LeftSecondary, 0) with { IsOpen = true, PairRatio = 0.3 });
 
-        var result = layout.Open("x");
-
-        Assert.False(Get(result, "p").IsOpen); // X evicts the Primary occupant
-        Assert.Equal(0.7, result.Left.CurrentRatio); // pair takes X's preference (R1)
+        Assert.Equal(0.7, layout.GetPairRatio(ToolWindowSide.Left));
     }
 
     [Fact]
-    public void TW_2_7_R1_open_secondary_into_pair_maps_preference_to_primary_share()
+    public void TW_2_7_R1_inconsistent_pair_is_normalized()
     {
+        // A learned Primary meets a default newcomer: the arrangement is blended, not nuked
+        // to the newcomer's 0.5 and not frozen at the incumbent's 0.7.
         var layout = Layout(
-            Window("a", LeftPrimary, 0) with { IsOpen = true },
-            Window("x", LeftSecondary, 0) with { PairRatio = 0.75 });
+            Window("p", LeftPrimary, 0) with { IsOpen = true, PairRatio = 0.7 },
+            Window("s", LeftSecondary, 0) with { IsOpen = true, PairRatio = 0.5 });
 
-        var result = layout.Open("x");
-
-        // X is Secondary with own share 0.75 → Primary share = 0.25.
-        Assert.Equal(0.25, result.Left.CurrentRatio);
+        Assert.Equal(0.7 / 1.2, layout.GetPairRatio(ToolWindowSide.Left)!.Value, precision: 12);
     }
 
     [Fact]
-    public void TW_2_7_R4_single_docked_open_leaves_current_ratio_dormant()
+    public void TW_2_7_R1_pair_ratio_is_independent_of_the_arrival_order()
+    {
+        var closedPair = Layout(
+            Window("p", LeftPrimary, 0) with { PairRatio = 0.7 },
+            Window("s", LeftSecondary, 0) with { PairRatio = 0.5 });
+
+        var primaryLast = closedPair.Open("s").Open("p");
+        var secondaryLast = closedPair.Open("p").Open("s");
+
+        Assert.Equal(
+            primaryLast.GetPairRatio(ToolWindowSide.Left),
+            secondaryLast.GetPairRatio(ToolWindowSide.Left));
+    }
+
+    [Fact]
+    public void TW_2_7_R1_applies_to_a_pair_formed_by_move() // TW-5.8
+    {
+        // An open panel moved into the pair participates immediately: no «open vs move» gap.
+        var layout = Layout(
+            Window("p", LeftPrimary, 0) with { IsOpen = true, PairRatio = 0.6 },
+            Window("x", RightPrimary, 0) with { IsOpen = true, PairRatio = 0.6 });
+
+        var moved = layout.Move("x", LeftSecondary, 0);
+
+        Assert.Equal(0.5, moved.GetPairRatio(ToolWindowSide.Left)!.Value, precision: 12);
+    }
+
+    [Fact]
+    public void TW_2_7_R4_single_docked_open_has_no_pair_ratio()
     {
         var layout = Layout(Window("a", LeftPrimary, 0) with { PairRatio = 0.7 });
 
-        var result = layout.Open("a");
-
-        Assert.Equal(LayoutDefaults.CurrentRatio, result.Left.CurrentRatio); // no neighbour → dormant
+        Assert.Null(layout.Open("a").GetPairRatio(ToolWindowSide.Left)); // no neighbour → R4
     }
 
     [Fact]
-    public void TW_2_7_R1_overlay_open_does_not_form_a_pair()
+    public void TW_2_7_R1_overlay_neighbour_does_not_form_a_pair()
     {
         var layout = Layout(
             Window("a", LeftPrimary, 0) with { IsOpen = true },
@@ -75,40 +98,26 @@ public class GeometryTests
 
         var result = layout.Open("x");
 
-        Assert.Equal(LayoutDefaults.CurrentRatio, result.Left.CurrentRatio); // overlay does not participate (TW-3.3)
+        Assert.Null(result.GetPairRatio(ToolWindowSide.Left)); // overlay does not participate (TW-3.3)
         Assert.True(Get(result, "a").IsOpen); // and a different layer is not evicted
     }
 
-    [Fact]
-    public void TW_2_7_R1_docked_open_with_only_overlay_neighbour_stays_dormant()
-    {
-        var layout = Layout(
-            Window("x", LeftPrimary, 0) with { PairRatio = 0.7 },
-            Window("b", LeftSecondary, 0) with
-            {
-                IsOpen = true,
-                Mode = ToolWindowMode.Undock,
-                LastInternalMode = ToolWindowMode.Undock,
-            });
-
-        var result = layout.Open("x");
-
-        Assert.Equal(LayoutDefaults.CurrentRatio, result.Left.CurrentRatio); // neighbour is overlay, not a docked pair
-    }
-
-    // ---- TW-2.7 R3: close from a pair keeps CurrentRatio ----
+    // ---- TW-2.7 R3: close from a pair keeps the preferences ----
 
     [Fact]
-    public void TW_2_7_R3_close_from_pair_keeps_current_ratio()
+    public void TW_2_7_R3_close_and_reopen_restore_the_pair_ratio()
     {
-        var layout = Layout(
+        var pair = Layout(
             Window("a", LeftPrimary, 0) with { IsOpen = true },
             Window("b", LeftSecondary, 0) with { IsOpen = true })
-            with { Left = new SideState(CurrentRatio: 0.75) };
+            .SetSideRatio(ToolWindowSide.Left, 0.75);
 
-        var result = layout.Close("b");
+        var closed = pair.Close("b");
+        Assert.Null(closed.GetPairRatio(ToolWindowSide.Left)); // the survivor takes the whole side
+        Assert.Equal(0.75, Get(closed, "a").PairRatio); // preferences untouched (R3)
+        Assert.Equal(0.25, Get(closed, "b").PairRatio);
 
-        Assert.Equal(0.75, result.Left.CurrentRatio);
+        Assert.Equal(0.75, closed.Open("b").GetPairRatio(ToolWindowSide.Left)!.Value, precision: 12);
     }
 
     // ---- TW-2.6 / TW-5.9: SetSideSize and width inheritance ----
@@ -119,7 +128,6 @@ public class GeometryTests
         var result = LayoutState.Empty.SetSideSize(ToolWindowSide.Bottom, 0.4);
 
         Assert.Equal(0.4, result.Bottom.Weight);
-        Assert.Equal(LayoutDefaults.CurrentRatio, result.Bottom.CurrentRatio); // ratio untouched
         Assert.Equal(LayoutDefaults.SideWeight, result.Left.Weight); // other sides untouched
     }
 
@@ -149,7 +157,7 @@ public class GeometryTests
     // ---- TW-2.7 R2 / TW-5.9: SetSideRatio teaches both ----
 
     [Fact]
-    public void TW_2_7_R2_set_side_ratio_sets_current_ratio_and_teaches_both()
+    public void TW_2_7_R2_set_side_ratio_teaches_both_and_r1_reproduces_it()
     {
         var layout = Layout(
             Window("a", LeftPrimary, 0) with { IsOpen = true },
@@ -157,9 +165,9 @@ public class GeometryTests
 
         var result = layout.SetSideRatio(ToolWindowSide.Left, 0.75);
 
-        Assert.Equal(0.75, result.Left.CurrentRatio);
         Assert.Equal(0.75, Get(result, "a").PairRatio); // Primary learns p
         Assert.Equal(0.25, Get(result, "b").PairRatio); // Secondary learns 1 − p (INV-4: pair sums to 1)
+        Assert.Equal(0.75, result.GetPairRatio(ToolWindowSide.Left)!.Value, precision: 12); // R1 reproduces the drag
     }
 
     [Fact]
@@ -178,7 +186,6 @@ public class GeometryTests
 
         Assert.Equal(LayoutDefaults.PairRatio, Get(result, "a").PairRatio); // overlay panel not taught
         Assert.Equal(LayoutDefaults.PairRatio, Get(result, "b").PairRatio); // other side not taught
-        Assert.Equal(LayoutDefaults.CurrentRatio, result.Right.CurrentRatio); // right side untouched
     }
 
     [Theory]
@@ -189,33 +196,6 @@ public class GeometryTests
     public void TW_5_9_set_side_ratio_rejects_out_of_range(double primaryShare)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => LayoutState.Empty.SetSideRatio(ToolWindowSide.Left, primaryShare));
-    }
-
-    // ---- TW-5.9: SetUndockWeight ----
-
-    [Fact]
-    public void TW_5_9_set_undock_weight_writes_thickness_only()
-    {
-        var layout = Layout(Window("a", LeftPrimary, 0) with
-        {
-            Mode = ToolWindowMode.Undock,
-            LastInternalMode = ToolWindowMode.Undock,
-        });
-
-        var result = layout.SetUndockWeight("a", 0.4);
-
-        Assert.Equal(0.4, Get(result, "a").UndockWeight);
-        Assert.Equal(LayoutDefaults.SideWeight, result.Left.Weight); // side geometry untouched
-    }
-
-    [Fact]
-    public void TW_5_9_set_undock_weight_validates_range_and_id()
-    {
-        var layout = Layout(Window("a", LeftPrimary, 0));
-
-        Assert.Throws<ArgumentOutOfRangeException>(() => layout.SetUndockWeight("a", 0.0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => layout.SetUndockWeight("a", 1.0));
-        Assert.Throws<ArgumentException>(() => layout.SetUndockWeight("ghost", 0.4));
     }
 
     // ---- TW-5.9: SetFloatingBounds ----
@@ -266,11 +246,11 @@ public class GeometryTests
                 Window("a", LeftPrimary, 0),
                 Window("b", LeftSecondary, 0) with { PairRatio = 0.7 })
             .Open("a")
-            .Open("b") // R1 sets CurrentRatio from b's preference
+            .Open("b")
             .SetSideSize(ToolWindowSide.Left, 0.5)
-            .SetSideRatio(ToolWindowSide.Left, 0.6)
-            .SetUndockWeight("a", 0.4);
+            .SetSideRatio(ToolWindowSide.Left, 0.6);
 
         Assert.Empty(LayoutInvariants.Validate(result, registry));
+        Assert.Equal(0.6, result.GetPairRatio(ToolWindowSide.Left)!.Value, precision: 12);
     }
 }

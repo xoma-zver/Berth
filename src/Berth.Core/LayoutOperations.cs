@@ -14,11 +14,10 @@ public static class LayoutOperations
     /// layer — docked ({<see cref="ToolWindowMode.DockPinned"/>, <see cref="ToolWindowMode.DockUnpinned"/>})
     /// or overlay ({<see cref="ToolWindowMode.Undock"/>}) — is open in the same slot, that one is
     /// closed with its other fields untouched (TW-5.1); a window of the other layer is left alone
-    /// (INV-2). Opening always makes the stripe icon visible (TW-5.13). Opening a docked window into
-    /// a side whose neighbouring group already holds an open docked window forms a pair and sets the
-    /// side's <see cref="SideState.CurrentRatio"/> from the opened window's
-    /// <see cref="ToolWindowState.PairRatio"/> (rule R1, spec TW-2.7). Opening an already open window
-    /// changes nothing except activation (TW-5.2).
+    /// (INV-2). Opening always makes the stripe icon visible (TW-5.13). A pair formed by the
+    /// open needs no geometry bookkeeping: the pair's effective ratio derives from the members'
+    /// preferences (rule R1, <see cref="LayoutState.GetPairRatio"/>). Opening an already open
+    /// window changes nothing except activation (TW-5.2).
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of a tool window present in the layout.</param>
@@ -35,8 +34,7 @@ public static class LayoutOperations
         var opened = target with { IsOpen = true, IsIconVisible = true };
         var result = state
             .EvictLayer(opened.Slot, opened.Mode.GetLayer(), exceptId: id)
-            .MapWindow(id, _ => opened)
-            .ApplyOpenPairRatio(opened);
+            .MapWindow(id, _ => opened);
         return activate ? result with { ActiveToolWindowId = id } : result;
     }
 
@@ -219,10 +217,11 @@ public static class LayoutOperations
 
     /// <summary>
     /// Applies rule R2 of the pair ratio (spec TW-5.9, TW-2.7): a pair splitter dragged to
-    /// <paramref name="primaryShare"/> (the Primary content's share) sets the side's
-    /// <see cref="SideState.CurrentRatio"/> and «teaches both» — the open docked Primary window learns
-    /// <see cref="ToolWindowState.PairRatio"/> = <paramref name="primaryShare"/>, the open docked
-    /// Secondary window learns 1 − <paramref name="primaryShare"/>, so the pair stays consistent (INV-4).
+    /// <paramref name="primaryShare"/> (the Primary content's share) «teaches both» — the open
+    /// docked Primary window learns <see cref="ToolWindowState.PairRatio"/> =
+    /// <paramref name="primaryShare"/>, the open docked Secondary window learns
+    /// 1 − <paramref name="primaryShare"/> — making the pair consistent, so the derived rule R1
+    /// (<see cref="LayoutState.GetPairRatio"/>) reproduces the dragged position exactly.
     /// Windows of the overlay/floating layers do not participate (TW-3.3).
     /// </summary>
     /// <param name="state">Current layout.</param>
@@ -234,8 +233,7 @@ public static class LayoutOperations
         ArgumentNullException.ThrowIfNull(state);
         ValidateFraction(primaryShare, nameof(primaryShare));
 
-        var withRatio = state.WithSide(side, state.GetSide(side) with { CurrentRatio = primaryShare });
-        var windows = withRatio.ToolWindows.Select(w =>
+        var windows = state.ToolWindows.Select(w =>
         {
             if (!w.IsOpen || w.Slot.Side != side || w.Mode.GetLayer() != ToolWindowLayer.Docked)
             {
@@ -246,23 +244,7 @@ public static class LayoutOperations
                 ? w with { PairRatio = primaryShare }
                 : w with { PairRatio = 1 - primaryShare };
         });
-        return withRatio with { ToolWindows = [.. windows] };
-    }
-
-    /// <summary>
-    /// Sets the <see cref="ToolWindowState.UndockWeight"/> of a tool window — the thickness of its Undock
-    /// overlay as a fraction of the workspace (spec TW-5.9, TW-3.3). Side geometry is not affected.
-    /// </summary>
-    /// <param name="state">Current layout.</param>
-    /// <param name="id">Id of a tool window present in the layout.</param>
-    /// <param name="weight">New overlay thickness; must be in the open interval (0, 1).</param>
-    /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="weight"/> is not in (0, 1).</exception>
-    public static LayoutState SetUndockWeight(this LayoutState state, string id, double weight)
-    {
-        _ = state.Require(id);
-        ValidateFraction(weight, nameof(weight));
-        return state.MapWindow(id, w => w with { UndockWeight = weight });
+        return state with { ToolWindows = [.. windows] };
     }
 
     /// <summary>
@@ -281,38 +263,6 @@ public static class LayoutOperations
         _ = state.Require(id);
         bounds.ThrowIfNotFinite(nameof(bounds));
         return state.MapWindow(id, w => w with { FloatingBounds = bounds });
-    }
-
-    /// <summary>
-    /// Applies rule R1 of the pair ratio on open (spec TW-2.7): when the just-opened docked window's
-    /// neighbouring group holds an open docked window, the pair's <see cref="SideState.CurrentRatio"/>
-    /// takes the opened window's preference. Overlay/floating opens and single docked opens (R4) leave
-    /// the ratio dormant.
-    /// </summary>
-    private static LayoutState ApplyOpenPairRatio(this LayoutState state, ToolWindowState opened)
-    {
-        if (opened.Mode.GetLayer() != ToolWindowLayer.Docked)
-        {
-            return state;
-        }
-
-        var side = opened.Slot.Side;
-        var otherGroup = opened.Slot.Group == ToolWindowGroup.Primary
-            ? ToolWindowGroup.Secondary
-            : ToolWindowGroup.Primary;
-        var neighbourSlot = new ToolWindowSlot(side, otherGroup);
-
-        var neighbourPairOpen = state.ToolWindows.Any(w =>
-            w.IsOpen && w.Slot == neighbourSlot && w.Mode.GetLayer() == ToolWindowLayer.Docked);
-        if (!neighbourPairOpen)
-        {
-            return state;
-        }
-
-        var primaryShare = opened.Slot.Group == ToolWindowGroup.Primary
-            ? opened.PairRatio
-            : 1 - opened.PairRatio;
-        return state.WithSide(side, state.GetSide(side) with { CurrentRatio = primaryShare });
     }
 
     /// <summary>

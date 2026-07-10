@@ -228,7 +228,12 @@ public sealed class BerthWorkspace : Decorator
         var overlay = new UndockOverlay();
         foreach (var window in state.ToolWindows.Where(w => w.IsOpen && w.Mode.GetLayer() == ToolWindowLayer.Overlay))
         {
-            overlay.AddOverlay(ToolWindowDecorator.For(window, registry, workspace), window.Slot.Side, window.UndockWeight);
+            // The overlay thickness is the side's weight (TW-3.3): the docked layer and the
+            // overlay share one side width, so the overlay exactly covers its docked neighbour.
+            overlay.AddOverlay(
+                ToolWindowDecorator.For(window, registry, workspace),
+                window.Slot.Side,
+                state.GetSide(window.Slot.Side).Weight);
         }
 
         return overlay;

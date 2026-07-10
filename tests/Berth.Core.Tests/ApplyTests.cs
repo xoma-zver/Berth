@@ -142,15 +142,14 @@ public class ApplyTests
     public void TW_10_4_invalid_fractions_become_field_defaults()
     {
         var snapshot = Layout(
-                Window("a", LeftPrimary, 0) with { PairRatio = double.NaN, UndockWeight = 1.5 })
+                Window("a", LeftPrimary, 0) with { PairRatio = double.NaN })
             with { Left = new SideState(Weight: 0.0) };
 
         var result = LayoutState.Empty.Apply(snapshot, ApplyScope.Full, new ToolWindowRegistry());
 
         Assert.Equal(LayoutDefaults.PairRatio, Get(result.State, "a").PairRatio);
-        Assert.Equal(LayoutDefaults.UndockWeight, Get(result.State, "a").UndockWeight);
         Assert.Equal(LayoutDefaults.SideWeight, result.State.Left.Weight);
-        Assert.Equal(["INV-4", "INV-4", "INV-4"], FixRules(result));
+        Assert.Equal(["INV-4", "INV-4"], FixRules(result));
     }
 
     [Fact]
@@ -330,7 +329,6 @@ public class ApplyTests
         var current = Layout(Window("a", LeftPrimary, 0) with
         {
             PairRatio = 0.7,
-            UndockWeight = 0.4,
             FloatingBounds = bounds,
         });
         var macro = Layout(Window("a", RightPrimary, 0) with
@@ -339,7 +337,6 @@ public class ApplyTests
             Mode = ToolWindowMode.DockUnpinned,
             LastInternalMode = ToolWindowMode.DockUnpinned,
             PairRatio = 0.9,
-            UndockWeight = 0.9,
             FloatingBounds = new FloatingBounds(9, 9, 9, 9),
         });
 
@@ -350,7 +347,6 @@ public class ApplyTests
         Assert.Equal(ToolWindowMode.DockUnpinned, a.Mode);
         Assert.True(a.IsOpen);
         Assert.Equal(0.7, a.PairRatio); // геометрия панели — текущая
-        Assert.Equal(0.4, a.UndockWeight);
         Assert.Equal(bounds, a.FloatingBounds);
         Assert.Empty(result.Fixes);
     }
@@ -411,13 +407,13 @@ public class ApplyTests
     {
         var macro = LayoutState.Empty with
         {
-            Left = new SideState(0.4, 0.6),
+            Left = new SideState(0.4),
             QuickAccessSide = QuickAccessSide.Right,
         };
 
         var result = LayoutState.Empty.Apply(macro, ApplyScope.Arrangement, new ToolWindowRegistry());
 
-        Assert.Equal(new SideState(0.4, 0.6), result.State.Left);
+        Assert.Equal(new SideState(0.4), result.State.Left);
         Assert.Equal(QuickAccessSide.Right, result.State.QuickAccessSide);
         Assert.Empty(result.Fixes);
     }

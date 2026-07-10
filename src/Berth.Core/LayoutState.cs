@@ -40,4 +40,44 @@ public sealed record LayoutState
         ToolWindowSide.Bottom => Bottom,
         _ => throw new ArgumentOutOfRangeException(nameof(side), side, message: null),
     };
+
+    /// <summary>
+    /// Effective share of the Primary content of a side whose both groups hold open docked
+    /// windows — rule R1 (spec TW-2.7): the normalization
+    /// <c>P.PairRatio / (P.PairRatio + S.PairRatio)</c> of the pair's preferences. Derived,
+    /// never stored (spec TW-2.5), so it cannot desynchronize from the pair and does not
+    /// depend on how or in what order the pair formed; for a consistent pair — preferences
+    /// summing to 1, maintained by rule R2 — it equals the Primary window's own preference.
+    /// Always within (0..1) (INV-4). Null when the side has no open docked pair (rule R4).
+    /// </summary>
+    /// <param name="side">Side whose open docked pair is measured.</param>
+    public double? GetPairRatio(ToolWindowSide side)
+    {
+        ToolWindowState? primary = null;
+        ToolWindowState? secondary = null;
+        foreach (var window in ToolWindows)
+        {
+            if (!window.IsOpen || window.Slot.Side != side || window.Mode.GetLayer() != ToolWindowLayer.Docked)
+            {
+                continue;
+            }
+
+            // At most one open docked window per group (INV-2).
+            if (window.Slot.Group == ToolWindowGroup.Primary)
+            {
+                primary = window;
+            }
+            else
+            {
+                secondary = window;
+            }
+        }
+
+        if (primary is null || secondary is null)
+        {
+            return null;
+        }
+
+        return primary.PairRatio / (primary.PairRatio + secondary.PairRatio);
+    }
 }

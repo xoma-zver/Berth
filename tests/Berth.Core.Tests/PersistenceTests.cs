@@ -39,7 +39,7 @@ public class PersistenceTests
             {
                 Mode = ToolWindowMode.Undock,
                 LastInternalMode = ToolWindowMode.Undock,
-                UndockWeight = 0.25,
+                PairRatio = 0.4,
             },
             new ToolWindowState("terminal", BottomSecondary, 0) with
             {
@@ -49,9 +49,9 @@ public class PersistenceTests
             },
             new ToolWindowState("sleeper", RightPrimary, 0) with { IsIconVisible = false },
         ],
-        Left = new SideState(0.25, 0.75),
-        Right = new SideState(0.3, 0.6),
-        Bottom = new SideState(0.45, 0.55),
+        Left = new SideState(0.25),
+        Right = new SideState(0.3),
+        Bottom = new SideState(0.45),
         QuickAccessSide = QuickAccessSide.Right,
         ActiveToolWindowId = "project",
         DockArea = new DockAreaState
