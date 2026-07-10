@@ -23,6 +23,18 @@ internal static class BerthMetrics
 
     /// <summary>Thickness of a splitter separator between panes.</summary>
     public const double SplitterThickness = 4;
+
+    /// <summary>
+    /// Guard of drag-committed fractions: a fraction derived from rendered bounds is clamped
+    /// into [Min, 1−Min] before entering a core command, which requires the open interval
+    /// (0..1) (spec TW-5.9, INV-4). Fractions of any realistic drag pass through untouched —
+    /// the render minimums (<see cref="MinPaneSize"/>) keep them far from the edges.
+    /// </summary>
+    public const double MinCommittedFraction = 0.01;
+
+    /// <summary>Clamps a drag-committed fraction into the guard range of <see cref="MinCommittedFraction"/>.</summary>
+    public static double ClampFraction(double fraction) =>
+        Math.Clamp(fraction, MinCommittedFraction, 1 - MinCommittedFraction);
 }
 
 /// <summary>

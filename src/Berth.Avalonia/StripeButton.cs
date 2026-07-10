@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
@@ -12,37 +13,42 @@ namespace Berth.Controls;
 /// Stripe icon of one tool window (spec TW-1.4): shows the application-supplied icon resource
 /// when <see cref="ToolWindowDescriptor.IconKey"/> resolves to an <see cref="IImage"/>,
 /// otherwise the initials of the title; the tooltip is the title. An open window is
-/// highlighted and carries the <c>:open</c> pseudo-class (spec TW-6.4). The button is a
-/// passive visual: input wiring reduces to core commands in a later task (ADR-0004).
+/// highlighted and carries the <c>:open</c> pseudo-class (spec TW-6.4). A left click toggles
+/// openness regardless of activity (spec TW-5.4); the right-click context menu is the compact
+/// menu of TW-5.16 — both reduce to core commands (ADR-0004).
 /// </summary>
 public sealed class StripeButton : Decorator
 {
     private readonly Border _face;
     private readonly string? _iconKey;
+    private readonly BerthWorkspace _workspace;
+    private bool _pressed;
 
-    internal StripeButton(string toolWindowId, string title, string? iconKey, bool isOpen)
+    internal StripeButton(ToolWindowState window, ToolWindowDescriptor descriptor, BerthWorkspace workspace)
     {
-        ToolWindowId = toolWindowId;
-        IsOpen = isOpen;
-        _iconKey = iconKey;
+        ToolWindowId = window.Id;
+        IsOpen = window.IsOpen;
+        _iconKey = descriptor.IconKey;
+        _workspace = workspace;
         _face = new Border
         {
             Width = BerthMetrics.StripeButtonSize,
             Height = BerthMetrics.StripeButtonSize,
             Margin = new Thickness(4, 4, 4, 0),
             CornerRadius = new CornerRadius(4),
-            Background = isOpen ? BerthBrushes.OpenIcon : Brushes.Transparent,
+            Background = window.IsOpen ? BerthBrushes.OpenIcon : Brushes.Transparent,
             Child = new TextBlock
             {
-                Text = Initials(title),
+                Text = Initials(descriptor.Title),
                 FontSize = 11,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             },
         };
         Child = _face;
-        ToolTip.SetTip(this, title);
-        PseudoClasses.Set(":open", isOpen);
+        ToolTip.SetTip(this, descriptor.Title);
+        PseudoClasses.Set(":open", window.IsOpen);
+        ContextFlyout = ToolWindowMenus.BuildIconMenu(window, workspace);
     }
 
     /// <summary>Id of the tool window the icon represents.</summary>
@@ -50,6 +56,32 @@ public sealed class StripeButton : Decorator
 
     /// <summary>Whether the represented window is open — open icons are highlighted (spec TW-6.4).</summary>
     public bool IsOpen { get; }
+
+    /// <inheritdoc/>
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _pressed = true;
+            e.Handled = true;
+        }
+    }
+
+    /// <inheritdoc/>
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        if (_pressed && e.InitialPressMouseButton == MouseButton.Left)
+        {
+            // TW-5.4: the click toggles openness, regardless of the window's activity.
+            var id = ToolWindowId;
+            _workspace.Execute(s => IsOpen ? s.Close(id) : s.Open(id));
+            e.Handled = true;
+        }
+
+        _pressed = false;
+    }
 
     /// <inheritdoc/>
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)

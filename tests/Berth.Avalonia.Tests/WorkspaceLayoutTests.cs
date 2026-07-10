@@ -224,7 +224,7 @@ public class WorkspaceLayoutTests
     }
 
     [AvaloniaFact]
-    public void Decorator_shows_the_title_and_the_passive_chrome_buttons()
+    public void Decorator_shows_the_title_and_the_chrome_buttons()
     {
         var registry = Registry("p:Project");
         var state = LayoutState.Empty with

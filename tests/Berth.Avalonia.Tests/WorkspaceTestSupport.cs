@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Berth;
@@ -8,7 +10,7 @@ namespace Berth.Controls.Tests;
 
 /// <summary>
 /// Shared plumbing of the workspace tests: showing a state in a headless window, addressing
-/// internal controls by their PART names, and window-relative geometry.
+/// internal controls by their PART names, window-relative geometry, and pointer input.
 /// </summary>
 internal static class WorkspaceTestSupport
 {
@@ -39,6 +41,25 @@ internal static class WorkspaceTestSupport
         var origin = control.TranslatePoint(default, ancestor)
             ?? throw new InvalidOperationException("The control is not attached under the ancestor.");
         return new Rect(origin, control.Bounds.Size);
+    }
+
+    /// <summary>Center of a control in window coordinates — the target of pointer input.</summary>
+    public static Point Center(Control control, Window window) => BoundsIn(control, window).Center;
+
+    public static void Click(Window window, Control control)
+    {
+        var point = Center(control, window);
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    public static void RightClick(Window window, Control control)
+    {
+        var point = Center(control, window);
+        window.MouseDown(point, MouseButton.Right);
+        window.MouseUp(point, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
     }
 
     public static IReadOnlyList<StripeButton> Buttons(Visual root) =>

@@ -7,17 +7,25 @@ namespace Berth.Controls;
 
 /// <summary>
 /// Chrome of one materialized tool window: a header with the title and the menu and hide
-/// buttons, and the body area below. The buttons are passive visuals — their gestures reduce
-/// to core commands in a later task (ADR-0004); the body is a placeholder until the factory
-/// bridge of the walking skeleton arrives (spec TW-9.3: content creation is the
-/// materialization layer's duty). The title is not otherwise regulated by the spec (TW-6.4).
+/// buttons, and the body area below. The «—» button closes the window (spec TW-5.3); the «⋮»
+/// button and the title-bar context menu open the full menu of TW-5.16 — every gesture reduces
+/// to a core command (ADR-0004). The body is a placeholder until the factory bridge of the
+/// walking skeleton arrives (spec TW-9.3: content creation is the materialization layer's
+/// duty). The title is not otherwise regulated by the spec (TW-6.4).
 /// </summary>
 public sealed class ToolWindowDecorator : Decorator
 {
-    internal ToolWindowDecorator(string toolWindowId, string title)
+    internal ToolWindowDecorator(ToolWindowState window, string title, BerthWorkspace workspace)
     {
-        ToolWindowId = toolWindowId;
+        ToolWindowId = window.Id;
         Title = title;
+        var id = window.Id;
+
+        var menu = ToolWindowMenus.BuildWindowMenu(window, workspace);
+        var menuButton = ChromeButton("⋮", "PART_MenuButton");
+        menuButton.Flyout = menu;
+        var hideButton = ChromeButton("—", "PART_HideButton");
+        hideButton.Click += (_, _) => workspace.Execute(s => s.Close(id));
 
         var buttons = new StackPanel
         {
@@ -25,8 +33,8 @@ public sealed class ToolWindowDecorator : Decorator
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 4, 0),
         };
-        buttons.Children.Add(ChromeButton("⋮", "PART_MenuButton"));
-        buttons.Children.Add(ChromeButton("—", "PART_HideButton"));
+        buttons.Children.Add(menuButton);
+        buttons.Children.Add(hideButton);
         DockPanel.SetDock(buttons, Dock.Right);
 
         var header = new DockPanel { Height = BerthMetrics.HeaderHeight };
@@ -41,10 +49,12 @@ public sealed class ToolWindowDecorator : Decorator
 
         var headerBorder = new Border
         {
+            Name = "PART_Header",
             Child = header,
             Background = BerthBrushes.Pane,
             BorderBrush = BerthBrushes.Separator,
             BorderThickness = new Thickness(0, 0, 0, 1),
+            ContextFlyout = menu,
         };
         DockPanel.SetDock(headerBorder, Dock.Top);
 
@@ -68,8 +78,8 @@ public sealed class ToolWindowDecorator : Decorator
     public string Title { get; }
 
     /// <summary>Creates the decorator for a window state, taking the title from the registration when there is one.</summary>
-    internal static ToolWindowDecorator For(ToolWindowState window, ToolWindowRegistry registry) =>
-        new(window.Id, registry.TryGet(window.Id, out var descriptor) ? descriptor.Title : window.Id);
+    internal static ToolWindowDecorator For(ToolWindowState window, ToolWindowRegistry registry, BerthWorkspace workspace) =>
+        new(window, registry.TryGet(window.Id, out var descriptor) ? descriptor.Title : window.Id, workspace);
 
     private static Button ChromeButton(string glyph, string name) => new()
     {

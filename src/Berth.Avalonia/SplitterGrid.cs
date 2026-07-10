@@ -3,17 +3,42 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// Two children split by a passive separator — [share ★ | splitter | 1−share ★] along one
-/// axis — with render-time minimums on both cells (spec TW-2.8). Shared by the side pair
-/// stacks (TW-2.3, TW-2.4) and the bottom pane row of the workspace (TW-2.1); the splitter is
-/// a passive visual until drags reduce to core commands (ADR-0004, TW-5.9).
+/// Two children split by a live splitter — [share ★ | splitter | 1−share ★] along one axis —
+/// with render-time minimums on both cells (spec TW-2.8). Shared by the side pair stacks
+/// (TW-2.3, TW-2.4) and the bottom pane row of the workspace (TW-2.1). The drag itself is pure
+/// visualization (ADR-0004); releasing commits the first child's share of the two cells
+/// through the callback as one core command (TW-5.9).
 /// </summary>
 internal static class SplitterGrid
 {
-    public static Grid Build(Control first, Control second, double firstShare, bool vertical, string splitterName)
+    public static Grid Build(
+        Control first,
+        Control second,
+        double firstShare,
+        bool vertical,
+        string splitterName,
+        Action<double> commitFirstShare)
     {
         var grid = new Grid();
-        var splitter = new Border { Name = splitterName, Background = BerthBrushes.Separator };
+        var splitter = new GridSplitter
+        {
+            Name = splitterName,
+            Background = BerthBrushes.Separator,
+            ResizeDirection = vertical ? GridResizeDirection.Rows : GridResizeDirection.Columns,
+            Focusable = false, // keyboard resize would bypass the release commit
+            MinWidth = 0, // theme minimums would widen the 4px separator
+            MinHeight = 0,
+        };
+        splitter.DragCompleted += (_, _) =>
+        {
+            var firstExtent = vertical ? first.Bounds.Height : first.Bounds.Width;
+            var total = firstExtent + (vertical ? second.Bounds.Height : second.Bounds.Width);
+            if (total > 0)
+            {
+                commitFirstShare(BerthMetrics.ClampFraction(firstExtent / total));
+            }
+        };
+
         if (vertical)
         {
             grid.RowDefinitions =

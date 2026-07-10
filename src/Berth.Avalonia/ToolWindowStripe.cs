@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 
 namespace Berth.Controls;
 
@@ -16,15 +19,15 @@ namespace Berth.Controls;
 /// </summary>
 internal sealed class ToolWindowStripe : Decorator
 {
-    public ToolWindowStripe(QuickAccessSide stripe, LayoutState state, ToolWindowRegistry registry)
+    public ToolWindowStripe(QuickAccessSide stripe, LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
     {
         Name = stripe == QuickAccessSide.Left ? "PART_LeftStripe" : "PART_RightStripe";
         var side = stripe == QuickAccessSide.Left ? ToolWindowSide.Left : ToolWindowSide.Right;
         var bottomGroup = stripe == QuickAccessSide.Left ? ToolWindowGroup.Primary : ToolWindowGroup.Secondary;
 
-        var primary = Buttons(state, registry, new ToolWindowSlot(side, ToolWindowGroup.Primary));
-        var secondary = Buttons(state, registry, new ToolWindowSlot(side, ToolWindowGroup.Secondary));
-        var bottom = Buttons(state, registry, new ToolWindowSlot(ToolWindowSide.Bottom, bottomGroup));
+        var primary = Buttons(state, registry, workspace, new ToolWindowSlot(side, ToolWindowGroup.Primary));
+        var secondary = Buttons(state, registry, workspace, new ToolWindowSlot(side, ToolWindowGroup.Secondary));
+        var bottom = Buttons(state, registry, workspace, new ToolWindowSlot(ToolWindowSide.Bottom, bottomGroup));
 
         var top = new StackPanel();
         top.Children.AddRange(primary);
@@ -42,7 +45,7 @@ internal sealed class ToolWindowStripe : Decorator
         top.Children.AddRange(secondary);
         if (state.QuickAccessSide == stripe && !QuickAccess.List(state, registry).IsEmpty)
         {
-            top.Children.Add(new QuickAccessButton());
+            top.Children.Add(new QuickAccessButton(state, registry, workspace));
         }
 
         // The bottom segment grows upward: Order 0 is nearest the bottom edge (TW-1.4),
@@ -65,14 +68,15 @@ internal sealed class ToolWindowStripe : Decorator
         };
     }
 
-    private static List<StripeButton> Buttons(LayoutState state, ToolWindowRegistry registry, ToolWindowSlot slot)
+    private static List<StripeButton> Buttons(
+        LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace, ToolWindowSlot slot)
     {
         var buttons = new List<StripeButton>();
         foreach (var window in state.ToolWindows.Where(w => w.Slot == slot && w.IsIconVisible).OrderBy(w => w.Order))
         {
             if (registry.TryGet(window.Id, out var descriptor))
             {
-                buttons.Add(new StripeButton(window.Id, descriptor.Title, descriptor.IconKey, window.IsOpen));
+                buttons.Add(new StripeButton(window, descriptor, workspace));
             }
         }
 
@@ -82,12 +86,16 @@ internal sealed class ToolWindowStripe : Decorator
 
 /// <summary>
 /// The quick access «⋯» button (spec TW-8.1): sits at the end of the Secondary segment of the
-/// configured stripe; not created at all while the quick access list is empty (TW-8.4).
-/// Opening its flyout is a later task (ADR-0004).
+/// configured stripe; not created at all while the quick access list is empty (TW-8.4). A left
+/// click opens the list of hidden windows (TW-8.2) — selecting one returns its icon and opens
+/// it (TW-8.3); the context menu moves the button between the stripes (TW-5.15, TW-5.16). The
+/// list is an attached flyout, so it stays reachable without opening the popup.
 /// </summary>
 internal sealed class QuickAccessButton : Decorator
 {
-    public QuickAccessButton()
+    private bool _pressed;
+
+    public QuickAccessButton(LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
     {
         Name = "PART_QuickAccess";
         Child = new Border
@@ -96,6 +104,7 @@ internal sealed class QuickAccessButton : Decorator
             Height = BerthMetrics.StripeButtonSize,
             Margin = new Thickness(4, 4, 4, 0),
             CornerRadius = new CornerRadius(4),
+            Background = Brushes.Transparent, // a null background would defeat hit testing
             Child = new TextBlock
             {
                 Text = "⋯",
@@ -103,5 +112,31 @@ internal sealed class QuickAccessButton : Decorator
                 VerticalAlignment = VerticalAlignment.Center,
             },
         };
+        FlyoutBase.SetAttachedFlyout(this, ToolWindowMenus.BuildQuickAccessList(state, registry, workspace));
+        ContextFlyout = ToolWindowMenus.BuildQuickAccessSideMenu(state.QuickAccessSide, workspace);
+    }
+
+    /// <inheritdoc/>
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _pressed = true;
+            e.Handled = true;
+        }
+    }
+
+    /// <inheritdoc/>
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        if (_pressed && e.InitialPressMouseButton == MouseButton.Left)
+        {
+            FlyoutBase.ShowAttachedFlyout(this);
+            e.Handled = true;
+        }
+
+        _pressed = false;
     }
 }
