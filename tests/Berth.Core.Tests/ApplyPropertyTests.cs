@@ -18,6 +18,26 @@ public class ApplyPropertyTests
 {
     private static readonly FloatingBounds Bounds = new(10, 20, 800, 600);
 
+    // Общий реестр команд и Apply: панели заявляют вкладки префиксами, документы d* спят
+    // незаявленными (TW-9.11); фабрик тела нет — посев TW-9.5 не участвует в round-trip.
+    private static readonly ToolWindowRegistry SharedRegistry = CreateSharedRegistry();
+
+    private static ToolWindowRegistry CreateSharedRegistry()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.Register(new ToolWindowDescriptor(
+            "tw0", "tw0", new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Primary))
+        {
+            TabFactory = new StubTabFactory("tw0:"),
+        });
+        registry.Register(new ToolWindowDescriptor(
+            "tw1", "tw1", new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Primary))
+        {
+            TabFactory = new StubTabFactory("tw1:"),
+        });
+        return registry;
+    }
+
     // ---- round trip over states produced by core operations ----
 
     [Fact]
@@ -68,8 +88,8 @@ public class ApplyPropertyTests
         // Проверка проверяющего: без явного полиморфизма рефлексивный сериализатор писал бы
         // TabTreeNode пустым объектом и слеп бы ровно на деревьях.
         var baseline = LayoutState.Empty
-            .OpenDocument("x")
-            .OpenDocument("y")
+            .OpenDocument("x", SharedRegistry)
+            .OpenDocument("y", SharedRegistry)
             .SplitTab("y", SplitDirection.Right);
         var reshared = baseline.SetSplitShares(DockHost.MainWindow, [], [0.4, 0.6]);
 
@@ -103,20 +123,41 @@ public class ApplyPropertyTests
     [Fact]
     public void DA_9_2_apply_never_drops_a_distinct_tab_id()
     {
-        // Несущее свойство diff-освобождения контента (ContentLifecycle): дедуп оставляет
-        // первое вхождение, INV-D6 удаляет только бестабовые окна — различимое множество
-        // id вкладок Apply сохраняет в точности, и освобождение по диффу поверх Apply
-        // корректно по построению.
+        // Несущее свойство diff-освобождения контента (ContentLifecycle): дедуп вкладок
+        // оставляет первое вхождение, INV-D6 удаляет только бестабовые окна, переезд INV-D5
+        // перемещает — различимое множество id вкладок Apply сохраняет в точности, и
+        // освобождение по диффу поверх Apply корректно по построению. Единственная законная
+        // потеря — дерево панели-дубликата: дубликат записи Id отбрасывается целиком со всеми
+        // собственными атрибутами (TW-10.4, INV-1), поэтому «до» считается после дедупа записей.
         GenGarbage.Sample(
             snapshot =>
             {
                 var result = LayoutState.Empty.Apply(snapshot, ApplyScope.Full, new ToolWindowRegistry());
 
-                var before = AllTabs(snapshot.DockArea).ToHashSet(StringComparer.Ordinal);
-                var after = AllTabs(result.State.DockArea).ToHashSet(StringComparer.Ordinal);
+                var before = SurvivingTabs(snapshot);
+                var after = AllTabs(result.State).ToHashSet(StringComparer.Ordinal);
                 Assert.True(before.SetEquals(after), "Apply must keep the distinct set of tab ids intact");
             },
             iter: 5_000);
+    }
+
+    /// <summary>Различимое множество id вкладок снапшота после дедупа записей панелей (INV-1): док-хосты плюс деревья первых вхождений каждого Id панели.</summary>
+    private static HashSet<string> SurvivingTabs(LayoutState snapshot)
+    {
+        var tabs = Hosts(snapshot.DockArea)
+            .SelectMany(h => Groups(h.Root))
+            .SelectMany(g => g.Tabs)
+            .ToHashSet(StringComparer.Ordinal);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var panel in snapshot.ToolWindows.Where(w => seenIds.Add(w.Id)))
+        {
+            foreach (var group in Groups(panel.ContentTree))
+            {
+                tabs.UnionWith(group.Tabs);
+            }
+        }
+
+        return tabs;
     }
 
     // ---- the reflective witness ----
@@ -157,20 +198,17 @@ public class ApplyPropertyTests
 
     private static (ToolWindowRegistry Registry, LayoutState State) BuildStart()
     {
-        var registry = new ToolWindowRegistry();
         var left = new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Primary);
         var right = new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Primary);
-        registry.Register(new ToolWindowDescriptor("tw0", "tw0", left));
-        registry.Register(new ToolWindowDescriptor("tw1", "tw1", right));
         var state = LayoutState.Empty with
         {
             ToolWindows = [new ToolWindowState("tw0", left, 0), new ToolWindowState("tw1", right, 0)],
         };
-        return (registry, state);
+        return (SharedRegistry, state);
     }
 
     private static readonly Gen<Op> GenOp =
-        from kind in Gen.Int[0, 17]
+        from kind in Gen.Int[0, 18]
         from a in Gen.Int[0, 1023]
         from b in Gen.Int[0, 1023]
         from c in Gen.Int[0, 1023]
@@ -188,7 +226,7 @@ public class ApplyPropertyTests
         {
             var id = $"tw{A % 2}";
             var fraction = 0.05 + ((C % 90) / 100.0);
-            var tabs = AllTabs(state.DockArea);
+            var tabs = AllTabs(state);
             string Tab(int seed) => tabs[seed % tabs.Count];
 
             switch (Kind)
@@ -214,13 +252,31 @@ public class ApplyPropertyTests
                 case 9:
                     return state.SetFloatingBounds(id, new FloatingBounds(A, B, 100 + C, 200));
                 case 10:
-                    return state.OpenDocument($"d{A % 8}");
+                    return state.OpenDocument($"d{A % 8}", SharedRegistry);
                 case 11:
                     return tabs.Count == 0 ? state : state.CloseTab(Tab(A));
                 case 12:
                     return tabs.Count == 0 ? state : state.ActivateTab(Tab(A));
                 case 13:
-                    return tabs.Count == 0 ? state : state.MoveTab(Tab(A), DockGroupRef.AtTab(Tab(B)), C - 2);
+                {
+                    if (tabs.Count == 0)
+                    {
+                        return state;
+                    }
+
+                    var moved = Tab(A);
+                    var target = Tab(B);
+                    // canHost (INV-D5): перенос в панель — только для её подтверждённых вкладок.
+                    var destinationPanel = PanelOf(state, target);
+                    if (destinationPanel is not null
+                        && !string.Equals(PanelOf(state, moved), destinationPanel, StringComparison.Ordinal)
+                        && !moved.StartsWith(destinationPanel + ":", StringComparison.Ordinal))
+                    {
+                        return state;
+                    }
+
+                    return state.MoveTab(moved, DockGroupRef.AtTab(target), C - 2, SharedRegistry);
+                }
                 case 14:
                     return tabs.Count == 0 ? state : state.SplitTab(Tab(A), (SplitDirection)(B % 4));
                 case 15:
@@ -236,9 +292,12 @@ public class ApplyPropertyTests
 
                 case 17:
                 {
-                    var rotatable = RotatableTabs(state.DockArea);
+                    var rotatable = RotatableTabs(state);
                     return rotatable.Count == 0 ? state : state.RotateSplit(rotatable[A % rotatable.Count]);
                 }
+
+                case 18:
+                    return state.OpenPanelTab($"tw{A % 2}:t{B % 4}", SharedRegistry);
 
                 default:
                     return state;
@@ -270,6 +329,7 @@ public class ApplyPropertyTests
         from pair in GenBadFraction
         from undock in GenBadFraction
         from boundsKind in Gen.Int[0, 2]
+        from tree in GenGarbageNode(2)
         select new ToolWindowState($"tw{id}", ToolWindowSlot.All[slot], 0) with
         {
             Order = order,
@@ -285,6 +345,7 @@ public class ApplyPropertyTests
                 1 => new FloatingBounds(1, 2, 300, 200),
                 _ => new FloatingBounds(double.NaN, 0, 10, 10),
             },
+            ContentTree = tree,
         };
 
     /// <summary>
@@ -404,16 +465,34 @@ public class ApplyPropertyTests
         }
     }
 
-    private static List<string> AllTabs(DockAreaState area) =>
-        Hosts(area).SelectMany(h => Groups(h.Root)).SelectMany(g => g.Tabs).ToList();
+    private static IEnumerable<TabTreeNode> AllRoots(LayoutState state)
+    {
+        foreach (var (_, root) in Hosts(state.DockArea))
+        {
+            yield return root;
+        }
+
+        foreach (var panel in state.ToolWindows)
+        {
+            yield return panel.ContentTree;
+        }
+    }
+
+    private static List<string> AllTabs(LayoutState state) =>
+        AllRoots(state).SelectMany(Groups).SelectMany(g => g.Tabs).ToList();
 
     private static List<string> TabsInWindows(DockAreaState area) =>
         Hosts(area).Where(h => !h.Host.IsMainWindow)
             .SelectMany(h => Groups(h.Root)).SelectMany(g => g.Tabs).ToList();
 
-    private static List<string> RotatableTabs(DockAreaState area) =>
-        Hosts(area).Where(h => h.Root is SplitNode)
-            .SelectMany(h => Groups(h.Root)).SelectMany(g => g.Tabs).ToList();
+    private static List<string> RotatableTabs(LayoutState state) =>
+        AllRoots(state).Where(root => root is SplitNode)
+            .SelectMany(Groups).SelectMany(g => g.Tabs).ToList();
+
+    /// <summary>Id панели, в чьём дереве живёт вкладка, либо null для хостов док-зоны.</summary>
+    private static string? PanelOf(LayoutState state, string tab) =>
+        state.ToolWindows.FirstOrDefault(w =>
+            Groups(w.ContentTree).Any(g => g.Tabs.Contains(tab, StringComparer.Ordinal)))?.Id;
 
     private static string? FirstTab(TabTreeNode node) => node switch
     {

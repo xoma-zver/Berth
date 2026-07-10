@@ -116,4 +116,57 @@ public class TabOwnershipTests
     {
         Assert.Throws<ArgumentException>(() => new ToolWindowRegistry().Unregister("ghost"));
     }
+
+    // ---- implicit body claims (TW-9.5, задача 1.8) ----
+
+    [Fact]
+    public void TW_9_5_registration_with_a_body_factory_claims_its_own_id()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.Register(new ToolWindowDescriptor("p", "P", LeftPrimary)
+        {
+            ContentFactory = new StubToolWindowFactory(),
+        });
+
+        Assert.Equal(TabOwner.ToolWindow("p"), registry.ResolveTabOwner("p"));
+        Assert.Null(registry.ResolveTabOwner("p2")); // заявка — только на сам id
+    }
+
+    [Fact]
+    public void TW_9_5_registration_without_a_body_factory_claims_no_body()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.Register(new ToolWindowDescriptor("p", "P", LeftPrimary));
+
+        Assert.Null(registry.ResolveTabOwner("p"));
+    }
+
+    [Fact]
+    public void TW_9_11_claims_of_one_registration_unite_without_a_conflict()
+    {
+        // Неявная заявка тела и собственный предикат TabFactory накрывают один id —
+        // конфликт считается только между разными регистрациями (TW-9.11).
+        var registry = new ToolWindowRegistry();
+        registry.Register(new ToolWindowDescriptor("p", "P", LeftPrimary)
+        {
+            ContentFactory = new StubToolWindowFactory(),
+            TabFactory = new StubTabFactory("p"), // заявляет и сам id "p"
+        });
+
+        Assert.Equal(TabOwner.ToolWindow("p"), registry.ResolveTabOwner("p"));
+        Assert.Equal(TabOwner.ToolWindow("p"), registry.ResolveTabOwner("p:t1"));
+    }
+
+    [Fact]
+    public void TW_9_11_foreign_claim_on_a_body_id_conflicts()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new StubTabFactory("p"));
+        registry.Register(new ToolWindowDescriptor("p", "P", LeftPrimary)
+        {
+            ContentFactory = new StubToolWindowFactory(),
+        });
+
+        Assert.Throws<InvalidOperationException>(() => registry.ResolveTabOwner("p"));
+    }
 }

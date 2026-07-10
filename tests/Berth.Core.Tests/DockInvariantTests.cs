@@ -3,9 +3,9 @@ using Xunit;
 namespace Berth.Core.Tests;
 
 /// <summary>
-/// Dock-area invariants INV-D1…INV-D4 and INV-D6 (spec document-area, section 4): valid states
-/// pass, each violation is reported with its id. INV-D5 becomes checkable with panel content
-/// trees (backlog task 1.8).
+/// Tree invariants INV-D1…INV-D6 (spec document-area, section 4): valid states pass, each
+/// violation is reported with its id. INV-D1…INV-D4 cover panel content trees too (TW-9.5);
+/// INV-D5 confirms tab ownership in panel trees against the registry claims.
 /// </summary>
 public class DockInvariantTests
 {
@@ -28,8 +28,8 @@ public class DockInvariantTests
     private static LayoutState Layout(DockAreaState dockArea) =>
         LayoutState.Empty with { DockArea = dockArea };
 
-    private static string[] ViolatedInvariants(LayoutState state) =>
-        LayoutInvariants.Validate(state, new ToolWindowRegistry())
+    private static string[] ViolatedInvariants(LayoutState state, ToolWindowRegistry? registry = null) =>
+        LayoutInvariants.Validate(state, registry ?? new ToolWindowRegistry())
             .Select(v => v.InvariantId)
             .Distinct()
             .ToArray();
@@ -227,5 +227,80 @@ public class DockInvariantTests
         });
 
         Assert.Equal(["INV-D4", "INV-D6"], ViolatedInvariants(layout));
+    }
+
+    // ---- panel content trees (задача 1.8) ----
+
+    private static readonly ToolWindowSlot LeftPrimary = new(ToolWindowSide.Left, ToolWindowGroup.Primary);
+
+    private static LayoutState WithPanelTree(TabTreeNode tree) => LayoutState.Empty with
+    {
+        ToolWindows = [new ToolWindowState("p", LeftPrimary, 0) with { ContentTree = tree }],
+    };
+
+    [Fact]
+    public void INV_D5_confirmed_foreign_owner_in_a_panel_tree_is_reported()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new StubTabFactory("d"));
+
+        Assert.Equal(["INV-D5"], ViolatedInvariants(WithPanelTree(Group("d1")), registry));
+    }
+
+    [Fact]
+    public void INV_D5_unclaimed_tab_sleeps_in_the_presumed_owner_tree()
+    {
+        // Незаявленный id легален в дереве предполагаемого владельца (INV-D5, TW-9.11).
+        Assert.Empty(ViolatedInvariants(WithPanelTree(Group("s1"))));
+    }
+
+    [Fact]
+    public void INV_D5_conflicted_claim_confirms_nothing()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new StubTabFactory("d"));
+        registry.RegisterDockContent(new StubTabFactory("d"));
+
+        Assert.Empty(ViolatedInvariants(WithPanelTree(Group("d1")), registry));
+    }
+
+    [Fact]
+    public void INV_D5_own_claimed_tab_is_legal()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.Register(new ToolWindowDescriptor("p", "P", LeftPrimary)
+        {
+            TabFactory = new StubTabFactory("p:"),
+        });
+
+        Assert.Empty(ViolatedInvariants(WithPanelTree(Group("p:t1")), registry));
+    }
+
+    [Fact]
+    public void INV_D2_duplicate_between_a_dock_host_and_a_panel_tree_is_reported()
+    {
+        var layout = WithPanelTree(Group("x")) with
+        {
+            DockArea = new DockAreaState { Root = Group("x"), CurrentTabId = "x" },
+        };
+
+        Assert.Equal(["INV-D2"], ViolatedInvariants(layout));
+    }
+
+    [Fact]
+    public void INV_D1_non_canonical_panel_tree_is_reported()
+    {
+        // Однодетный сплит ломает и сумму долей — INV-D3 рядом, как в док-варианте.
+        var layout = WithPanelTree(Row(Child(Group("p:t1"), 0.5)));
+
+        Assert.Equal(["INV-D1", "INV-D3"], ViolatedInvariants(layout));
+    }
+
+    [Fact]
+    public void INV_D4_dangling_active_in_a_panel_group_is_reported()
+    {
+        var layout = WithPanelTree(new TabGroupNode { Tabs = ["p:t1"], ActiveTabId = "ghost" });
+
+        Assert.Equal(["INV-D4"], ViolatedInvariants(layout));
     }
 }

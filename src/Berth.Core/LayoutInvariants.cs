@@ -5,9 +5,10 @@ namespace Berth;
 /// <summary>
 /// Validation of the layout invariants: INV-1…INV-7 of tool windows (spec tool-windows,
 /// section 4) and INV-D1…INV-D6 of the dock area (spec document-area, section 4).
-/// Checked after every operation; a violation is a core bug, not a user error.
-/// INV-D5 has nothing to validate yet: dock-area hosts accept every tab, and panel content
-/// trees with the tab owner registry are not part of the model so far.
+/// Checked after every operation; a violation is a core bug, not a user error. The tree
+/// invariants INV-D1…INV-D4 cover every tab tree, including the content trees of tool windows
+/// (spec TW-9.5); INV-D5 confirms tab ownership in panel trees against the registry claims
+/// with a non-throwing resolve — a conflicted claim confirms nothing (spec TW-9.11).
 /// </summary>
 public static class LayoutInvariants
 {
@@ -33,6 +34,7 @@ public static class LayoutInvariants
         CheckDockTabsUnique(state, violations);
         CheckDockSplitShares(state, violations);
         CheckDockActivity(state, violations);
+        CheckPanelTabOwnership(state, registry, violations);
         CheckDocumentWindowsNonEmpty(state, violations);
         return violations.ToImmutable();
     }
@@ -180,12 +182,13 @@ public static class LayoutInvariants
     }
 
     /// <summary>
-    /// INV-D1: dock-area trees are canonical — no empty groups outside the root, no splits with
-    /// fewer than two children, no child split repeating its parent's orientation.
+    /// INV-D1: every tab tree — dock-area hosts and panel content trees alike — is canonical:
+    /// no empty groups outside the root, no splits with fewer than two children, no child split
+    /// repeating its parent's orientation.
     /// </summary>
     private static void CheckDockTreesCanonical(LayoutState state, ImmutableArray<InvariantViolation>.Builder violations)
     {
-        foreach (var (root, host) in EnumerateDockTrees(state))
+        foreach (var (root, host) in EnumerateTabTrees(state))
         {
             CheckNodeCanonical(root, isRoot: true, parentOrientation: null, host, violations);
         }
@@ -233,11 +236,11 @@ public static class LayoutInvariants
         }
     }
 
-    /// <summary>INV-D2: each tab id occurs at most once across the trees of all dock-area hosts.</summary>
+    /// <summary>INV-D2: each tab id occurs at most once across every tree of the layout, panel trees included.</summary>
     private static void CheckDockTabsUnique(LayoutState state, ImmutableArray<InvariantViolation>.Builder violations)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var (root, _) in EnumerateDockTrees(state))
+        foreach (var (root, _) in EnumerateTabTrees(state))
         {
             foreach (var group in TabTreeTraversal.EnumerateGroups(root))
             {
@@ -247,7 +250,7 @@ public static class LayoutInvariants
                     {
                         violations.Add(new InvariantViolation(
                             "INV-D2", ToolWindowId: null,
-                            $"Tab '{tab}' occurs more than once across the dock-area trees."));
+                            $"Tab '{tab}' occurs more than once across the layout trees."));
                     }
                 }
             }
@@ -257,7 +260,7 @@ public static class LayoutInvariants
     /// <summary>INV-D3: the shares of every split are within (0..1) and sum to 1 with the core tolerance.</summary>
     private static void CheckDockSplitShares(LayoutState state, ImmutableArray<InvariantViolation>.Builder violations)
     {
-        foreach (var (root, host) in EnumerateDockTrees(state))
+        foreach (var (root, host) in EnumerateTabTrees(state))
         {
             foreach (var split in TabTreeTraversal.EnumerateSplits(root))
             {
@@ -294,7 +297,7 @@ public static class LayoutInvariants
     /// </summary>
     private static void CheckDockActivity(LayoutState state, ImmutableArray<InvariantViolation>.Builder violations)
     {
-        foreach (var (root, host) in EnumerateDockTrees(state))
+        foreach (var (root, host) in EnumerateTabTrees(state))
         {
             foreach (var group in TabTreeTraversal.EnumerateGroups(root))
             {
@@ -363,6 +366,35 @@ public static class LayoutInvariants
         }
     }
 
+    /// <summary>
+    /// INV-D5: a panel tree only holds tabs whose confirmed owner is that panel or whose owner
+    /// is unconfirmed — an unclaimed id sleeps in the tree of its presumed owner, and a
+    /// conflicted claim confirms nothing (spec TW-9.11). Dock-area hosts accept every tab.
+    /// </summary>
+    private static void CheckPanelTabOwnership(
+        LayoutState state, ToolWindowRegistry registry, ImmutableArray<InvariantViolation>.Builder violations)
+    {
+        foreach (var window in state.ToolWindows)
+        {
+            foreach (var group in TabTreeTraversal.EnumerateGroups(window.ContentTree))
+            {
+                foreach (var tab in group.Tabs)
+                {
+                    if (registry.ResolveTabClaim(tab, out var claim, out _)
+                        && claim.Owner != TabOwner.ToolWindow(window.Id))
+                    {
+                        var owner = claim.Owner.IsDockArea
+                            ? "the dock area"
+                            : $"tool window '{claim.Owner.ToolWindowId}'";
+                        violations.Add(new InvariantViolation(
+                            "INV-D5", window.Id,
+                            $"Tab '{tab}' in the tree of tool window '{window.Id}' has a confirmed foreign owner: {owner}."));
+                    }
+                }
+            }
+        }
+    }
+
     /// <summary>INV-D6: every document window's tree contains at least one tab.</summary>
     private static void CheckDocumentWindowsNonEmpty(
         LayoutState state, ImmutableArray<InvariantViolation>.Builder violations)
@@ -378,12 +410,17 @@ public static class LayoutInvariants
         }
     }
 
-    private static IEnumerable<(TabTreeNode Root, string Host)> EnumerateDockTrees(LayoutState state)
+    private static IEnumerable<(TabTreeNode Root, string Host)> EnumerateTabTrees(LayoutState state)
     {
         yield return (state.DockArea.Root, "the main window");
         for (var i = 0; i < state.DockArea.Windows.Length; i++)
         {
             yield return (state.DockArea.Windows[i].Root, $"document window {i}");
+        }
+
+        foreach (var window in state.ToolWindows)
+        {
+            yield return (window.ContentTree, $"tool window '{window.Id}'");
         }
     }
 }

@@ -12,6 +12,7 @@ public class DockOperationsTests
 {
     private static readonly FloatingBounds Bounds = new(10, 20, 800, 600);
     private static readonly ToolWindowSlot LeftPrimary = new(ToolWindowSide.Left, ToolWindowGroup.Primary);
+    private static readonly ToolWindowRegistry EmptyRegistry = new();
 
     private static TabGroupNode Group(params string[] tabs) =>
         new() { Tabs = [.. tabs], ActiveTabId = tabs.Length == 0 ? null : tabs[0] };
@@ -61,7 +62,7 @@ public class DockOperationsTests
     [Fact]
     public void DA_5_1_opens_into_the_empty_main_window()
     {
-        var result = LayoutState.Empty.OpenDocument("a");
+        var result = LayoutState.Empty.OpenDocument("a", EmptyRegistry);
 
         AssertGroup(result.DockArea.Root, "a", "a");
         Assert.Equal("a", result.DockArea.CurrentTabId);
@@ -73,7 +74,7 @@ public class DockOperationsTests
     {
         var state = Layout(new DockAreaState { Root = GroupActive("a", "a", "b"), CurrentTabId = "a" });
 
-        var result = state.OpenDocument("c");
+        var result = state.OpenDocument("c", EmptyRegistry);
 
         AssertGroup(result.DockArea.Root, "c", "a", "c", "b");
         Assert.Equal("c", result.DockArea.CurrentTabId);
@@ -88,7 +89,7 @@ public class DockOperationsTests
             CurrentTabId = "a",
         });
 
-        var result = state.OpenDocument("d");
+        var result = state.OpenDocument("d", EmptyRegistry);
 
         var root = AssertSplit(result.DockArea.Root, SplitOrientation.Row, 0.5, 0.5);
         AssertGroup(root.Children[0].Node, "a", "a");
@@ -109,7 +110,7 @@ public class DockOperationsTests
             }),
             "p", open: true, active: true);
 
-        var result = state.OpenDocument("d");
+        var result = state.OpenDocument("d", EmptyRegistry);
 
         AssertGroup(result.DockArea.Root, "d", "m", "d");
         Assert.Equal("d", result.DockArea.CurrentTabId);
@@ -128,7 +129,7 @@ public class DockOperationsTests
             ActiveDockHost = DockHost.DocumentWindow(0),
         });
 
-        var result = state.OpenDocument("d");
+        var result = state.OpenDocument("d", EmptyRegistry);
 
         AssertGroup(result.DockArea.Windows[0].Root, "d", "w", "d");
         Assert.Equal("d", result.DockArea.Windows[0].CurrentTabId);
@@ -147,7 +148,7 @@ public class DockOperationsTests
             ActiveDockHost = DockHost.MainWindow,
         });
 
-        var result = state.OpenDocument("d");
+        var result = state.OpenDocument("d", EmptyRegistry);
 
         AssertGroup(result.DockArea.Windows[0].Root, "d", "x", "d");
         Assert.Equal("d", result.DockArea.Windows[0].CurrentTabId);
@@ -417,7 +418,7 @@ public class DockOperationsTests
     {
         var state = Layout(new DockAreaState { Root = GroupActive("a", "a", "b", "c"), CurrentTabId = "a" });
 
-        var result = state.MoveTab("c", DockGroupRef.AtTab("a"), 0);
+        var result = state.MoveTab("c", DockGroupRef.AtTab("a"), 0, EmptyRegistry);
 
         AssertGroup(result.DockArea.Root, "c", "c", "a", "b");
         Assert.Equal("c", result.DockArea.CurrentTabId);
@@ -433,7 +434,7 @@ public class DockOperationsTests
             CurrentTabId = "a",
         });
 
-        var result = state.MoveTab("b", DockGroupRef.AtTab("c"), 1);
+        var result = state.MoveTab("b", DockGroupRef.AtTab("c"), 1, EmptyRegistry);
 
         var root = AssertSplit(result.DockArea.Root, SplitOrientation.Row, 0.5, 0.5);
         AssertGroup(root.Children[0].Node, "a", "a");
@@ -452,7 +453,7 @@ public class DockOperationsTests
             CurrentTabId = "a",
         });
 
-        var result = state.MoveTab("a", DockGroupRef.AtTab("c"), 0);
+        var result = state.MoveTab("a", DockGroupRef.AtTab("c"), 0, EmptyRegistry);
 
         var root = AssertSplit(result.DockArea.Root, SplitOrientation.Row, 0.5, 0.5);
         AssertGroup(root.Children[0].Node, "b", "b");
@@ -465,8 +466,8 @@ public class DockOperationsTests
     {
         var state = Layout(new DockAreaState { Root = GroupActive("a", "a", "b"), CurrentTabId = "a" });
 
-        AssertGroup(state.MoveTab("a", DockGroupRef.AtTab("b"), 99).DockArea.Root, "a", "b", "a");
-        AssertGroup(state.MoveTab("b", DockGroupRef.AtTab("a"), -5).DockArea.Root, "b", "b", "a");
+        AssertGroup(state.MoveTab("a", DockGroupRef.AtTab("b"), 99, EmptyRegistry).DockArea.Root, "a", "b", "a");
+        AssertGroup(state.MoveTab("b", DockGroupRef.AtTab("a"), -5, EmptyRegistry).DockArea.Root, "b", "b", "a");
     }
 
     [Fact]
@@ -474,7 +475,7 @@ public class DockOperationsTests
     {
         var state = Layout(new DockAreaState { Root = GroupActive("b", "a", "b", "c"), CurrentTabId = "b" });
 
-        var result = state.MoveTab("b", DockGroupRef.AtTab("b"), 2);
+        var result = state.MoveTab("b", DockGroupRef.AtTab("b"), 2, EmptyRegistry);
 
         AssertGroup(result.DockArea.Root, "b", "a", "c", "b");
         Assert.Equal("b", result.DockArea.CurrentTabId);
@@ -493,7 +494,7 @@ public class DockOperationsTests
             }),
             "p", open: true, active: true);
 
-        var result = state.MoveTab("w1", DockGroupRef.AtTab("m"), 1);
+        var result = state.MoveTab("w1", DockGroupRef.AtTab("m"), 1, EmptyRegistry);
 
         AssertGroup(result.DockArea.Root, "w1", "m", "w1");
         Assert.Equal("w1", result.DockArea.CurrentTabId);
@@ -515,7 +516,7 @@ public class DockOperationsTests
             ActiveDockHost = DockHost.DocumentWindow(0),
         });
 
-        var result = state.MoveTab("x", DockGroupRef.AtTab("m"), 0);
+        var result = state.MoveTab("x", DockGroupRef.AtTab("m"), 0, EmptyRegistry);
 
         Assert.Empty(result.DockArea.Windows);
         AssertGroup(result.DockArea.Root, "x", "x", "m");
@@ -534,7 +535,7 @@ public class DockOperationsTests
             ActiveDockHost = DockHost.DocumentWindow(0),
         });
 
-        var result = state.MoveTab("w1", DockGroupRef.HostRoot(DockHost.MainWindow), 0);
+        var result = state.MoveTab("w1", DockGroupRef.HostRoot(DockHost.MainWindow), 0, EmptyRegistry);
 
         AssertGroup(result.DockArea.Root, "w1", "w1");
         Assert.Equal("w1", result.DockArea.CurrentTabId);
@@ -552,7 +553,7 @@ public class DockOperationsTests
             CurrentTabId = "a",
         });
 
-        Assert.Throws<ArgumentException>(() => state.MoveTab("a", DockGroupRef.HostRoot(DockHost.MainWindow), 0));
+        Assert.Throws<ArgumentException>(() => state.MoveTab("a", DockGroupRef.HostRoot(DockHost.MainWindow), 0, EmptyRegistry));
     }
 
     // ---- DA-5.5 SplitTab ----
@@ -933,8 +934,8 @@ public class DockOperationsTests
 
         Assert.Throws<ArgumentException>(() => state.CloseTab("ghost"));
         Assert.Throws<ArgumentException>(() => state.ActivateTab("ghost"));
-        Assert.Throws<ArgumentException>(() => state.MoveTab("ghost", DockGroupRef.AtTab("a"), 0));
-        Assert.Throws<ArgumentException>(() => state.MoveTab("a", DockGroupRef.AtTab("ghost"), 0));
+        Assert.Throws<ArgumentException>(() => state.MoveTab("ghost", DockGroupRef.AtTab("a"), 0, EmptyRegistry));
+        Assert.Throws<ArgumentException>(() => state.MoveTab("a", DockGroupRef.AtTab("ghost"), 0, EmptyRegistry));
         Assert.Throws<ArgumentException>(() => state.SplitTab("ghost", SplitDirection.Right));
         Assert.Throws<ArgumentException>(() => state.MoveTabToNewWindow("ghost", Bounds));
         Assert.Throws<ArgumentException>(() => state.SetDocumentWindowBounds("ghost", Bounds));
@@ -949,14 +950,14 @@ public class DockOperationsTests
         var state = WithPanel(LayoutState.Empty, "p", open: false, active: false);
 
         var result = state
-            .OpenDocument("a")
-            .OpenDocument("b")
+            .OpenDocument("a", EmptyRegistry)
+            .OpenDocument("b", EmptyRegistry)
             .SplitTab("b", SplitDirection.Right)
-            .OpenDocument("c")
-            .MoveTab("a", DockGroupRef.AtTab("c"), 0)
+            .OpenDocument("c", EmptyRegistry)
+            .MoveTab("a", DockGroupRef.AtTab("c"), 0, EmptyRegistry)
             .MoveTabToNewWindow("c", Bounds)
             .Open("p")
-            .OpenDocument("d")
+            .OpenDocument("d", EmptyRegistry)
             .SplitTab("d", SplitDirection.Down)
             .RotateSplit("d")
             .CloseTab("b");

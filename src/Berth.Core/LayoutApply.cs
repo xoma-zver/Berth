@@ -23,7 +23,14 @@ public static class LayoutApply
     /// <see cref="ApplyScope.Arrangement"/> only the placement of the tool windows mentioned in
     /// the snapshot, the side geometry and the quick access side are merged into
     /// <paramref name="current"/> (TW-10.7); the dock area is not touched at all (DA-9.1) and
-    /// the active tool window resets to null. The report lists every applied fix exactly once
+    /// the active tool window resets to null. In the Full scope registered windows with a body
+    /// factory receive their body tab by the seeding rule of TW-9.5 (reconciliation, not
+    /// reported), and a tab with a confirmed foreign owner in a panel tree relocates to the
+    /// main window's current group (INV-D5, DA-9.2); in the Arrangement scope the trees of new
+    /// sleeping records are cleaned instead — duplicates and confirmed-foreign tabs are removed
+    /// with a report, because the dock area cannot receive them (DA-9.1). A conflicted
+    /// ownership claim confirms nothing: the tab stays and the application error surfaces at
+    /// the next operation or materialization (TW-9.11). The report lists every applied fix exactly once
     /// (TW-10.4, DA-9.2); an application wanting «a proper layout or nothing» rejects the result
     /// when <see cref="ApplyResult.Fixes"/> is non-empty.
     /// </summary>
@@ -60,7 +67,8 @@ public static class LayoutApply
     /// Builds the default layout from the registration descriptors (spec TW-5.14, TW-10.3):
     /// every tool window closed in its default slot, mode and pair ratio; orders are dense per
     /// slot — explicit <see cref="ToolWindowDescriptor.DefaultOrder"/> first, then registration
-    /// order; default side geometry and an empty dock area. To reset the placement without
+    /// order; default side geometry and an empty dock area; tool windows with a body factory
+    /// receive their body tab (the seeding rule of TW-9.5). To reset the placement without
     /// closing open documents, apply the result with the Arrangement scope:
     /// <c>current.Apply(LayoutApply.ResetToDefaults(registry), ApplyScope.Arrangement, registry)</c>
     /// — the dock area and content trees stay current (TW-10.6).
@@ -84,7 +92,7 @@ public static class LayoutApply
             }
         }
 
-        return LayoutState.Empty with { ToolWindows = windows.ToImmutable() };
+        return SeedBodies(LayoutState.Empty with { ToolWindows = windows.ToImmutable() }, registry);
     }
 
     private static ApplyResult ApplyFull(
@@ -92,10 +100,12 @@ public static class LayoutApply
     {
         var fixes = ImmutableArray.CreateBuilder<AppliedFix>();
         var state = Reconcile(snapshot, registry);
+        state = SeedBodies(state, registry);
         CollectDefects(state, registry, ApplyScope.Full, fixes);
         state = NormalizeToolWindows(state);
         state = ValidateToolWindowBounds(state, validateBounds, onlyIds: null, fixes);
-        state = NormalizeDockArea(state, fixes);
+        state = NormalizeTrees(state, fixes);
+        state = RelocateForeignPanelTabs(state, registry, fixes);
         state = ValidateDocumentWindowBounds(state, validateBounds, fixes);
         return new ApplyResult(state, fixes.ToImmutable());
     }
@@ -201,10 +211,102 @@ public static class LayoutApply
             ActiveToolWindowId = null,
         };
 
+        state = CleanNewSleepingTrees(state, newSleeping, registry, fixes);
+
         CollectDefects(state, registry, ApplyScope.Arrangement, fixes);
         state = NormalizeToolWindows(state);
         state = ValidateToolWindowBounds(state, validateBounds, newSleeping, fixes);
         return new ApplyResult(state, fixes.ToImmutable());
+    }
+
+    /// <summary>
+    /// Trees of new sleeping records created by an Arrangement snapshot (TW-10.7): normalized,
+    /// deduplicated against the current layout and each other (DA-9.2), and stripped of tabs
+    /// with a confirmed foreign owner — the Arrangement scope cannot move tabs into the dock
+    /// area (DA-9.1), so removal with a report replaces the Full-scope relocation (INV-D5).
+    /// </summary>
+    private static LayoutState CleanNewSleepingTrees(
+        LayoutState state,
+        HashSet<string> newSleeping,
+        ToolWindowRegistry registry,
+        ImmutableArray<AppliedFix>.Builder fixes)
+    {
+        if (newSleeping.Count == 0)
+        {
+            return state;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in TabTreeTraversal.EnumerateGroups(state.DockArea.Root))
+        {
+            seen.UnionWith(group.Tabs);
+        }
+
+        foreach (var window in state.DockArea.Windows)
+        {
+            foreach (var group in TabTreeTraversal.EnumerateGroups(window.Root))
+            {
+                seen.UnionWith(group.Tabs);
+            }
+        }
+
+        foreach (var panel in state.ToolWindows.Where(w => !newSleeping.Contains(w.Id)))
+        {
+            foreach (var group in TabTreeTraversal.EnumerateGroups(panel.ContentTree))
+            {
+                seen.UnionWith(group.Tabs);
+            }
+        }
+
+        var panels = state.ToolWindows;
+        for (var i = 0; i < panels.Length; i++)
+        {
+            if (!newSleeping.Contains(panels[i].Id))
+            {
+                continue;
+            }
+
+            var tree = TabTreeNormalization.Normalize(panels[i].ContentTree);
+            List<string>? drop = null;
+            foreach (var group in TabTreeTraversal.EnumerateGroups(tree))
+            {
+                foreach (var tab in group.Tabs)
+                {
+                    if (!seen.Add(tab))
+                    {
+                        (drop ??= []).Add(tab);
+                        fixes.Add(new AppliedFix(
+                            "DA-9.2", tab,
+                            $"Duplicate tab '{tab}' was removed from the new sleeping record of tool window '{panels[i].Id}'; the occurrence in the current layout was kept."));
+                    }
+                    else if (registry.ResolveTabClaim(tab, out var claim, out _)
+                        && claim.Owner != TabOwner.ToolWindow(panels[i].Id))
+                    {
+                        (drop ??= []).Add(tab);
+                        fixes.Add(new AppliedFix(
+                            "INV-D5", tab,
+                            $"Tab '{tab}' in the new sleeping record of tool window '{panels[i].Id}' has a confirmed foreign owner and was removed: the Arrangement scope cannot move tabs into the dock area (DA-9.1)."));
+                    }
+                }
+            }
+
+            if (drop is not null)
+            {
+                foreach (var tab in drop)
+                {
+                    tree = RemoveTabFromTree(tree, tab);
+                }
+
+                tree = TabTreeNormalization.Normalize(tree);
+            }
+
+            if (!ReferenceEquals(tree, panels[i].ContentTree))
+            {
+                panels = panels.SetItem(i, panels[i] with { ContentTree = tree });
+            }
+        }
+
+        return panels == state.ToolWindows ? state : state with { ToolWindows = panels };
     }
 
     /// <summary>
@@ -247,13 +349,158 @@ public static class LayoutApply
         };
 
     /// <summary>
+    /// The body seeding of TW-9.5, shared by the Full apply, <see cref="ResetToDefaults"/> and
+    /// live registration (TW-10.3): a registered tool window with a body factory receives its
+    /// body tab — id equal to the window's own id — as the root group of its tree, when that id
+    /// is absent from every tree of the layout and the tree holds no tabs. A non-empty tree
+    /// without the body is not touched (the body was closed deliberately), and a body living in
+    /// another host cancels the seed (INV-D2). Seeding is reconciliation, not a repair —
+    /// nothing is reported.
+    /// </summary>
+    internal static LayoutState SeedBodies(LayoutState state, ToolWindowRegistry registry)
+    {
+        foreach (var descriptor in registry.Descriptors)
+        {
+            state = SeedBody(state, descriptor);
+        }
+
+        return state;
+    }
+
+    /// <summary>The single-descriptor seeding behind <see cref="SeedBodies"/>; see the rule there.</summary>
+    internal static LayoutState SeedBody(LayoutState state, ToolWindowDescriptor descriptor)
+    {
+        if (descriptor.ContentFactory is null)
+        {
+            return state;
+        }
+
+        var windows = state.ToolWindows;
+        for (var i = 0; i < windows.Length; i++)
+        {
+            if (!string.Equals(windows[i].Id, descriptor.Id, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (TabTreeTraversal.HasTabs(windows[i].ContentTree)
+                || TabTreeTraversal.LayoutContainsTab(state, descriptor.Id))
+            {
+                return state;
+            }
+
+            return state with
+            {
+                ToolWindows = windows.SetItem(i, windows[i] with
+                {
+                    ContentTree = new TabGroupNode { Tabs = [descriptor.Id], ActiveTabId = descriptor.Id },
+                }),
+            };
+        }
+
+        return state;
+    }
+
+    /// <summary>
+    /// The INV-D5 relocation of DA-9.2, shared by the Full apply (with report entries) and live
+    /// registration (no report channel — the deliberate asymmetry of TW-10.3): a tab in a panel
+    /// tree whose confirmed owner is someone else moves to the end of the main window's current
+    /// group, into an empty tree — as the root group. Activity is not reassigned beyond what
+    /// the invariants force on an empty tree (INV-D4); a conflicted claim confirms nothing and
+    /// the tab stays (TW-9.11).
+    /// </summary>
+    internal static LayoutState RelocateForeignPanelTabs(
+        LayoutState state, ToolWindowRegistry registry, ImmutableArray<AppliedFix>.Builder? fixes)
+    {
+        List<string>? moved = null;
+        var panels = state.ToolWindows;
+        for (var i = 0; i < panels.Length; i++)
+        {
+            var panel = panels[i];
+            List<string>? foreign = null;
+            foreach (var group in TabTreeTraversal.EnumerateGroups(panel.ContentTree))
+            {
+                foreach (var tab in group.Tabs)
+                {
+                    if (registry.ResolveTabClaim(tab, out var claim, out _)
+                        && claim.Owner != TabOwner.ToolWindow(panel.Id))
+                    {
+                        (foreign ??= []).Add(tab);
+                    }
+                }
+            }
+
+            if (foreign is null)
+            {
+                continue;
+            }
+
+            var tree = panel.ContentTree;
+            foreach (var tab in foreign)
+            {
+                tree = RemoveTabFromTree(tree, tab);
+                (moved ??= []).Add(tab);
+                fixes?.Add(new AppliedFix(
+                    "INV-D5", tab,
+                    $"Tab '{tab}' in the tree of tool window '{panel.Id}' has a confirmed foreign owner and was moved to the main window."));
+            }
+
+            panels = panels.SetItem(i, panel with { ContentTree = tree });
+        }
+
+        if (moved is null)
+        {
+            return state;
+        }
+
+        state = AppendToMainCurrentGroup(state with { ToolWindows = panels }, moved);
+        return TabTreeNormalization.Normalize(state);
+    }
+
+    /// <summary>
+    /// DA-9.2: appends relocated tabs to the end of the main window's current group without
+    /// reassigning activity; an empty tree receives them as the root group and the invariants
+    /// then force the assignment (INV-D4).
+    /// </summary>
+    private static LayoutState AppendToMainCurrentGroup(LayoutState state, List<string> tabs)
+    {
+        var area = state.DockArea;
+        if (area.CurrentTabId is { } current
+            && TabTreeTraversal.TryFindGroupPath(area.Root, current, out var path, out var group))
+        {
+            var appended = group with { Tabs = group.Tabs.AddRange(tabs) };
+            return state with
+            {
+                DockArea = area with { Root = TabTreeTraversal.ReplaceNode(area.Root, path, appended) },
+            };
+        }
+
+        // INV-D4: a null current tab means the normalized tree holds no tabs — the root group.
+        var root = (TabGroupNode)area.Root;
+        return state with { DockArea = area with { Root = root with { Tabs = root.Tabs.AddRange(tabs) } } };
+    }
+
+    /// <summary>Removes one tab from whichever group of the tree holds it; a dangling group active is healed by N5.</summary>
+    private static TabTreeNode RemoveTabFromTree(TabTreeNode root, string tabId)
+    {
+        if (!TabTreeTraversal.TryFindGroupPath(root, tabId, out var path, out var group))
+        {
+            return root;
+        }
+
+        var updated = group with { Tabs = group.Tabs.RemoveAt(group.Tabs.IndexOf(tabId)) };
+        return TabTreeTraversal.ReplaceNode(root, path, updated);
+    }
+
+    /// <summary>
     /// Turns pre-repair invariant violations into report entries — every fix is reported
-    /// exactly once (TW-10.4, DA-9.2). In the Full scope INV-D2 and INV-D6 are skipped
-    /// wholesale: the dock pipeline emits its own, more precise entries (DA-9.2 deduplication,
-    /// INV-D6 window removal) that supersede them. In the Arrangement scope every dock
-    /// invariant is skipped — the dock area is not touched (DA-9.1) — together with INV-1,
-    /// whose only post-merge case (registered without a state) belongs to the caller's current
-    /// state, not to the snapshot.
+    /// exactly once (TW-10.4, DA-9.2). In the Full scope INV-D2, INV-D5 and INV-D6 are skipped
+    /// wholesale: the tree pipeline emits its own, more precise entries (DA-9.2 deduplication,
+    /// INV-D5 relocation, INV-D6 window removal) that supersede them. In the Arrangement scope
+    /// every dock invariant is skipped — the dock area is not touched (DA-9.1) and the new
+    /// sleeping trees get their own cleanup entries — together with INV-1, whose only
+    /// post-merge case (registered without a state) belongs to the caller's current state,
+    /// not to the snapshot.
     /// </summary>
     private static void CollectDefects(
         LayoutState state, ToolWindowRegistry registry, ApplyScope scope, ImmutableArray<AppliedFix>.Builder fixes)
@@ -261,7 +508,7 @@ public static class LayoutApply
         foreach (var violation in LayoutInvariants.Validate(state, registry))
         {
             var skip = scope == ApplyScope.Full
-                ? violation.InvariantId is "INV-D2" or "INV-D6"
+                ? violation.InvariantId is "INV-D2" or "INV-D5" or "INV-D6"
                 : violation.InvariantId.StartsWith("INV-D", StringComparison.Ordinal)
                     || violation.InvariantId is "INV-1";
             if (!skip)
@@ -417,17 +664,18 @@ public static class LayoutApply
     }
 
     /// <summary>
-    /// The dock area part of the Full apply: deduplication (DA-9.2), explicit entries for
-    /// document windows about to disappear (INV-D6), then the shared zone normalization —
-    /// N1–N5, window removal, current-tab and active-host fallbacks. Secondary activity
-    /// reassignments caused by these fixes produce no entries of their own (DA-9.2).
+    /// The tree part of the Full apply: deduplication across every tree (DA-9.2), explicit
+    /// entries for document windows about to disappear (INV-D6), then the layout
+    /// normalization — N1–N5 over every tree, window removal, current-tab and active-host
+    /// fallbacks. Secondary activity reassignments caused by these fixes produce no entries of
+    /// their own (DA-9.2).
     /// </summary>
-    private static LayoutState NormalizeDockArea(LayoutState state, ImmutableArray<AppliedFix>.Builder fixes)
+    private static LayoutState NormalizeTrees(LayoutState state, ImmutableArray<AppliedFix>.Builder fixes)
     {
-        var area = DeduplicateDockTabs(state.DockArea, fixes);
-        for (var i = 0; i < area.Windows.Length; i++)
+        state = DeduplicateTabs(state, fixes);
+        for (var i = 0; i < state.DockArea.Windows.Length; i++)
         {
-            if (!TabTreeTraversal.HasTabs(area.Windows[i].Root))
+            if (!TabTreeTraversal.HasTabs(state.DockArea.Windows[i].Root))
             {
                 fixes.Add(new AppliedFix(
                     "INV-D6", SubjectId: null,
@@ -435,18 +683,19 @@ public static class LayoutApply
             }
         }
 
-        return state with { DockArea = TabTreeNormalization.Normalize(area) };
+        return TabTreeNormalization.Normalize(state);
     }
 
     /// <summary>
     /// DA-9.2: a tab occurring more than once keeps its first occurrence in traversal order —
-    /// the main window, then document windows in list order; depth-first left-to-right within
-    /// a tree, tab order within a group. A group active dangling after a removal is healed by
-    /// normalization (N5) without an entry of its own.
+    /// the main window, document windows in list order, then panel trees in state order;
+    /// depth-first left-to-right within a tree, tab order within a group. A group active
+    /// dangling after a removal is healed by normalization (N5) without an entry of its own.
     /// </summary>
-    private static DockAreaState DeduplicateDockTabs(DockAreaState area, ImmutableArray<AppliedFix>.Builder fixes)
+    private static LayoutState DeduplicateTabs(LayoutState state, ImmutableArray<AppliedFix>.Builder fixes)
     {
         var firstHost = new Dictionary<string, string>(StringComparer.Ordinal);
+        var area = state.DockArea;
         var mainRoot = DeduplicateTree(area.Root, "the main window", firstHost, fixes);
         var windows = area.Windows;
         for (var i = 0; i < windows.Length; i++)
@@ -458,9 +707,22 @@ public static class LayoutApply
             }
         }
 
-        return ReferenceEquals(mainRoot, area.Root) && windows == area.Windows
-            ? area
-            : area with { Root = mainRoot, Windows = windows };
+        var panels = state.ToolWindows;
+        for (var i = 0; i < panels.Length; i++)
+        {
+            var tree = DeduplicateTree(panels[i].ContentTree, $"tool window '{panels[i].Id}'", firstHost, fixes);
+            if (!ReferenceEquals(tree, panels[i].ContentTree))
+            {
+                panels = panels.SetItem(i, panels[i] with { ContentTree = tree });
+            }
+        }
+
+        if (!ReferenceEquals(mainRoot, area.Root) || windows != area.Windows)
+        {
+            state = state with { DockArea = area with { Root = mainRoot, Windows = windows } };
+        }
+
+        return panels == state.ToolWindows ? state : state with { ToolWindows = panels };
     }
 
     private static TabTreeNode DeduplicateTree(

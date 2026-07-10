@@ -54,7 +54,9 @@ public sealed class ToolWindowRegistry
     /// <summary>
     /// Registers a dock-area content factory: its claimed tabs are documents (spec TW-9.11,
     /// DA-1). Several dock-area registrations are allowed as long as their claims do not
-    /// overlap — an overlap is an application error detected at owner resolution.
+    /// overlap — an overlap is an application error detected at owner resolution. Low-level:
+    /// in a live session use <see cref="ContentLifecycle.RegisterDockContent"/>, which also
+    /// reconciles the layout state (spec TW-10.3, DA-9.2).
     /// </summary>
     public void RegisterDockContent(ITabContentFactory factory)
     {
@@ -65,53 +67,80 @@ public sealed class ToolWindowRegistry
     /// <summary>
     /// Resolves the owner of a tab id over the current claims (spec TW-9.7, TW-9.11): the dock
     /// area, a tool window, or null when no live registration claims the id — the tab sleeps
-    /// (spec DA-9.4).
+    /// (spec DA-9.4). A tool window's registration with a body factory implicitly claims the
+    /// window's own id — its body tab (spec TW-9.5).
     /// </summary>
     /// <exception cref="InvalidOperationException">Two live registrations claim the id (spec TW-9.11).</exception>
-    public TabOwner? ResolveTabOwner(string tabId) =>
-        TryResolveTabClaim(tabId, out _, out var owner) ? owner : null;
+    public TabOwner? ResolveTabOwner(string tabId)
+    {
+        var found = ResolveTabClaim(tabId, out var claim, out var conflict);
+        if (conflict is not null)
+        {
+            throw new InvalidOperationException(conflict);
+        }
 
-    /// <summary>The claim resolution behind <see cref="ResolveTabOwner"/>, exposing the claiming factory.</summary>
-    /// <exception cref="InvalidOperationException">Two live registrations claim the id (spec TW-9.11).</exception>
-    internal bool TryResolveTabClaim(
-        string tabId, [NotNullWhen(true)] out ITabContentFactory? factory, out TabOwner owner)
+        return found ? claim.Owner : null;
+    }
+
+    /// <summary>
+    /// The claim resolution behind <see cref="ResolveTabOwner"/> (spec TW-9.11). Returns true
+    /// with the single confirmed claim; false with a null <paramref name="conflictMessage"/>
+    /// when nothing claims the id (a sleeping owner), and false with a message when several
+    /// live registrations claim it — the caller decides whether to throw (operations,
+    /// materialization) or to treat the owner as unconfirmed (Apply, invariant validation).
+    /// Claims of one registration — the implicit body claim and its own tab predicate — unite
+    /// into a single claim with the body bridge taking precedence (spec TW-9.5).
+    /// </summary>
+    internal bool ResolveTabClaim(string tabId, out TabClaim claim, out string? conflictMessage)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tabId);
-        factory = null;
-        owner = default;
+        claim = default;
+        conflictMessage = null;
         string? claimant = null;
         foreach (var dockFactory in _dockContent)
         {
-            if (dockFactory.OwnsTab(tabId))
+            if (!dockFactory.OwnsTab(tabId))
             {
-                ThrowIfClaimed(tabId, claimant, "the dock area");
-                factory = dockFactory;
-                owner = TabOwner.DockArea;
-                claimant = "the dock area";
+                continue;
             }
+
+            if (claimant is not null)
+            {
+                claim = default;
+                conflictMessage = ConflictMessage(tabId, claimant, "the dock area");
+                return false;
+            }
+
+            claimant = "the dock area";
+            claim = new TabClaim(TabOwner.DockArea, dockFactory, bodyFactory: null);
         }
 
         foreach (var descriptor in _descriptors.Values)
         {
-            if (descriptor.TabFactory is { } tabFactory && tabFactory.OwnsTab(tabId))
+            var isBody = descriptor.ContentFactory is not null
+                && string.Equals(descriptor.Id, tabId, StringComparison.Ordinal);
+            if (!isBody && !(descriptor.TabFactory is { } tabFactory && tabFactory.OwnsTab(tabId)))
             {
-                ThrowIfClaimed(tabId, claimant, $"tool window '{descriptor.Id}'");
-                factory = tabFactory;
-                owner = TabOwner.ToolWindow(descriptor.Id);
-                claimant = $"tool window '{descriptor.Id}'";
+                continue;
             }
+
+            if (claimant is not null)
+            {
+                claim = default;
+                conflictMessage = ConflictMessage(tabId, claimant, $"tool window '{descriptor.Id}'");
+                return false;
+            }
+
+            claimant = $"tool window '{descriptor.Id}'";
+            claim = isBody
+                ? new TabClaim(TabOwner.ToolWindow(descriptor.Id), tabFactory: null, descriptor.ContentFactory)
+                : new TabClaim(TabOwner.ToolWindow(descriptor.Id), descriptor.TabFactory, bodyFactory: null);
         }
 
-        return factory is not null;
+        return claimant is not null;
     }
 
-    private static void ThrowIfClaimed(string tabId, string? claimant, string next)
-    {
-        if (claimant is not null)
-        {
-            throw new InvalidOperationException(
-                $"Tab '{tabId}' is claimed by both {claimant} and {next}; " +
-                "ownership must be unique across live registrations (spec TW-9.11).");
-        }
-    }
+    private static string ConflictMessage(string tabId, string first, string second) =>
+        $"Tab '{tabId}' is claimed by both {first} and {second}; " +
+        "ownership must be unique across live registrations (spec TW-9.11).";
 }

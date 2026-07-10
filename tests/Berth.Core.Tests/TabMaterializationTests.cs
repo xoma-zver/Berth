@@ -31,8 +31,8 @@ public class TabMaterializationTests
     [Fact]
     public void DA_9_3_materialization_is_lazy_and_returns_the_same_content()
     {
-        var (_, lifecycle, docs) = DockSetup();
-        var state = LayoutState.Empty.OpenDocument("d1");
+        var (registry, lifecycle, docs) = DockSetup();
+        var state = LayoutState.Empty.OpenDocument("d1", registry);
         Assert.Equal(0, docs.Created); // открытие вкладки контент не создаёт (TW-9.3)
 
         var first = lifecycle.MaterializeTab(state, "d1");
@@ -51,8 +51,9 @@ public class TabMaterializationTests
     public void DA_9_4_unclaimed_tab_sleeps_untouched()
     {
         // Регистраций нет вовсе — незаявленный id спит и в живой сессии (TW-9.11).
-        var lifecycle = new ContentLifecycle(new ToolWindowRegistry());
-        var state = LayoutState.Empty.OpenDocument("mystery");
+        var registry = new ToolWindowRegistry();
+        var lifecycle = new ContentLifecycle(registry);
+        var state = LayoutState.Empty.OpenDocument("mystery", registry);
 
         var result = lifecycle.MaterializeTab(state, "mystery");
 
@@ -151,9 +152,9 @@ public class TabMaterializationTests
     public void DA_9_3_refusal_is_uniform_for_a_freshly_opened_tab()
     {
         // Отказ единообразен: fresh или restored — ядро их не различает (спека v0.7).
-        var (_, lifecycle, docs) = DockSetup();
+        var (registry, lifecycle, docs) = DockSetup();
         docs.Refuse = _ => true;
-        var state = LayoutState.Empty.OpenDocument("d-fresh");
+        var state = LayoutState.Empty.OpenDocument("d-fresh", registry);
 
         var result = lifecycle.MaterializeTab(state, "d-fresh");
 
@@ -200,15 +201,15 @@ public class TabMaterializationTests
     [Fact]
     public void DA_5_4_moves_never_touch_content()
     {
-        var (_, lifecycle, docs) = DockSetup();
-        var state = LayoutState.Empty.OpenDocument("d1").OpenDocument("d2");
+        var (registry, lifecycle, docs) = DockSetup();
+        var state = LayoutState.Empty.OpenDocument("d1", registry).OpenDocument("d2", registry);
         var content = lifecycle.MaterializeTab(state, "d1").Content;
 
         var after = state.SplitTab("d1", SplitDirection.Right);
         lifecycle.NotifyTransition(state, after);
         state = after;
 
-        after = state.MoveTab("d1", DockGroupRef.AtTab("d2"), 0);
+        after = state.MoveTab("d1", DockGroupRef.AtTab("d2"), 0, registry);
         lifecycle.NotifyTransition(state, after);
         state = after;
 
@@ -231,7 +232,7 @@ public class TabMaterializationTests
     public void DA_9_1_apply_full_releases_content_of_vanished_tabs()
     {
         var (registry, lifecycle, docs) = DockSetup();
-        var state = LayoutState.Empty.OpenDocument("d1").OpenDocument("d2");
+        var state = LayoutState.Empty.OpenDocument("d1", registry).OpenDocument("d2", registry);
         var kept = lifecycle.MaterializeTab(state, "d2").Content;
         lifecycle.MaterializeTab(state, "d1");
 
@@ -249,7 +250,7 @@ public class TabMaterializationTests
     {
         // Зеркало E20: Arrangement док-зону не трогает — ноль освобождений вкладок.
         var (registry, lifecycle, docs) = DockSetup();
-        var state = LayoutState.Empty.OpenDocument("d1");
+        var state = LayoutState.Empty.OpenDocument("d1", registry);
         lifecycle.MaterializeTab(state, "d1");
 
         var applied = state.Apply(LayoutState.Empty, ApplyScope.Arrangement, registry);
@@ -275,8 +276,11 @@ public class TabMaterializationTests
         registry.RegisterDockContent(new StubTabFactory("x"));
         registry.RegisterDockContent(new StubTabFactory("x"));
         var lifecycle = new ContentLifecycle(registry);
-        var state = LayoutState.Empty.OpenDocument("x1");
+        // Вкладка попала в раскладку до конфликта (второй заявки) — состояние строится напрямую.
+        var state = DockLayout(new DockAreaState { Root = Group("x1"), CurrentTabId = "x1" });
 
         Assert.Throws<InvalidOperationException>(() => lifecycle.MaterializeTab(state, "x1"));
+        // Конфликт всплывает и в операциях-резолвах (TW-9.11).
+        Assert.Throws<InvalidOperationException>(() => LayoutState.Empty.OpenDocument("x1", registry));
     }
 }

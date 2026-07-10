@@ -104,6 +104,32 @@ public static class TabTreeNormalization
         };
     }
 
+    /// <summary>
+    /// Normalizes the whole layout: the dock area by <see cref="Normalize(DockAreaState)"/> plus
+    /// every tool window's content tree by N1–N5 (spec TW-9.5, DA-3.1); an empty panel tree is
+    /// legal and survives (DA-8.4, DA-2.3). Instance-preserving like the other overloads.
+    /// </summary>
+    internal static LayoutState Normalize(LayoutState state)
+    {
+        var area = Normalize(state.DockArea);
+        var windows = state.ToolWindows;
+        for (var i = 0; i < windows.Length; i++)
+        {
+            var normalized = Normalize(windows[i].ContentTree);
+            if (!ReferenceEquals(normalized, windows[i].ContentTree))
+            {
+                windows = windows.SetItem(i, windows[i] with { ContentTree = normalized });
+            }
+        }
+
+        if (ReferenceEquals(area, state.DockArea) && windows == state.ToolWindows)
+        {
+            return state;
+        }
+
+        return state with { DockArea = area, ToolWindows = windows };
+    }
+
     private static TabTreeNode NormalizeNode(TabTreeNode node) => node switch
     {
         TabGroupNode group => NormalizeGroup(group),

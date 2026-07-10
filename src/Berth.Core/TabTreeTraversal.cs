@@ -53,6 +53,33 @@ internal static class TabTreeTraversal
     /// <summary>Whether the tree contains at least one tab (the INV-D6 gate for document windows).</summary>
     public static bool HasTabs(TabTreeNode root) => EnumerateGroups(root).Any(g => !g.Tabs.IsEmpty);
 
+    /// <summary>Whether the tab id is present in any tree of the layout — a dock-area host or a panel tree.</summary>
+    public static bool LayoutContainsTab(LayoutState state, string tabId)
+    {
+        if (FindGroupContaining(state.DockArea.Root, tabId) is not null)
+        {
+            return true;
+        }
+
+        foreach (var window in state.DockArea.Windows)
+        {
+            if (FindGroupContaining(window.Root, tabId) is not null)
+            {
+                return true;
+            }
+        }
+
+        foreach (var panel in state.ToolWindows)
+        {
+            if (FindGroupContaining(panel.ContentTree, tabId) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The group containing the given tab id, or null when the tree has no such tab.</summary>
     public static TabGroupNode? FindGroupContaining(TabTreeNode root, string tabId) =>
         EnumerateGroups(root).FirstOrDefault(g => g.Tabs.Contains(tabId, StringComparer.Ordinal));

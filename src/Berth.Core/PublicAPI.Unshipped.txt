@@ -307,9 +307,7 @@ static Berth.InvariantViolation.operator ==(Berth.InvariantViolation? left, Bert
 static Berth.LayoutInvariants.Validate(Berth.LayoutState! state, Berth.ToolWindowRegistry! registry) -> System.Collections.Immutable.ImmutableArray<Berth.InvariantViolation!>
 static Berth.DockOperations.ActivateTab(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
 static Berth.DockOperations.CloseTab(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
-static Berth.DockOperations.MoveTab(this Berth.LayoutState! state, string! id, Berth.DockGroupRef target, int index) -> Berth.LayoutState!
 static Berth.DockOperations.MoveTabToNewWindow(this Berth.LayoutState! state, string! id, Berth.FloatingBounds bounds) -> Berth.LayoutState!
-static Berth.DockOperations.OpenDocument(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
 static Berth.DockOperations.RotateSplit(this Berth.LayoutState! state, string! id) -> Berth.LayoutState!
 static Berth.DockOperations.SetDocumentWindowBounds(this Berth.LayoutState! state, string! id, Berth.FloatingBounds bounds) -> Berth.LayoutState!
 static Berth.DockOperations.SetSplitShares(this Berth.LayoutState! state, Berth.DockHost host, System.Collections.Immutable.ImmutableArray<int> path, System.Collections.Immutable.ImmutableArray<double> shares) -> Berth.LayoutState!
@@ -415,3 +413,12 @@ static Berth.TabOwner.operator ==(Berth.TabOwner left, Berth.TabOwner right) -> 
 static Berth.TabOwner.ToolWindow(string! toolWindowId) -> Berth.TabOwner
 ~override Berth.TabOwner.Equals(object obj) -> bool
 ~override Berth.TabOwner.ToString() -> string
+Berth.DockGroupRef.PanelId.get -> string?
+static Berth.DockGroupRef.PanelRoot(string! toolWindowId) -> Berth.DockGroupRef
+Berth.ToolWindowState.ContentTree.get -> Berth.TabTreeNode!
+Berth.ToolWindowState.ContentTree.init -> void
+static Berth.DockOperations.OpenDocument(this Berth.LayoutState! state, string! id, Berth.ToolWindowRegistry! registry) -> Berth.LayoutState!
+static Berth.DockOperations.OpenPanelTab(this Berth.LayoutState! state, string! id, Berth.ToolWindowRegistry! registry) -> Berth.LayoutState!
+static Berth.DockOperations.MoveTab(this Berth.LayoutState! state, string! id, Berth.DockGroupRef target, int index, Berth.ToolWindowRegistry! registry) -> Berth.LayoutState!
+static Berth.DockOperations.SetSplitShares(this Berth.LayoutState! state, string! toolWindowId, System.Collections.Immutable.ImmutableArray<int> path, System.Collections.Immutable.ImmutableArray<double> shares) -> Berth.LayoutState!
+Berth.ContentLifecycle.RegisterDockContent(Berth.LayoutState! state, Berth.ITabContentFactory! factory) -> Berth.LayoutState!

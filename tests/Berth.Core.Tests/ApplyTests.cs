@@ -11,6 +11,7 @@ public class ApplyTests
 {
     private static readonly ToolWindowSlot LeftPrimary = new(ToolWindowSide.Left, ToolWindowGroup.Primary);
     private static readonly ToolWindowSlot RightPrimary = new(ToolWindowSide.Right, ToolWindowGroup.Primary);
+    private static readonly ToolWindowRegistry EmptyRegistry = new();
 
     private static ToolWindowState Window(string id, ToolWindowSlot slot, int order) => new(id, slot, order);
 
@@ -260,8 +261,8 @@ public class ApplyTests
     public void TW_10_6_E20_arrangement_leaves_the_dock_area_untouched()
     {
         var current = Layout(Window("a", LeftPrimary, 0) with { IsOpen = true })
-            .OpenDocument("doc1")
-            .OpenDocument("doc2");
+            .OpenDocument("doc1", EmptyRegistry)
+            .OpenDocument("doc2", EmptyRegistry);
         var macro = Layout(Window("a", RightPrimary, 0) with { IsOpen = true });
 
         var result = current.Apply(macro, ApplyScope.Arrangement, new ToolWindowRegistry());
@@ -485,7 +486,7 @@ public class ApplyTests
         var registry = Registry(new ToolWindowDescriptor("a", "A", LeftPrimary));
         var current = (Layout(Window("a", RightPrimary, 0) with { IsOpen = true })
                 with { QuickAccessSide = QuickAccessSide.Right })
-            .OpenDocument("doc");
+            .OpenDocument("doc", EmptyRegistry);
 
         var result = current.Apply(LayoutApply.ResetToDefaults(registry), ApplyScope.Arrangement, registry);
 
@@ -494,6 +495,31 @@ public class ApplyTests
         Assert.False(Get(result.State, "a").IsOpen);
         Assert.Equal(QuickAccessSide.Left, result.State.QuickAccessSide);
         Assert.Empty(result.Fixes);
+    }
+
+    [Fact]
+    public void TW_9_10_E26_macro_closing_the_owner_keeps_its_dock_tab()
+    {
+        var registry = Registry(new ToolWindowDescriptor("t", "T", LeftPrimary)
+        {
+            TabFactory = new StubTabFactory("t:"),
+        });
+        var current = Layout(Window("t", LeftPrimary, 0) with { IsOpen = true }) with
+        {
+            DockArea = new DockAreaState
+            {
+                Root = new TabGroupNode { Tabs = ["t:1"], ActiveTabId = "t:1" },
+                CurrentTabId = "t:1",
+            },
+        };
+        var macro = Layout(Window("t", LeftPrimary, 0)); // макет закрывает T
+
+        var result = current.Apply(macro, ApplyScope.Arrangement, registry);
+
+        Assert.False(Get(result.State, "t").IsOpen);
+        Assert.Same(current.DockArea, result.State.DockArea); // вкладка t:1 живёт дальше (TW-9.10)
+        Assert.Empty(result.Fixes);
+        Assert.Empty(LayoutInvariants.Validate(result.State, registry));
     }
 
     // ---- guards ----

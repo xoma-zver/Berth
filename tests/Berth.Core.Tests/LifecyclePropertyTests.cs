@@ -4,13 +4,16 @@ using Xunit;
 namespace Berth.Core.Tests;
 
 /// <summary>
-/// Property test of the content lifecycle (spec TW-9.2…TW-9.4, TW-9.11, DA-9.3, DA-9.4):
+/// Property test of the content lifecycle (spec TW-9.2…TW-9.5, TW-9.11, DA-9.3, DA-9.4):
 /// arbitrary sequences of layout commands — each reported to NotifyTransition — interleaved
 /// with Register/Unregister/MaterializeTab/GetOrCreate keep the invariants of both specs plus
 /// the liveness invariants: live content refers only to entities present in the layout, a
-/// DisposeOnClose window that left the open state holds no content, and every factory's
-/// create/release counters balance after the teardown. A shadow model of expected liveness is
-/// maintained alongside and compared with the factories after every step.
+/// DisposeOnClose window that left the open state holds no body content unless the body tab
+/// lives in a dock host (DA-8.3), and every factory's create/release counters balance after
+/// the teardown. Panels carry content trees: bodies are seeded at registration (TW-9.5),
+/// panel tabs open via OpenPanelTab and move across hosts under canHost (INV-D5). A shadow
+/// model of expected liveness is maintained alongside and compared with the factories after
+/// every step.
 /// </summary>
 public class LifecyclePropertyTests
 {
@@ -75,7 +78,7 @@ public class LifecyclePropertyTests
         public Harness()
         {
             _lifecycle = new ContentLifecycle(_registry);
-            _registry.RegisterDockContent(_docs);
+            _state = _lifecycle.RegisterDockContent(_state, _docs);
             for (var i = 0; i < 4; i++)
             {
                 _panelFactories[i] = new StubToolWindowFactory();
@@ -89,7 +92,7 @@ public class LifecyclePropertyTests
         public void Apply(Op op)
         {
             var panel = $"tw{op.A % 4}";
-            var tabs = AllTabs(_state.DockArea);
+            var tabs = AllTabs(_state);
             string Tab(int seed) => tabs[seed % tabs.Count];
 
             switch (op.Kind)
@@ -114,7 +117,18 @@ public class LifecyclePropertyTests
                         1 => $"tw{op.B % 4}:t{op.C % 4}",
                         _ => $"x{op.B % 3}",
                     };
-                    Transition(_state.OpenDocument(id));
+
+                    // Владелец решает точку входа: панельные вкладки — OpenPanelTab (TW-9.12),
+                    // документы и незаявленные — OpenDocument (DA-5.1).
+                    if (_registry.ResolveTabOwner(id)?.ToolWindowId is not null)
+                    {
+                        Transition(_state.OpenPanelTab(id, _registry));
+                    }
+                    else
+                    {
+                        Transition(_state.OpenDocument(id, _registry));
+                    }
+
                     break;
                 }
 
@@ -125,8 +139,23 @@ public class LifecyclePropertyTests
                     Transition(_state.ActivateTab(Tab(op.A)));
                     break;
                 case 7 when tabs.Count > 0:
-                    Transition(_state.MoveTab(Tab(op.A), DockGroupRef.AtTab(Tab(op.B)), op.C - 2));
+                {
+                    var id = Tab(op.A);
+                    var target = Tab(op.B);
+                    // canHost (INV-D5): перенос в панель легален только для её подтверждённых
+                    // вкладок; нелегальная комбинация — предусловие не выполнено, шаг пропущен.
+                    var destinationPanel = PanelOf(_state, target);
+                    var sourcePanel = PanelOf(_state, id);
+                    if (destinationPanel is null
+                        || string.Equals(sourcePanel, destinationPanel, StringComparison.Ordinal)
+                        || _registry.ResolveTabOwner(id)?.ToolWindowId == destinationPanel)
+                    {
+                        Transition(_state.MoveTab(id, DockGroupRef.AtTab(target), op.C - 2, _registry));
+                    }
+
                     break;
+                }
+
                 case 8 when tabs.Count > 0:
                     Transition(_state.SplitTab(Tab(op.A), (SplitDirection)(op.B % 4)));
                     break;
@@ -135,7 +164,7 @@ public class LifecyclePropertyTests
                     break;
                 case 10:
                 {
-                    var rotatable = RotatableTabs(_state.DockArea);
+                    var rotatable = RotatableTabs(_state);
                     if (rotatable.Count > 0)
                     {
                         Transition(_state.RotateSplit(rotatable[op.A % rotatable.Count]));
@@ -163,7 +192,15 @@ public class LifecyclePropertyTests
                     _state = result.State;
                     if (result.Kind == TabMaterializationKind.Materialized)
                     {
-                        _liveTabs.Add(tab);
+                        // Тело панели живёт в карте панельного контента (мост TW-9.5).
+                        if (_registry.TryGet(tab, out _))
+                        {
+                            _livePanels.Add(tab);
+                        }
+                        else
+                        {
+                            _liveTabs.Add(tab);
+                        }
                     }
 
                     break;
@@ -196,7 +233,7 @@ public class LifecyclePropertyTests
                 _docs.LiveCount);
 
             // Живой контент вкладок ⊆ раскладка.
-            var present = AllTabs(_state.DockArea).ToHashSet(StringComparer.Ordinal);
+            var present = AllTabs(_state).ToHashSet(StringComparer.Ordinal);
             Assert.True(_liveTabs.IsSubsetOf(present), "live tab content must refer to tabs present in the layout");
         }
 
@@ -236,19 +273,22 @@ public class LifecyclePropertyTests
             }
         }
 
-        /// <summary>One reported transition: apply, notify, mirror the release rules.</summary>
+        /// <summary>One reported transition: apply, notify, mirror the release rules of TW-9.2/DA-5.4.</summary>
         private void Transition(LayoutState after)
         {
             var before = _state;
             _lifecycle.NotifyTransition(before, after);
 
+            var presentBefore = AllTabs(before).ToHashSet(StringComparer.Ordinal);
+            var presentAfter = AllTabs(after).ToHashSet(StringComparer.Ordinal);
             _livePanels.RemoveWhere(id =>
-                _registry.TryGet(id, out var descriptor)
-                && descriptor.RetentionPolicy == ContentRetentionPolicy.DisposeOnClose
-                && IsOpen(before, id)
-                && !IsOpen(after, id));
-            var present = AllTabs(after.DockArea).ToHashSet(StringComparer.Ordinal);
-            _liveTabs.RemoveWhere(t => !present.Contains(t));
+                (presentBefore.Contains(id) && !presentAfter.Contains(id))
+                || (_registry.TryGet(id, out var descriptor)
+                    && descriptor.RetentionPolicy == ContentRetentionPolicy.DisposeOnClose
+                    && IsOpen(before, id)
+                    && !IsOpen(after, id)
+                    && !InDockHost(after, id)));
+            _liveTabs.RemoveWhere(t => presentBefore.Contains(t) && !presentAfter.Contains(t));
 
             _state = after;
         }
@@ -279,20 +319,41 @@ public class LifecyclePropertyTests
             }
         }
 
-        private static IEnumerable<TabTreeNode> Roots(DockAreaState area)
+        private static IEnumerable<TabTreeNode> DockRoots(LayoutState state)
         {
-            yield return area.Root;
-            foreach (var window in area.Windows)
+            yield return state.DockArea.Root;
+            foreach (var window in state.DockArea.Windows)
             {
                 yield return window.Root;
             }
         }
 
-        private static List<string> AllTabs(DockAreaState area) =>
-            Roots(area).SelectMany(Groups).SelectMany(g => g.Tabs).ToList();
+        private static IEnumerable<TabTreeNode> AllRoots(LayoutState state)
+        {
+            foreach (var root in DockRoots(state))
+            {
+                yield return root;
+            }
 
-        private static List<string> RotatableTabs(DockAreaState area) =>
-            Roots(area).Where(root => root is SplitNode)
+            foreach (var panel in state.ToolWindows)
+            {
+                yield return panel.ContentTree;
+            }
+        }
+
+        private static List<string> AllTabs(LayoutState state) =>
+            AllRoots(state).SelectMany(Groups).SelectMany(g => g.Tabs).ToList();
+
+        private static bool InDockHost(LayoutState state, string tab) =>
+            DockRoots(state).SelectMany(Groups).Any(g => g.Tabs.Contains(tab, StringComparer.Ordinal));
+
+        /// <summary>Id панели, в чьём дереве живёт вкладка, либо null для хостов док-зоны.</summary>
+        private static string? PanelOf(LayoutState state, string tab) =>
+            state.ToolWindows.FirstOrDefault(w =>
+                Groups(w.ContentTree).Any(g => g.Tabs.Contains(tab, StringComparer.Ordinal)))?.Id;
+
+        private static List<string> RotatableTabs(LayoutState state) =>
+            AllRoots(state).Where(root => root is SplitNode)
                 .SelectMany(Groups).SelectMany(g => g.Tabs).ToList();
     }
 }

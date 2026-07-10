@@ -1,22 +1,26 @@
 namespace Berth;
 
 /// <summary>
-/// Coordinator of the content lifecycle over the immutable layout (spec TW-9.2…TW-9.4, TW-9.11,
+/// Coordinator of the content lifecycle over the immutable layout (spec TW-9.2…TW-9.5, TW-9.11,
 /// DA-9.3, DA-9.4; ADR-0003). Holds the only mutable content maps — tool window id and tab id to
 /// live content; the layout state itself stays pure and serializable, independent of whether
 /// content exists (spec TW-9.3). Creation is pull-based: <see cref="GetOrCreateToolWindowContent"/>,
 /// <see cref="MaterializeTab"/>, and Eager creation inside <see cref="Register"/>. Release is
 /// diff-based via <see cref="NotifyTransition"/>, or performed by the state-changing methods of
-/// this class themselves.
+/// this class themselves. The body of a tool window is the tab of its tree whose id equals the
+/// window's id (spec TW-9.5): body content lives in one map entry shared by
+/// <see cref="GetOrCreateToolWindowContent"/> and <see cref="MaterializeTab"/>, so both paths
+/// return the same object.
 ///
 /// The transition contract: the application reports every layout transition — each core command
 /// and every application of <see cref="LayoutApply.Apply"/> or
 /// <see cref="LayoutApply.ResetToDefaults"/> — to <see cref="NotifyTransition"/>, one call per
 /// operation. Batching several operations into one call is unsupported: a transient close of a
 /// <see cref="ContentRetentionPolicy.DisposeOnClose"/> window would be missed (spec TW-9.2).
-/// Transitions produced by this class itself — <see cref="Register"/>, <see cref="Unregister"/>
-/// and the refusal path of <see cref="MaterializeTab"/> — maintain the maps internally and must
-/// not be reported again. Single-threaded by design, like <see cref="ToolWindowRegistry"/>.
+/// Transitions produced by this class itself — <see cref="Register"/>,
+/// <see cref="RegisterDockContent"/>, <see cref="Unregister"/> and the refusal path of
+/// <see cref="MaterializeTab"/> — maintain the maps internally and must not be reported again.
+/// Single-threaded by design, like <see cref="ToolWindowRegistry"/>.
 /// </summary>
 public sealed class ContentLifecycle
 {
@@ -36,8 +40,11 @@ public sealed class ContentLifecycle
     /// <summary>
     /// Returns the live body content of a tool window, creating it on first request
     /// (<see cref="ContentCreationPolicy.OnFirstOpen"/>, spec TW-9.2); content already created —
-    /// eagerly or before a keep-alive close — is returned as is. Null for a window registered
-    /// without a <see cref="ToolWindowDescriptor.ContentFactory"/>.
+    /// eagerly, before a keep-alive close, or through <see cref="MaterializeTab"/> of the body
+    /// tab (the shared entry of the TW-9.5 bridge) — is returned as is: a body living in a
+    /// dock host yields the same object, its release then follows the tab rules rather than
+    /// the retention policy (TW-9.2, DA-8.3). Null for a window registered without a
+    /// <see cref="ToolWindowDescriptor.ContentFactory"/>.
     /// </summary>
     /// <param name="id">Id of a registered tool window.</param>
     /// <exception cref="ArgumentException">No tool window with the given id is registered.</exception>
@@ -65,24 +72,27 @@ public sealed class ContentLifecycle
     }
 
     /// <summary>
-    /// Materializes a dock-area tab (spec DA-9.3, DA-9.4): returns the live content, creating it
-    /// via the owning factory on first request. A tab whose owner has no live claim sleeps —
-    /// nothing is touched and the UI shows a placeholder (DA-9.4). A factory refusing with null
-    /// closes the tab by a regular CloseTab — uniformly for restored and freshly opened tabs
-    /// (DA-9.3) — and the caller must continue from <see cref="TabMaterialization.State"/>,
-    /// re-reading paths and pending materializations (spec DA-1.3).
+    /// Materializes a tab of any tree — a dock-area host or a panel tree (spec DA-9.3, DA-9.4):
+    /// returns the live content, creating it via the owning claim on first request. A tab
+    /// without a live claim sleeps — nothing is touched and the UI shows a placeholder
+    /// (DA-9.4). The body tab of a tool window delegates to its body factory — the bridge of
+    /// TW-9.5, sharing the entry with <see cref="GetOrCreateToolWindowContent"/> — and has no
+    /// refusal path. A tab factory refusing with null closes the tab by a regular CloseTab —
+    /// uniformly for restored and freshly opened tabs (DA-9.3) — and the caller must continue
+    /// from <see cref="TabMaterialization.State"/>, re-reading paths and pending
+    /// materializations (spec DA-1.3).
     /// </summary>
     /// <param name="state">Current layout.</param>
-    /// <param name="tabId">Id of a tab present in the dock area.</param>
-    /// <exception cref="ArgumentException">No such tab exists in the dock area.</exception>
+    /// <param name="tabId">Id of a tab present in the layout.</param>
+    /// <exception cref="ArgumentException">No such tab exists in the layout.</exception>
     /// <exception cref="InvalidOperationException">Two live registrations claim the id (spec TW-9.11).</exception>
     public TabMaterialization MaterializeTab(LayoutState state, string tabId)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(tabId);
-        if (!ContainsTab(state.DockArea, tabId))
+        if (!TabTreeTraversal.LayoutContainsTab(state, tabId))
         {
-            throw new ArgumentException($"No tab '{tabId}' exists in the dock area.", nameof(tabId));
+            throw new ArgumentException($"No tab '{tabId}' exists in the layout.", nameof(tabId));
         }
 
         if (_tabContent.TryGetValue(tabId, out var existing))
@@ -90,26 +100,47 @@ public sealed class ContentLifecycle
             return new TabMaterialization(TabMaterializationKind.Materialized, existing.Content, state);
         }
 
-        if (!_registry.TryResolveTabClaim(tabId, out var factory, out _))
+        var found = _registry.ResolveTabClaim(tabId, out var claim, out var conflict);
+        if (conflict is not null)
+        {
+            throw new InvalidOperationException(conflict);
+        }
+
+        if (!found)
         {
             return new TabMaterialization(TabMaterializationKind.Sleeping, content: null, state);
         }
 
-        if (factory.CreateContent(tabId) is not { } content)
+        if (claim.BodyFactory is { } bodyFactory)
+        {
+            if (_toolWindowContent.TryGetValue(tabId, out var body))
+            {
+                return new TabMaterialization(TabMaterializationKind.Materialized, body.Content, state);
+            }
+
+            var bodyContent = bodyFactory.CreateContent(tabId);
+            _toolWindowContent[tabId] = (bodyFactory, bodyContent);
+            return new TabMaterialization(TabMaterializationKind.Materialized, bodyContent, state);
+        }
+
+        if (claim.TabFactory!.CreateContent(tabId) is not { } content)
         {
             return new TabMaterialization(TabMaterializationKind.Refused, content: null, state.CloseTab(tabId));
         }
 
-        _tabContent[tabId] = (factory, content);
+        _tabContent[tabId] = (claim.TabFactory, content);
         return new TabMaterialization(TabMaterializationKind.Materialized, content, state);
     }
 
     /// <summary>
-    /// Reports one layout transition and releases what left it. Tool window content under
-    /// <see cref="ContentRetentionPolicy.DisposeOnClose"/> is released on the transition out of
-    /// the open state by any path (spec TW-9.2); tab content is released when its id is no
-    /// longer present in the dock area — a move between groups, hosts or windows keeps the id
-    /// present and never touches content (spec DA-5.4).
+    /// Reports one layout transition and releases what left it. Body content is released when
+    /// its tab leaves the layout by any path — CloseTab in any tree, an Apply — under any
+    /// retention policy («content without a tab» does not exist, spec TW-9.2), and under
+    /// <see cref="ContentRetentionPolicy.DisposeOnClose"/> on the window's transition out of
+    /// the open state — unless the body tab lives in a dock host, which shields it from the
+    /// panel's openness (DA-8.3, DA-E37). Tab content is released when its id leaves the
+    /// layout — a move between groups, hosts, windows or panels keeps the id present and never
+    /// touches content (spec DA-5.4).
     /// </summary>
     /// <param name="before">The state the operation was applied to.</param>
     /// <param name="after">The state the operation produced.</param>
@@ -118,21 +149,29 @@ public sealed class ContentLifecycle
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
 
-        List<string>? closedWindows = null;
+        List<string>? releasedBodies = null;
         foreach (var id in _toolWindowContent.Keys)
         {
+            if (TabTreeTraversal.LayoutContainsTab(before, id)
+                && !TabTreeTraversal.LayoutContainsTab(after, id))
+            {
+                (releasedBodies ??= []).Add(id);
+                continue;
+            }
+
             if (_registry.TryGet(id, out var descriptor)
                 && descriptor.RetentionPolicy == ContentRetentionPolicy.DisposeOnClose
                 && IsOpen(before, id)
-                && !IsOpen(after, id))
+                && !IsOpen(after, id)
+                && !LivesInDockHost(after, id))
             {
-                (closedWindows ??= []).Add(id);
+                (releasedBodies ??= []).Add(id);
             }
         }
 
-        if (closedWindows is not null)
+        if (releasedBodies is not null)
         {
-            foreach (var id in closedWindows)
+            foreach (var id in releasedBodies)
             {
                 ReleaseToolWindowContent(id);
             }
@@ -141,7 +180,8 @@ public sealed class ContentLifecycle
         List<string>? goneTabs = null;
         foreach (var id in _tabContent.Keys)
         {
-            if (!ContainsTab(after.DockArea, id))
+            if (TabTreeTraversal.LayoutContainsTab(before, id)
+                && !TabTreeTraversal.LayoutContainsTab(after, id))
             {
                 (goneTabs ??= []).Add(id);
             }
@@ -160,12 +200,15 @@ public sealed class ContentLifecycle
     /// Registers a tool window in a live session (spec TW-10.3, E15): the descriptor enters the
     /// registry and the layout is reconciled atomically — a saved state, sleeping or live, wins
     /// over the descriptor; without one the window gets descriptor defaults, closed, ordered
-    /// after the existing windows of its slot. Sleeping tabs of the new owner are not touched:
-    /// they materialize lazily as usual (spec DA-9.4). The call is transactional: Eager content
-    /// is created before the registry mutation, so a throwing factory leaves the registry, the
-    /// maps and the caller's state untouched — fix the factory and register again. Not a pure
-    /// function: the registry and the content maps change alongside the returned state. Do not
-    /// report this transition to <see cref="NotifyTransition"/>.
+    /// after the existing windows of its slot. Reconciliation also relocates tabs whose owner
+    /// the new claims confirm as foreign out of panel trees into the main window (INV-D5,
+    /// DA-9.2; no report channel — the deliberate asymmetry with Apply, TW-10.3) and seeds the
+    /// body tab (TW-9.5). Sleeping tabs of the new owner are not touched: they materialize
+    /// lazily as usual (spec DA-9.4). The call is transactional: Eager content is created
+    /// before the registry mutation, so a throwing factory leaves the registry, the maps and
+    /// the caller's state untouched — fix the factory and register again. Not a pure function:
+    /// the registry and the content maps change alongside the returned state. Do not report
+    /// this transition to <see cref="NotifyTransition"/>.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="descriptor">Descriptor to register.</param>
@@ -207,16 +250,38 @@ public sealed class ContentLifecycle
             _toolWindowContent[descriptor.Id] = entry;
         }
 
-        return result;
+        result = LayoutApply.RelocateForeignPanelTabs(result, _registry, fixes: null);
+        return LayoutApply.SeedBody(result, descriptor);
+    }
+
+    /// <summary>
+    /// Registers dock-area content in a live session (spec TW-9.11, TW-10.3): the factory's
+    /// claims become live and the layout is reconciled — a tab in a panel tree that the new
+    /// claims confirm as a document relocates to the main window's current group (INV-D5,
+    /// DA-9.2, DA-E35); registration has no report channel — the deliberate asymmetry with
+    /// <see cref="LayoutApply.Apply"/>. Previously sleeping documents materialize lazily as
+    /// usual (DA-9.4). Do not report this transition to <see cref="NotifyTransition"/>.
+    /// </summary>
+    /// <param name="state">Current layout.</param>
+    /// <param name="factory">Dock-area content factory to register.</param>
+    public LayoutState RegisterDockContent(LayoutState state, ITabContentFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(factory);
+        _registry.RegisterDockContent(factory);
+        return LayoutApply.RelocateForeignPanelTabs(state, _registry, fixes: null);
     }
 
     /// <summary>
     /// Unregisters a tool window in a live session (spec TW-9.4): the window is closed, its body
     /// content is released under any retention policy, its state stays in the layout as sleeping
-    /// (TW-10.2), and the tabs claimed by its <see cref="ToolWindowDescriptor.TabFactory"/> are
-    /// closed in every dock-area host with their content released (spec TW-9.10, DA-8.3), in
-    /// traversal order (spec DA-9.2). Re-registration picks the sleeping state up but does not
-    /// restore the closed tabs (TW-9.10). Do not report this transition to
+    /// (TW-10.2) — including its content tree, which is inert and sleeps with the record — and
+    /// the owner's tabs living in dock-area hosts (the claims of its
+    /// <see cref="ToolWindowDescriptor.TabFactory"/> plus the body tab, TW-9.11) are closed with
+    /// their content released (spec TW-9.10, DA-8.3), in traversal order (spec DA-9.2). The
+    /// content of the tabs of the panel's own tree is released too, while the tabs themselves
+    /// sleep in place (TW-9.4). Re-registration picks the sleeping state up but does not restore
+    /// the closed dock tabs (TW-9.10). Do not report this transition to
     /// <see cref="NotifyTransition"/>.
     /// </summary>
     /// <param name="state">Current layout.</param>
@@ -231,23 +296,22 @@ public sealed class ContentLifecycle
             throw new ArgumentException($"No tool window '{toolWindowId}' is registered.", nameof(toolWindowId));
         }
 
-        // The claim disappears with the registration — collect the owner's tabs first.
+        // The claims disappear with the registration — collect the owner's dock-hosted tabs first.
         List<string>? ownedTabs = null;
-        if (descriptor.TabFactory is { } tabFactory)
+        foreach (var tab in EnumerateDockTabs(state.DockArea))
         {
-            foreach (var tab in EnumerateDockTabs(state.DockArea))
+            if (OwnsTab(descriptor, tab))
             {
-                if (tabFactory.OwnsTab(tab))
-                {
-                    (ownedTabs ??= []).Add(tab);
-                }
+                (ownedTabs ??= []).Add(tab);
             }
         }
 
         _registry.Unregister(toolWindowId);
 
         var result = state;
-        if (state.ToolWindows.Any(w => string.Equals(w.Id, toolWindowId, StringComparison.Ordinal)))
+        var record = state.ToolWindows.FirstOrDefault(
+            w => string.Equals(w.Id, toolWindowId, StringComparison.Ordinal));
+        if (record is not null)
         {
             result = result.Close(toolWindowId);
         }
@@ -259,6 +323,18 @@ public sealed class ContentLifecycle
             {
                 result = result.CloseTab(tab);
                 ReleaseTabContent(tab);
+            }
+        }
+
+        if (record is not null)
+        {
+            // The own tree is inert and sleeps (TW-9.4); only the content of its tabs is released.
+            foreach (var group in TabTreeTraversal.EnumerateGroups(record.ContentTree))
+            {
+                foreach (var tab in group.Tabs)
+                {
+                    ReleaseTabContent(tab);
+                }
             }
         }
 
@@ -301,6 +377,12 @@ public sealed class ContentLifecycle
         }
     }
 
+    /// <summary>The union of one registration's claims: the tab predicate plus the implicit body claim (spec TW-9.5, TW-9.11).</summary>
+    private static bool OwnsTab(ToolWindowDescriptor descriptor, string tabId) =>
+        (descriptor.TabFactory?.OwnsTab(tabId) == true)
+        || (descriptor.ContentFactory is not null
+            && string.Equals(descriptor.Id, tabId, StringComparison.Ordinal));
+
     private static bool IsOpen(LayoutState state, string id)
     {
         foreach (var window in state.ToolWindows)
@@ -314,14 +396,15 @@ public sealed class ContentLifecycle
         return false;
     }
 
-    private static bool ContainsTab(DockAreaState area, string tabId)
+    /// <summary>Whether the tab lives in a dock-area host — the shield of DA-8.3 against the panel's openness.</summary>
+    private static bool LivesInDockHost(LayoutState state, string tabId)
     {
-        if (TabTreeTraversal.FindGroupContaining(area.Root, tabId) is not null)
+        if (TabTreeTraversal.FindGroupContaining(state.DockArea.Root, tabId) is not null)
         {
             return true;
         }
 
-        foreach (var window in area.Windows)
+        foreach (var window in state.DockArea.Windows)
         {
             if (TabTreeTraversal.FindGroupContaining(window.Root, tabId) is not null)
             {

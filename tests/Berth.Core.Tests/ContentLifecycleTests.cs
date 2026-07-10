@@ -320,6 +320,44 @@ public class ContentLifecycleTests
     }
 
     [Fact]
+    public void TW_9_4_unregister_leaves_the_panel_own_tree_inert()
+    {
+        // Дискриминатор ⚠-решения ревью плана: «инертно» против «опустошить + пересеять» —
+        // для панели с заявленными вкладками в собственном дереве исходы различимы.
+        var tabFactory = new StubTabFactory("p:");
+        var registry = new ToolWindowRegistry();
+        var lifecycle = new ContentLifecycle(registry);
+        var state = lifecycle.Register(LayoutState.Empty, new ToolWindowDescriptor("p", "P", LeftPrimary)
+        {
+            TabFactory = tabFactory,
+        });
+        state = state.OpenPanelTab("p:t1", registry).OpenPanelTab("p:t2", registry);
+        lifecycle.MaterializeTab(state, "p:t1");
+        lifecycle.MaterializeTab(state, "p:t2");
+        var tree = Get(state, "p").ContentTree;
+
+        var result = lifecycle.Unregister(state, "p");
+
+        // Дерево инертно — тот же экземпляр, вкладки спят на месте (TW-9.4)…
+        Assert.Same(tree, Get(result, "p").ContentTree);
+        // …а контент его вкладок освобождён при любой политике.
+        Assert.Equal(2, tabFactory.Released);
+        Assert.Equal(TabMaterializationKind.Sleeping, lifecycle.MaterializeTab(result, "p:t1").Kind);
+
+        // Повторная регистрация подхватывает дерево как есть; материализация ленивая (DA-9.4).
+        var revived = new StubTabFactory("p:");
+        var registered = lifecycle.Register(result, new ToolWindowDescriptor("p", "P", LeftPrimary)
+        {
+            TabFactory = revived,
+        });
+        Assert.Same(tree, Get(registered, "p").ContentTree);
+        Assert.Equal(0, revived.Created);
+        Assert.Equal(TabMaterializationKind.Materialized, lifecycle.MaterializeTab(registered, "p:t1").Kind);
+        Assert.Equal(1, revived.Created);
+        Assert.Empty(LayoutInvariants.Validate(registered, registry));
+    }
+
+    [Fact]
     public void TW_9_4_unregister_of_an_unknown_id_throws()
     {
         var lifecycle = new ContentLifecycle(new ToolWindowRegistry());
@@ -444,7 +482,7 @@ public class ContentLifecycleTests
         {
             ContentFactory = panelFactory,
         });
-        state = state.OpenDocument("d1").OpenDocument("d2");
+        state = state.OpenDocument("d1", registry).OpenDocument("d2", registry);
         lifecycle.GetOrCreateToolWindowContent("a");
         lifecycle.MaterializeTab(state, "d1");
         lifecycle.MaterializeTab(state, "d2");

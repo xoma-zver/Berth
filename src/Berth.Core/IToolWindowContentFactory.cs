@@ -3,10 +3,10 @@ namespace Berth;
 /// <summary>
 /// Factory of the body content of a tool window (spec TW-9.1, TW-9.2; ADR-0003). Creates and
 /// releases the opaque content object of the panel as a whole — the slot layer treats the panel
-/// as an atom (TW-9.6) and the core never inspects the object. When panel content trees arrive
-/// (spec TW-9.5, backlog 1.8), the degenerate tree's single tab represents the panel body and
-/// its materialization delegates here; additional and movable tabs go through
-/// <see cref="ITabContentFactory"/>.
+/// as an atom (TW-9.6) and the core never inspects the object. The degenerate content tree's
+/// single tab — the body tab, id equal to the window's id — represents the panel body, and its
+/// materialization delegates here (the factory bridge of TW-9.5); additional and movable tabs
+/// go through <see cref="ITabContentFactory"/>.
 /// </summary>
 public interface IToolWindowContentFactory
 {

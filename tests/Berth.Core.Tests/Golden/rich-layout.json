@@ -12,7 +12,14 @@
       "isIconVisible": true,
       "pairRatio": 0.75,
       "undockWeight": 0.33,
-      "floatingBounds": null
+      "floatingBounds": null,
+      "contentTree": {
+        "type": "group",
+        "tabs": [
+          "project"
+        ],
+        "activeTabId": "project"
+      }
     },
     {
       "id": "structure",
@@ -25,7 +32,12 @@
       "isIconVisible": true,
       "pairRatio": 0.5,
       "undockWeight": 0.25,
-      "floatingBounds": null
+      "floatingBounds": null,
+      "contentTree": {
+        "type": "group",
+        "tabs": [],
+        "activeTabId": null
+      }
     },
     {
       "id": "terminal",
@@ -43,6 +55,14 @@
         "y": 20,
         "width": 640,
         "height": 480
+      },
+      "contentTree": {
+        "type": "group",
+        "tabs": [
+          "term1",
+          "term2"
+        ],
+        "activeTabId": "term1"
       }
     },
     {
@@ -56,7 +76,12 @@
       "isIconVisible": false,
       "pairRatio": 0.5,
       "undockWeight": 0.33,
-      "floatingBounds": null
+      "floatingBounds": null,
+      "contentTree": {
+        "type": "group",
+        "tabs": [],
+        "activeTabId": null
+      }
     }
   ],
   "sides": {

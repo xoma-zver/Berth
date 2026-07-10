@@ -247,4 +247,135 @@ public class DockApplyTests
         Assert.Equal(DockHost.MainWindow, result.State.DockArea.ActiveDockHost);
         Assert.Contains("INV-D6", FixRules(result));
     }
+
+    // ---- INV-D5: panel trees at Apply (задача 1.8) ----
+
+    private static readonly ToolWindowSlot LeftPrimary = new(ToolWindowSide.Left, ToolWindowGroup.Primary);
+
+    private static ToolWindowState Panel(LayoutState state, string id) =>
+        state.ToolWindows.First(w => string.Equals(w.Id, id, StringComparison.Ordinal));
+
+    [Fact]
+    public void DA_E36_confirmed_foreign_tab_relocates_from_a_panel_tree_with_a_report()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new StubTabFactory("doc"));
+        var snapshot = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                new ToolWindowState("p", LeftPrimary, 0) with
+                {
+                    ContentTree = new TabGroupNode { Tabs = ["s1", "doc1"], ActiveTabId = "s1" },
+                },
+            ],
+            DockArea = new DockAreaState
+            {
+                Root = new TabGroupNode { Tabs = ["m1", "m2"], ActiveTabId = "m1" },
+                CurrentTabId = "m1",
+            },
+        };
+
+        var result = LayoutState.Empty.Apply(snapshot, ApplyScope.Full, registry);
+
+        // doc1 — в конец текущей группы главного окна; активность не переназначена (DA-9.2).
+        AssertGroup(result.State.DockArea.Root, "m1", "m1", "m2", "doc1");
+        Assert.Equal("m1", result.State.DockArea.CurrentTabId);
+        AssertGroup(Panel(result.State, "p").ContentTree, "s1", "s1"); // спящая s1 осталась
+        Assert.Equal(["INV-D5"], FixRules(result));
+        Assert.Empty(LayoutInvariants.Validate(result.State, registry));
+    }
+
+    [Fact]
+    public void DA_9_2_relocation_into_the_empty_main_tree_forces_the_assignment()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new StubTabFactory("doc"));
+        var snapshot = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                new ToolWindowState("p", LeftPrimary, 0) with { ContentTree = Group("doc1") },
+            ],
+        };
+
+        var result = LayoutState.Empty.Apply(snapshot, ApplyScope.Full, registry);
+
+        // Пустое дерево получило вкладку корневой группой; назначение активности вынужденное
+        // (INV-D4), отдельной записи не порождает.
+        AssertGroup(result.State.DockArea.Root, "doc1", "doc1");
+        Assert.Equal("doc1", result.State.DockArea.CurrentTabId);
+        AssertGroup(Panel(result.State, "p").ContentTree, null);
+        Assert.Equal(["INV-D5"], FixRules(result));
+    }
+
+    [Fact]
+    public void TW_9_11_conflicted_claim_keeps_the_tab_in_place_at_apply()
+    {
+        // Конфликт заявок владельца не подтверждает: Apply не бросает и не чинит — ошибка
+        // приложения всплывёт при операции или материализации (TW-9.11).
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new StubTabFactory("doc"));
+        registry.RegisterDockContent(new StubTabFactory("doc"));
+        var snapshot = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                new ToolWindowState("p", LeftPrimary, 0) with { ContentTree = Group("doc1") },
+            ],
+        };
+
+        var result = LayoutState.Empty.Apply(snapshot, ApplyScope.Full, registry);
+
+        AssertGroup(Panel(result.State, "p").ContentTree, "doc1", "doc1");
+        Assert.Empty(result.Fixes);
+    }
+
+    [Fact]
+    public void DA_9_2_deduplication_spans_panel_trees()
+    {
+        var snapshot = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                new ToolWindowState("p", LeftPrimary, 0) with { ContentTree = Group("x") },
+            ],
+            DockArea = new DockAreaState { Root = Group("x"), CurrentTabId = "x" },
+        };
+
+        var result = Apply(snapshot);
+
+        AssertGroup(result.State.DockArea.Root, "x", "x"); // первое вхождение — главное окно
+        AssertGroup(Panel(result.State, "p").ContentTree, null);
+        Assert.Equal(["DA-9.2"], FixRules(result));
+    }
+
+    [Fact]
+    public void TW_10_7_new_sleeping_tree_is_cleaned_in_the_arrangement_scope()
+    {
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new StubTabFactory("doc"));
+        var current = LayoutState.Empty with
+        {
+            DockArea = new DockAreaState { Root = Group("m"), CurrentTabId = "m" },
+        };
+        var macro = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                new ToolWindowState("s", LeftPrimary, 0) with
+                {
+                    // Дубликат текущей раскладки, незаявленная и подтверждённо чужая вкладки.
+                    ContentTree = new TabGroupNode { Tabs = ["m", "z", "doc1"], ActiveTabId = "z" },
+                },
+            ],
+        };
+
+        var result = current.Apply(macro, ApplyScope.Arrangement, registry);
+
+        Assert.Same(current.DockArea, result.State.DockArea); // док-зона неприкосновенна (DA-9.1)
+        AssertGroup(Panel(result.State, "s").ContentTree, "z", "z");
+        Assert.Equal(["DA-9.2", "INV-D5"], FixRules(result));
+        Assert.Empty(LayoutInvariants.Validate(result.State, registry));
+    }
 }

@@ -192,6 +192,8 @@ public static class LayoutPersistence
             writer.WriteNull("floatingBounds");
         }
 
+        writer.WritePropertyName("contentTree");
+        WriteNode(writer, window.ContentTree);
         writer.WriteEndObject();
     }
 
@@ -351,6 +353,9 @@ public static class LayoutPersistence
             PairRatio = ReadLenientNumber(element, "pairRatio", LayoutDefaults.PairRatio),
             UndockWeight = ReadLenientNumber(element, "undockWeight", LayoutDefaults.UndockWeight),
             FloatingBounds = ReadOptionalBounds(element),
+            ContentTree = TryGetElement(element, "contentTree", out var contentTree)
+                ? ReadNode(contentTree)
+                : TabGroupNode.Empty,
         };
     }
 

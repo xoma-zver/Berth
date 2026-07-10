@@ -28,7 +28,13 @@ public class PersistenceTests
     {
         ToolWindows =
         [
-            new ToolWindowState("project", LeftPrimary, 0) with { IsOpen = true, PairRatio = 0.75 },
+            new ToolWindowState("project", LeftPrimary, 0) with
+            {
+                IsOpen = true,
+                PairRatio = 0.75,
+                // Вырожденное дерево с вкладкой-телом (TW-9.5); владелец спит — реестр тестов пуст.
+                ContentTree = Group("project", "project"),
+            },
             new ToolWindowState("structure", LeftPrimary, 1) with
             {
                 Mode = ToolWindowMode.Undock,
@@ -39,6 +45,7 @@ public class PersistenceTests
             {
                 Mode = ToolWindowMode.Window,
                 FloatingBounds = new FloatingBounds(10, 20, 640, 480),
+                ContentTree = Group("term1", "term1", "term2"),
             },
             new ToolWindowState("sleeper", RightPrimary, 0) with { IsIconVisible = false },
         ],
@@ -245,7 +252,7 @@ public class PersistenceTests
             {
               "schemaVersion": 1,
               "futureTopLevel": { "anything": [1, 2, 3] },
-              "toolWindows": [{ "id": "a", "futureField": true, "contentTree": { "type": "group" } }],
+              "toolWindows": [{ "id": "a", "futureField": true, "futureTree": { "type": "group" } }],
               "dockArea": {
                 "root": { "type": "group", "tabs": ["d"], "activeTabId": "d", "futureNodeField": 7 },
                 "currentTabId": "d"
@@ -281,5 +288,42 @@ public class PersistenceTests
         Assert.Empty(result.Fixes);
         Assert.Equal(0.7, result.State.ToolWindows[0].PairRatio);
         Assert.Contains("\"x\"", LayoutPersistence.Serialize(result.State), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TW_10_5_absent_content_tree_defaults_to_the_empty_tree()
+    {
+        // Правило эволюции схемы: документ без нового поля корректен для новой версии.
+        var json = """{ "schemaVersion": 1, "toolWindows": [{ "id": "a" }] }""";
+
+        var state = LayoutPersistence.Deserialize(json);
+
+        var tree = Assert.IsType<TabGroupNode>(state.ToolWindows[0].ContentTree);
+        Assert.True(tree.Tabs.IsEmpty);
+    }
+
+    [Fact]
+    public void DA_9_4_sleeping_panel_tree_survives_apply_and_serialization()
+    {
+        // Дерево спящей панели инертно: незаявленные вкладки спят в дереве предполагаемого
+        // владельца (INV-D5) и переживают round-trip без исправлений (TW-10.2, TW-9.9).
+        var snapshot = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                new ToolWindowState("p", LeftPrimary, 0) with
+                {
+                    ContentTree = Group("p:t1", "p:t1", "p:t2"),
+                },
+            ],
+        };
+
+        var result = LayoutState.Empty.Apply(
+            LayoutPersistence.Deserialize(LayoutPersistence.Serialize(snapshot)),
+            ApplyScope.Full,
+            new ToolWindowRegistry());
+
+        Assert.Empty(result.Fixes);
+        Assert.Equal(LayoutPersistence.Serialize(snapshot), LayoutPersistence.Serialize(result.State));
     }
 }

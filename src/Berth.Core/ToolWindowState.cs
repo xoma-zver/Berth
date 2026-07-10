@@ -50,4 +50,12 @@ public sealed record ToolWindowState
 
     /// <summary>Saved screen bounds for Float/Window modes, if any (spec TW-3.1).</summary>
     public FloatingBounds? FloatingBounds { get; init; }
+
+    /// <summary>
+    /// Content tree of the tool window — tab groups of the shared tree model (spec TW-9.5,
+    /// DA-1.1). The degenerate tree is one group holding the body tab, whose id equals the
+    /// window's <see cref="Id"/> (TW-9.5); an empty tree is legal (DA-8.4). The tree may only
+    /// hold tabs owned by this window or unclaimed, sleeping ones (INV-D5).
+    /// </summary>
+    public TabTreeNode ContentTree { get; init; } = TabGroupNode.Empty;
 }
