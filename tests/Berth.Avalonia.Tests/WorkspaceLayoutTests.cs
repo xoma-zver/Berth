@@ -70,8 +70,9 @@ public class WorkspaceLayoutTests
 
         var expected = 0.25 * (CenterWidth(window) - SplitterThickness);
         Assert.Equal(expected, Part(window, "PART_LeftPane").Bounds.Width, 1.0);
-        Assert.Null(TryPart(window, "PART_RightPane"));
-        Assert.Null(TryPart(window, "PART_BottomPane"));
+        // Панели закрытых сторон коллапсированы в ноль, а не сняты с дерева (TW-9.13).
+        Assert.Equal(0, Part(window, "PART_RightPane").Bounds.Width, 1.0);
+        Assert.Equal(0, Part(window, "PART_BottomPane").Bounds.Height, 1.0);
     }
 
     [AvaloniaFact]

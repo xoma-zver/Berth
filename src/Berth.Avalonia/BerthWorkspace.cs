@@ -15,18 +15,22 @@ namespace Berth.Controls;
 /// menus change modes and placement (TW-5.16), the «⋯» flyout restores hidden windows
 /// (TW-8.3), and splitter drags are pure visuals until the release commits one resize command
 /// (TW-5.9, TW-2.7 R2). Every command assigns its result back to <see cref="State"/> —
-/// observe user-driven changes with <c>GetObservable(StateProperty)</c>. The subtree is
-/// rebuilt from scratch on each change (a deliberately simple skeleton), reading titles and
-/// icons from <see cref="Registry"/> at rebuild time (ADR-0003). Known limitation of the full
-/// rebuild: live Control content survives as one instance but loses keyboard focus, and
-/// template-built views are recreated — incremental materialization replaces the rebuild as
-/// the first task of phase 3 (docs/BACKLOG.md), before activation starts changing the state
-/// on every focus transfer. With a
+/// observe user-driven changes with <c>GetObservable(StateProperty)</c>.
+///
+/// Materialization is incremental (spec TW-9.13): the visual skeleton is built once, and each
+/// state change is projected as a diff. Tool window hosts (<see cref="ToolWindowDecorator"/>)
+/// are cached per id, updated in place and reattached only when the window actually moves to
+/// another slot or layer, so keyboard focus and view-state are never lost to materialization
+/// itself; sides and pairs collapse and expand around the remaining hosts, and a closed
+/// KeepWhileRegistered host retains its built view until reopening or unregistration. Leaf
+/// chrome — stripe buttons, menus, splitters — is rebuilt per update. With a
 /// <see cref="Lifecycle"/> attached, decorator bodies materialize through the factory bridge
 /// and every gesture command reports its transition to the coordinator (TW-9.3). Registry
 /// mutations are invisible to the property system — and the live registration operations of
 /// <see cref="ContentLifecycle"/> may return a value-equal state, which assignment
-/// deduplicates — so call <see cref="Refresh"/> after them.
+/// deduplicates — so call <see cref="Refresh"/> after them. Replacing <see cref="Registry"/>
+/// or <see cref="Lifecycle"/> is a full reconfiguration: the skeleton and the host cache are
+/// rebuilt from scratch and retained views are dropped.
 /// </summary>
 public sealed class BerthWorkspace : Decorator
 {
@@ -41,6 +45,12 @@ public sealed class BerthWorkspace : Decorator
     /// <summary>Defines the <see cref="Lifecycle"/> property.</summary>
     public static readonly StyledProperty<ContentLifecycle?> LifecycleProperty =
         AvaloniaProperty.Register<BerthWorkspace, ContentLifecycle?>(nameof(Lifecycle));
+
+    private readonly Dictionary<string, ToolWindowDecorator> _hosts = new(StringComparer.Ordinal);
+    private ToolWindowStripe? _leftStripe;
+    private ToolWindowStripe? _rightStripe;
+    private WorkspaceGrid? _grid;
+    private UndockOverlay? _overlay;
 
     /// <summary>The layout to materialize; null renders nothing.</summary>
     public LayoutState? State
@@ -59,8 +69,8 @@ public sealed class BerthWorkspace : Decorator
     /// <summary>
     /// Optional content coordinator. When set, decorator bodies materialize through the
     /// factory bridge (spec TW-9.3, TW-9.5): a <see cref="Control"/> content object is hosted
-    /// directly, anything else is presented by a <see cref="ContentControl"/> and resolved by
-    /// the application's data templates. Every gesture command reports its transition to
+    /// directly, anything else gets its view built once by the application's data templates
+    /// and hosted for the content's lifetime (TW-9.13). Every gesture command reports its transition to
     /// <see cref="ContentLifecycle.NotifyTransition"/> — exactly one call per command
     /// (ADR-0004); transitions the application performs itself — direct <see cref="State"/>
     /// assignments, Apply, ResetToDefaults — remain the application's to report. Null keeps
@@ -73,14 +83,14 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Rebuilds the projection from the current <see cref="State"/> and <see cref="Registry"/>.
-    /// Required after operations that mutate the registry in place — the live registration
-    /// lifecycle (<see cref="ContentLifecycle.Register"/>, RegisterDockContent, Unregister):
-    /// they may return a state value-equal to the current one while titles, icons and claims
-    /// changed, and the property system deduplicates equal assignments. Core layout commands
-    /// need no explicit refresh beyond assigning their result to <see cref="State"/>.
+    /// Projects the current <see cref="State"/> and <see cref="Registry"/> again. Required
+    /// after operations that mutate the registry in place — the live registration lifecycle
+    /// (<see cref="ContentLifecycle.Register"/>, RegisterDockContent, Unregister): they may
+    /// return a state value-equal to the current one while titles, icons and claims changed,
+    /// and the property system deduplicates equal assignments. Core layout commands need no
+    /// explicit refresh beyond assigning their result to <see cref="State"/>.
     /// </summary>
-    public void Refresh() => Rebuild();
+    public void Refresh() => Sync();
 
     /// <summary>
     /// Applies one core command to the live <see cref="State"/> and assigns the result back —
@@ -93,10 +103,27 @@ public sealed class BerthWorkspace : Decorator
         if (State is { } state)
         {
             var result = command(state);
-            // Assign first: the rebuild drops released content from the visual tree before the
-            // coordinator hands it back to its factory.
+            // Assign first: the sync detaches released content from the visual tree before
+            // the coordinator hands it back to its factory.
             State = result;
             Lifecycle?.NotifyTransition(state, result);
+        }
+    }
+
+    /// <summary>
+    /// Detaches a host from its current parent — the step before a legitimate reattachment
+    /// (spec TW-9.13: another slot or layer).
+    /// </summary>
+    internal static void DetachFromParent(Control control)
+    {
+        switch (control.Parent)
+        {
+            case Panel panel:
+                panel.Children.Remove(control);
+                break;
+            case Decorator decorator:
+                decorator.Child = null;
+                break;
         }
     }
 
@@ -104,146 +131,118 @@ public sealed class BerthWorkspace : Decorator
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == StateProperty
-            || change.Property == RegistryProperty
-            || change.Property == LifecycleProperty)
+        if (change.Property == StateProperty)
         {
-            Rebuild();
+            Sync();
+        }
+        else if (change.Property == RegistryProperty || change.Property == LifecycleProperty)
+        {
+            // A full reconfiguration: cached hosts and their retained views belong to the
+            // previous registry and coordinator.
+            Reset();
+            Sync();
         }
     }
 
-    private void Rebuild()
+    /// <summary>The incremental projection of spec TW-9.13: hosts update in place, geometry relays around them.</summary>
+    private void Sync()
     {
         if (State is not { } state || Registry is not { } registry)
         {
-            Child = null;
+            Reset();
             return;
         }
 
+        if (_grid is null)
+        {
+            BuildSkeleton();
+        }
+
+        // Hosts of ids gone from the layout are dropped; the rest update in place.
+        List<string>? gone = null;
+        foreach (var id in _hosts.Keys)
+        {
+            if (!state.ToolWindows.Any(w => string.Equals(w.Id, id, StringComparison.Ordinal)))
+            {
+                (gone ??= []).Add(id);
+            }
+        }
+
+        if (gone is not null)
+        {
+            foreach (var id in gone)
+            {
+                DetachFromParent(_hosts[id]);
+                _hosts.Remove(id);
+            }
+        }
+
+        foreach (var window in state.ToolWindows)
+        {
+            var hosted = window.IsOpen && window.Mode.GetLayer() != ToolWindowLayer.Floating;
+            if (!hosted && !_hosts.ContainsKey(window.Id))
+            {
+                continue; // never materialized — nothing cached to update
+            }
+
+            registry.TryGet(window.Id, out var descriptor);
+            GetHost(window.Id).Update(window, descriptor);
+        }
+
+        _grid!.Update(state, slot => OpenDocked(state, slot) is { } window ? GetHost(window.Id) : null);
+        _overlay!.Update(state, GetHost);
+        _leftStripe!.Update(state, registry, this);
+        _rightStripe!.Update(state, registry, this);
+    }
+
+    private ToolWindowDecorator GetHost(string id)
+    {
+        if (!_hosts.TryGetValue(id, out var host))
+        {
+            host = new ToolWindowDecorator(id, this);
+            _hosts[id] = host;
+        }
+
+        return host;
+    }
+
+    private static ToolWindowState? OpenDocked(LayoutState state, ToolWindowSlot slot) =>
+        state.ToolWindows.FirstOrDefault(w =>
+            w.IsOpen && w.Slot == slot && w.Mode.GetLayer() == ToolWindowLayer.Docked);
+
+    private void BuildSkeleton()
+    {
+        _leftStripe = new ToolWindowStripe(QuickAccessSide.Left);
+        _rightStripe = new ToolWindowStripe(QuickAccessSide.Right);
+        _grid = new WorkspaceGrid(this);
+        _overlay = new UndockOverlay();
+
         // The overlay is the second child, painting above the docked layout (TW-3.3).
         var center = new Panel();
-        center.Children.Add(BuildCenter(state, registry, this));
-        center.Children.Add(BuildOverlay(state, registry, this));
+        center.Children.Add(_grid);
+        center.Children.Add(_overlay);
 
-        var left = new ToolWindowStripe(QuickAccessSide.Left, state, registry, this);
-        var right = new ToolWindowStripe(QuickAccessSide.Right, state, registry, this);
-        DockPanel.SetDock(left, Dock.Left);
-        DockPanel.SetDock(right, Dock.Right);
-
+        DockPanel.SetDock(_leftStripe, Dock.Left);
+        DockPanel.SetDock(_rightStripe, Dock.Right);
         var root = new DockPanel();
-        root.Children.Add(left);
-        root.Children.Add(right);
+        root.Children.Add(_leftStripe);
+        root.Children.Add(_rightStripe);
         root.Children.Add(center);
         Child = root;
     }
 
-    /// <summary>The docked layout of TW-2.1: the bottom pane spans the full width, side panes and the dock area sit above it.</summary>
-    private static Control BuildCenter(LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
+    private void Reset()
     {
-        var main = BuildMainRow(state, registry, workspace);
-        if (!AnyOpenDocked(state, ToolWindowSide.Bottom))
+        foreach (var host in _hosts.Values)
         {
-            return main;
+            DetachFromParent(host);
         }
 
-        return SplitterGrid.Build(
-            main,
-            new SidePane(ToolWindowSide.Bottom, state, registry, workspace),
-            firstShare: 1 - state.Bottom.Weight,
-            vertical: true,
-            "PART_BottomSplitter",
-            mainShare => workspace.Execute(s => s.SetSideSize(ToolWindowSide.Bottom, 1 - mainShare)));
+        _hosts.Clear();
+        _leftStripe = null;
+        _rightStripe = null;
+        _grid = null;
+        _overlay = null;
+        Child = null;
     }
-
-    /// <summary>Side panes and the dock area placeholder in one row; side widths follow the side weights (spec TW-2.5).</summary>
-    private static Control BuildMainRow(LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
-    {
-        var dockArea = new Border { Name = "PART_DockArea" }; // the document area arrives in phase 4
-        var leftOpen = AnyOpenDocked(state, ToolWindowSide.Left);
-        var rightOpen = AnyOpenDocked(state, ToolWindowSide.Right);
-        if (!leftOpen && !rightOpen)
-        {
-            return dockArea;
-        }
-
-        var grid = new Grid();
-        var starPanes = new List<Control>(); // the star-sized cells: side panes and the dock area
-        void Add(Control control, GridLength width, double minWidth)
-        {
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = width, MinWidth = minWidth });
-            Grid.SetColumn(control, grid.ColumnDefinitions.Count - 1);
-            grid.Children.Add(control);
-        }
-
-        // The drag is pure visualization (ADR-0004); the release commits the side weight — the
-        // pane's share of the star-sized cells of the row — as one SetSideSize (TW-5.9, TW-2.6).
-        Control Splitter(string name, ToolWindowSide side, Control pane)
-        {
-            var splitter = new GridSplitter
-            {
-                Name = name,
-                Width = BerthMetrics.SplitterThickness,
-                Background = BerthBrushes.Separator,
-                ResizeDirection = GridResizeDirection.Columns,
-                Focusable = false, // keyboard resize would bypass the release commit
-                MinWidth = 0, // theme minimums would widen the 4px separator
-                MinHeight = 0,
-            };
-            SplitterGrid.CommitOnDragEnd(splitter, () =>
-            {
-                var total = starPanes.Sum(p => p.Bounds.Width);
-                if (total > 0)
-                {
-                    var weight = BerthMetrics.ClampFraction(pane.Bounds.Width / total);
-                    workspace.Execute(s => s.SetSideSize(side, weight));
-                }
-            });
-            return splitter;
-        }
-
-        var leftWeight = leftOpen ? state.Left.Weight : 0;
-        var rightWeight = rightOpen ? state.Right.Weight : 0;
-        if (leftOpen)
-        {
-            var pane = new SidePane(ToolWindowSide.Left, state, registry, workspace);
-            starPanes.Add(pane);
-            Add(pane, new GridLength(leftWeight, GridUnitType.Star), BerthMetrics.MinPaneSize);
-            Add(Splitter("PART_LeftSideSplitter", ToolWindowSide.Left, pane), GridLength.Auto, 0);
-        }
-
-        starPanes.Add(dockArea);
-        Add(dockArea, new GridLength(Math.Max(0, 1 - leftWeight - rightWeight), GridUnitType.Star), BerthMetrics.MinPaneSize);
-        if (rightOpen)
-        {
-            var pane = new SidePane(ToolWindowSide.Right, state, registry, workspace);
-            starPanes.Add(pane);
-            Add(Splitter("PART_RightSideSplitter", ToolWindowSide.Right, pane), GridLength.Auto, 0);
-            Add(pane, new GridLength(rightWeight, GridUnitType.Star), BerthMetrics.MinPaneSize);
-        }
-
-        return grid;
-    }
-
-    private static UndockOverlay BuildOverlay(LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
-    {
-        // Two open overlays of one side are legal (INV-2) but transient: autohide closes the
-        // first one as the second takes focus (TW-6.1, phase 3), so — as in IDEA — the z-order
-        // of that fleeting state is deliberately unspecified; entries render in state order.
-        var overlay = new UndockOverlay();
-        foreach (var window in state.ToolWindows.Where(w => w.IsOpen && w.Mode.GetLayer() == ToolWindowLayer.Overlay))
-        {
-            // The overlay thickness is the side's weight (TW-3.3): the docked layer and the
-            // overlay share one side width, so the overlay exactly covers its docked neighbour.
-            overlay.AddOverlay(
-                ToolWindowDecorator.For(window, registry, workspace),
-                window.Slot.Side,
-                state.GetSide(window.Slot.Side).Weight);
-        }
-
-        return overlay;
-    }
-
-    private static bool AnyOpenDocked(LayoutState state, ToolWindowSide side) =>
-        state.ToolWindows.Any(w =>
-            w.IsOpen && w.Slot.Side == side && w.Mode.GetLayer() == ToolWindowLayer.Docked);
 }

@@ -439,8 +439,8 @@ public class InputTests
         var workspace = Workspace(window);
         var initial = workspace.State!;
 
-        Click(window, Part(window, "PART_LeftSideSplitter")); // путь BuildMainRow
-        Click(window, Part(window, "PART_PairSplitter")); // путь SplitterGrid
+        Click(window, Part(window, "PART_LeftSideSplitter")); // путь WorkspaceGrid
+        Click(window, Part(window, "PART_PairSplitter")); // путь SidePane
 
         Assert.Same(initial, workspace.State);
     }

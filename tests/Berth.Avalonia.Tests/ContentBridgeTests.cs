@@ -76,17 +76,17 @@ public class ContentBridgeTests
         var (registry, lifecycle, state) = Setup(factory);
         var window = Show(state.Open("a"), registry, lifecycle: lifecycle);
 
-        Click(window, Button(window, "a")); // закрытие: декоратор исчез, контент жив
+        Click(window, Button(window, "a")); // закрытие: хост снят с раскладки, контент жив
         Assert.Empty(Decorators(window));
         Assert.Equal(0, factory.Released);
 
-        Click(window, Button(window, "a")); // повторное открытие: тот же экземпляр, репарентинг
+        Click(window, Button(window, "a")); // переоткрытие: тот же хост с тем же экземпляром (TW-9.13)
         Assert.Same(control, Content(window).Child);
         Assert.Equal(1, factory.Created);
     }
 
     [AvaloniaFact]
-    public void TW_9_3_rebuild_while_open_rehosts_the_live_instance()
+    public void TW_9_3_move_while_open_relays_the_live_instance()
     {
         var control = new TextBlock { Text = "body" };
         var factory = new CountingFactory(_ => control);
@@ -94,7 +94,8 @@ public class ContentBridgeTests
         var window = Show(state.Open("a"), registry, lifecycle: lifecycle);
         var workspace = (BerthWorkspace)window.Content!;
 
-        // Прямое присвоение State — путь приложения: пересборка при живом контенте.
+        // Прямое присвоение State — путь приложения: перекладка хоста при живом контенте
+        // (перемещение в другой слот — легальное переприсоединение, TW-9.13).
         workspace.State = workspace.State!.Move(
             "a", new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Primary), 0);
         Dispatcher.UIThread.RunJobs();
@@ -138,10 +139,12 @@ public class ContentBridgeTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        var presenter = Assert.IsType<ContentControl>(Content(window).Child);
-        Assert.IsType<BodyModel>(presenter.Content);
-        var built = presenter.GetVisualDescendants().OfType<TextBlock>().Single();
-        Assert.Equal("templated", built.Text); // вид построен шаблоном приложения (MVVM-путь)
+        // Вид построен шаблоном приложения однократно и хостится напрямую (MVVM-путь):
+        // ContentPresenter не используется — он перестраивал бы вид при каждом
+        // переприсоединении, ломая удержание вида (TW-9.13).
+        var built = Assert.IsType<TextBlock>(Content(window).Child);
+        Assert.Equal("templated", built.Text);
+        Assert.IsType<BodyModel>(built.DataContext);
     }
 
     [AvaloniaFact]

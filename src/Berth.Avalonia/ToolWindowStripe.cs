@@ -15,25 +15,48 @@ namespace Berth.Controls;
 /// segment (Bottom.Primary on the left stripe, Bottom.Secondary on the right), growing upwards
 /// from the edge (TW-1.4). Icons are ordered by <see cref="ToolWindowState.Order"/> within a
 /// segment (TW-1.4); sleeping states have no registration, hence no title or icon to show, and
-/// produce no button (ADR-0003).
+/// produce no button (ADR-0003). The stripe container persists; its buttons are leaf chrome,
+/// rebuilt on every update (spec TW-9.13).
 /// </summary>
 internal sealed class ToolWindowStripe : Decorator
 {
-    public ToolWindowStripe(QuickAccessSide stripe, LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
+    private readonly QuickAccessSide _stripe;
+    private readonly StackPanel _top = new();
+    private readonly StackPanel _bottom = new() { Margin = new Thickness(0, 0, 0, 4) };
+
+    public ToolWindowStripe(QuickAccessSide stripe)
     {
+        _stripe = stripe;
         Name = stripe == QuickAccessSide.Left ? "PART_LeftStripe" : "PART_RightStripe";
-        var side = stripe == QuickAccessSide.Left ? ToolWindowSide.Left : ToolWindowSide.Right;
-        var bottomGroup = stripe == QuickAccessSide.Left ? ToolWindowGroup.Primary : ToolWindowGroup.Secondary;
+        DockPanel.SetDock(_top, Dock.Top);
+        DockPanel.SetDock(_bottom, Dock.Bottom);
+        var root = new DockPanel { Width = BerthMetrics.StripeWidth, LastChildFill = false };
+        root.Children.Add(_top);
+        root.Children.Add(_bottom);
+        Child = new Border
+        {
+            Child = root,
+            Background = BerthBrushes.Pane,
+            BorderBrush = BerthBrushes.Separator,
+            BorderThickness = stripe == QuickAccessSide.Left ? new Thickness(0, 0, 1, 0) : new Thickness(1, 0, 0, 0),
+        };
+    }
+
+    /// <summary>Refills the segments from the state and registrations.</summary>
+    public void Update(LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
+    {
+        var side = _stripe == QuickAccessSide.Left ? ToolWindowSide.Left : ToolWindowSide.Right;
+        var bottomGroup = _stripe == QuickAccessSide.Left ? ToolWindowGroup.Primary : ToolWindowGroup.Secondary;
 
         var primary = Buttons(state, registry, workspace, new ToolWindowSlot(side, ToolWindowGroup.Primary));
         var secondary = Buttons(state, registry, workspace, new ToolWindowSlot(side, ToolWindowGroup.Secondary));
         var bottom = Buttons(state, registry, workspace, new ToolWindowSlot(ToolWindowSide.Bottom, bottomGroup));
 
-        var top = new StackPanel();
-        top.Children.AddRange(primary);
+        _top.Children.Clear();
+        _top.Children.AddRange(primary);
         if (primary.Count > 0 && secondary.Count > 0)
         {
-            top.Children.Add(new Border
+            _top.Children.Add(new Border
             {
                 Name = "PART_StripeSeparator",
                 Height = 1,
@@ -42,30 +65,16 @@ internal sealed class ToolWindowStripe : Decorator
             });
         }
 
-        top.Children.AddRange(secondary);
-        if (state.QuickAccessSide == stripe && !QuickAccess.List(state, registry).IsEmpty)
+        _top.Children.AddRange(secondary);
+        if (state.QuickAccessSide == _stripe && !QuickAccess.List(state, registry).IsEmpty)
         {
-            top.Children.Add(new QuickAccessButton(state, registry, workspace));
+            _top.Children.Add(new QuickAccessButton(state, registry, workspace));
         }
 
         // The bottom segment grows upward: Order 0 is nearest the bottom edge (TW-1.4),
         // i.e. the last child of a top-down stack.
-        var bottomStack = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
-        bottomStack.Children.AddRange(Enumerable.Reverse(bottom));
-
-        DockPanel.SetDock(top, Dock.Top);
-        DockPanel.SetDock(bottomStack, Dock.Bottom);
-        var root = new DockPanel { Width = BerthMetrics.StripeWidth, LastChildFill = false };
-        root.Children.Add(top);
-        root.Children.Add(bottomStack);
-
-        Child = new Border
-        {
-            Child = root,
-            Background = BerthBrushes.Pane,
-            BorderBrush = BerthBrushes.Separator,
-            BorderThickness = stripe == QuickAccessSide.Left ? new Thickness(0, 0, 1, 0) : new Thickness(1, 0, 0, 0),
-        };
+        _bottom.Children.Clear();
+        _bottom.Children.AddRange(Enumerable.Reverse(bottom));
     }
 
     private static List<StripeButton> Buttons(

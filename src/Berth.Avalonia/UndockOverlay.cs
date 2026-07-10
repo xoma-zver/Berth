@@ -11,26 +11,73 @@ namespace Berth.Controls;
 /// the thickness given by the side's <see cref="SideState.Weight"/> (the docked layer and the
 /// overlay share one side width), clamped to the render minimum (TW-2.8). The overlay paints
 /// above the docked layout on an opaque backdrop — the panels underneath must not show
-/// through — and never affects their sizes.
+/// through — and never affects their sizes. Entries are keyed by window id and reconciled in
+/// place (spec TW-9.13): toggling one overlay never touches the other entries or the docked
+/// layer beneath.
 /// </summary>
 internal sealed class UndockOverlay : Panel
 {
-    private readonly List<(Control Control, ToolWindowSide Side, double Weight)> _entries = [];
+    private readonly Dictionary<string, OverlayBackdrop> _entries = new(StringComparer.Ordinal);
 
     public UndockOverlay() => Name = "PART_UndockOverlay";
 
-    public void AddOverlay(Control control, ToolWindowSide side, double weight)
+    /// <summary>Reconciles the entries with the open overlay-layer windows of the state.</summary>
+    public void Update(LayoutState state, Func<string, ToolWindowDecorator> hosts)
     {
-        var entry = new OverlayBackdrop(control);
-        _entries.Add((entry, side, weight));
-        Children.Add(entry);
+        List<string>? stale = null;
+        foreach (var id in _entries.Keys)
+        {
+            if (OverlayWindow(state, id) is null)
+            {
+                (stale ??= []).Add(id);
+            }
+        }
+
+        if (stale is not null)
+        {
+            foreach (var id in stale)
+            {
+                var entry = _entries[id];
+                entry.Child = null; // the host survives in the workspace cache (TW-9.13)
+                Children.Remove(entry);
+                _entries.Remove(id);
+            }
+        }
+
+        foreach (var window in state.ToolWindows)
+        {
+            if (!window.IsOpen || window.Mode.GetLayer() != ToolWindowLayer.Overlay)
+            {
+                continue;
+            }
+
+            if (!_entries.TryGetValue(window.Id, out var entry))
+            {
+                var host = hosts(window.Id);
+                BerthWorkspace.DetachFromParent(host);
+                entry = new OverlayBackdrop(host);
+                _entries[window.Id] = entry;
+                // Two open overlays of one side are legal (INV-2) but transient: autohide
+                // closes the first one as the second takes focus (TW-6.1, phase 3), so — as in
+                // IDEA — the z-order of that fleeting state is deliberately unspecified;
+                // entries paint in arrival order.
+                Children.Add(entry);
+            }
+
+            // The overlay thickness is the side's weight (TW-3.3): the docked layer and the
+            // overlay share one side width, so the overlay exactly covers its docked neighbour.
+            entry.Side = window.Slot.Side;
+            entry.Weight = state.GetSide(window.Slot.Side).Weight;
+        }
+
+        InvalidateMeasure();
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        foreach (var (control, side, weight) in _entries)
+        foreach (var entry in _entries.Values)
         {
-            control.Measure(SlotFor(side, weight, availableSize).Size);
+            entry.Measure(SlotFor(entry.Side, entry.Weight, availableSize).Size);
         }
 
         // The overlay never demands size of its own: it covers whatever the workspace gives.
@@ -39,13 +86,19 @@ internal sealed class UndockOverlay : Panel
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        foreach (var (control, side, weight) in _entries)
+        foreach (var entry in _entries.Values)
         {
-            control.Arrange(SlotFor(side, weight, finalSize));
+            entry.Arrange(SlotFor(entry.Side, entry.Weight, finalSize));
         }
 
         return finalSize;
     }
+
+    private static ToolWindowState? OverlayWindow(LayoutState state, string id) =>
+        state.ToolWindows.FirstOrDefault(w =>
+            string.Equals(w.Id, id, StringComparison.Ordinal)
+            && w.IsOpen
+            && w.Mode.GetLayer() == ToolWindowLayer.Overlay);
 
     private static Rect SlotFor(ToolWindowSide side, double weight, Size area)
     {
@@ -76,6 +129,12 @@ internal sealed class UndockOverlay : Panel
             ActualThemeVariantChanged += (_, _) => UpdateBackground();
             UpdateBackground();
         }
+
+        /// <summary>Side the entry hugs (spec TW-3.3).</summary>
+        public ToolWindowSide Side { get; set; }
+
+        /// <summary>The side weight giving the entry its thickness (spec TW-3.3).</summary>
+        public double Weight { get; set; }
 
         private void UpdateBackground() => Background = ActualThemeVariant == ThemeVariant.Dark
             ? BerthBrushes.DarkOverlaySurface
