@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace Berth.Controls;
 
@@ -34,6 +36,7 @@ public sealed class ToolWindowDecorator : Decorator
     private readonly Button _menuButton;
     private readonly Border _headerBorder;
     private readonly Border _content;
+    private bool _headerPressed;
 
     internal ToolWindowDecorator(string id, BerthWorkspace workspace)
     {
@@ -42,6 +45,7 @@ public sealed class ToolWindowDecorator : Decorator
         _workspace = workspace;
         _context = new TabTreeContext(workspace, id);
         Focusable = true; // the activation fallback focus target (TW-6.6): content may offer no focusable element
+        AddHandler(PointerPressedEvent, OnHeaderPreviewPressed, RoutingStrategies.Tunnel);
 
         _menuButton = ChromeButton("⋮", "PART_MenuButton");
         var hideButton = ChromeButton("—", "PART_HideButton");
@@ -157,17 +161,82 @@ public sealed class ToolWindowDecorator : Decorator
         Focus();
     }
 
+    /// <summary>
+    /// Tunnel interception of bare header presses — the header bar is a drag source
+    /// (TW-5.17), so its focus-activation is fixed on the release: a press that becomes a
+    /// drag never activates, and a cancelled header gesture leaves no trace (TW-6.6; = IDEA:
+    /// startDrag does not activate). The press must be handled on the tunnel, before the
+    /// platform's own tunnel handler at the source focuses the decorator — the nearest
+    /// focusable ancestor — right on the press. Interactive header children — the chrome
+    /// buttons and the tab headers of the root group's strip — keep their own presses.
+    /// </summary>
+    private void OnHeaderPreviewPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // Re-armed on every press: the release of a gesture that became a drag routes to the
+        // capture owner and never resets the flag here, and a stale flag would activate the
+        // window on the next chrome click depending on gesture history.
+        _headerPressed = false;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+            || !IsWithinHeader(e.Source)
+            || HasInteractiveHeaderChild(e.Source))
+        {
+            return;
+        }
+
+        _headerPressed = true;
+        _workspace.Drag?.Arm(new DragSubject(DragSourceKind.PanelHeader, ToolWindowId, Title), e);
+        e.Handled = true;
+    }
+
     /// <inheritdoc/>
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        // A press on the header or a non-focusable body area moves focus into the window and
-        // thereby activates it (TW-6.6); focus already inside stays where it is — interactive
-        // children handle their presses and focus themselves before this bubble handler.
+        // A press on a non-focusable body area moves focus into the window and thereby
+        // activates it (TW-6.6); focus already inside stays where it is — interactive
+        // children handle their presses and focus themselves before this handler, and bare
+        // header presses were intercepted on the tunnel (deferred activation, TW-5.17).
         if (!e.Handled && !IsKeyboardFocusWithin)
         {
             Focus();
         }
+    }
+
+    /// <inheritdoc/>
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        // The deferred header activation (TW-6.6): the release of a click that never became
+        // a drag — a drag's release routes to the capture owner and never arrives here.
+        if (_headerPressed
+            && e.InitialPressMouseButton == MouseButton.Left
+            && _workspace.Drag?.GestureConsumedClick != true
+            && !IsKeyboardFocusWithin)
+        {
+            Focus();
+        }
+
+        _headerPressed = false;
+    }
+
+    private bool IsWithinHeader(object? source) =>
+        source is Visual visual
+        && (ReferenceEquals(visual, _headerBorder) || _headerBorder.IsVisualAncestorOf(visual));
+
+    /// <summary>Whether the press target belongs to an interactive header child, walked up to the header border.</summary>
+    private bool HasInteractiveHeaderChild(object? source)
+    {
+        for (var node = source as Visual;
+            node is not null && !ReferenceEquals(node, _headerBorder);
+            node = node.GetVisualParent())
+        {
+            if (node is Button or DockTabHeader)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

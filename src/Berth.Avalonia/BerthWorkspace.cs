@@ -79,6 +79,8 @@ public sealed class BerthWorkspace : Decorator
     private WorkspaceGrid? _grid;
     private UndockOverlay? _overlay;
     private DockAreaView? _dockView;
+    private DragLayer? _dragLayer;
+    private DragController? _drag;
     private AutoHideController? _autoHide;
 
     /// <summary>
@@ -86,6 +88,9 @@ public sealed class BerthWorkspace : Decorator
     /// the panel trees, so a move between hosts reattaches the same host with its built view.
     /// </summary>
     internal TabHostCache TabHosts => _tabHosts ??= new TabHostCache(this);
+
+    /// <summary>The drag gesture controller (spec TW-5.17); null until the skeleton is built.</summary>
+    internal DragController? Drag => _drag;
 
     /// <summary>The layout to materialize; null renders nothing.</summary>
     public LayoutState? State
@@ -484,6 +489,9 @@ public sealed class BerthWorkspace : Decorator
         _leftStripe!.Update(state, registry, this);
         _rightStripe!.Update(state, registry, this);
         TabHosts.ScheduleMaterialization();
+        // A drag in flight survives the re-projection: its targets rebuild over the updated
+        // layout, and only a vanished subject cancels the gesture (TW-5.17).
+        _drag?.OnProjectionUpdated(state);
     }
 
     private ToolWindowDecorator GetHost(string id)
@@ -509,18 +517,29 @@ public sealed class BerthWorkspace : Decorator
         _grid = new WorkspaceGrid(this, _dockView);
         _overlay = new UndockOverlay();
 
-        // The overlay is the second child, painting above the docked layout (TW-3.3).
+        // The overlay is the second child, painting above the docked layout (TW-3.3); the
+        // drag layer paints above everything (TW-5.17).
         var center = new Panel();
         center.Children.Add(_grid);
         center.Children.Add(_overlay);
+        _dragLayer = new DragLayer();
 
         DockPanel.SetDock(_leftStripe, Dock.Left);
         DockPanel.SetDock(_rightStripe, Dock.Right);
-        var root = new DockPanel();
-        root.Children.Add(_leftStripe);
-        root.Children.Add(_rightStripe);
-        root.Children.Add(center);
+        var workspaceRow = new DockPanel();
+        workspaceRow.Children.Add(_leftStripe);
+        workspaceRow.Children.Add(_rightStripe);
+        workspaceRow.Children.Add(center);
+
+        // The drag layer spans the whole workspace, stripes included — its ghost and markers
+        // live in workspace coordinates (TW-5.17).
+        var root = new Panel();
+        root.Children.Add(workspaceRow);
+        root.Children.Add(_dragLayer);
         Child = root;
+
+        _drag ??= new DragController(this); // the workspace-level handlers attach once
+        _drag.Layer = _dragLayer;
     }
 
     private void Reset()
@@ -533,6 +552,8 @@ public sealed class BerthWorkspace : Decorator
         _hosts.Clear();
         _tabHosts?.Clear();
         _tabHosts = null; // the tab-host cache and retained tab views die with the projection
+        _drag?.Reset(); // a gesture in flight ends with no trace (TW-5.17)
+        _dragLayer = null;
         _leftStripe = null;
         _rightStripe = null;
         _grid = null;

@@ -28,6 +28,16 @@ internal static class BerthMetrics
     public const double SplitterThickness = 4;
 
     /// <summary>
+    /// Pointer travel from the press point turning a press into a drag gesture (spec TW-5.17);
+    /// below it the gesture stays a click. Logical pixels are DPI-independent — the analogue of
+    /// the reference's scaled MouseDragHelper.DRAG_START_DEADZONE = 7.
+    /// </summary>
+    public const double DragStartThreshold = 7;
+
+    /// <summary>Thickness of the insertion marker line over the active drop target (spec TW-5.17).</summary>
+    public const double DropMarkerThickness = 2;
+
+    /// <summary>
     /// Guard of drag-committed fractions: a fraction derived from rendered bounds is clamped
     /// into [Min, 1−Min] before entering a core command, which requires the open interval
     /// (0..1) (spec TW-5.9, INV-4). Fractions of any realistic drag pass through untouched —
@@ -57,6 +67,9 @@ internal static class BerthBrushes
 
     /// <summary>Header accent of the active tool window — the theme-discretion indication of spec TW-6.4.</summary>
     public static readonly IBrush ActiveHeader = new ImmutableSolidColorBrush(Color.FromArgb(0x30, 0x80, 0x80, 0x80));
+
+    /// <summary>Insertion marker over the active drop target (spec TW-5.17) — stronger than <see cref="Separator"/> to read as a live cue.</summary>
+    public static readonly IBrush DropMarker = new ImmutableSolidColorBrush(Color.FromArgb(0xB0, 0x80, 0x80, 0x80));
 
     /// <summary>Opaque backdrop of overlay windows in the light theme variant (spec TW-3.3: panels must not show through).</summary>
     public static readonly IBrush LightOverlaySurface = new ImmutableSolidColorBrush(Color.FromRgb(0xF7, 0xF8, 0xFA));

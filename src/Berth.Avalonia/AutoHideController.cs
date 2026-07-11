@@ -21,9 +21,10 @@ namespace Berth.Controls;
 /// logical tree, so elements of a popup owned by the window or its stripe icon count as
 /// inside (TW-6.1); activation checks the visual tree only, keeping popup focus
 /// activation-neutral (TW-6.6). Splitter drags are resize gestures, not clicks — excluded
-/// from the pointer path (TW-6.2). Application deactivation and modal dialogs are covered
-/// structurally: focus leaving the TopLevel raises no GotFocus here. The drag exception of
-/// TW-6.1 becomes reachable with drag-and-drop (phase 5).
+/// from the pointer path (TW-6.2); DnD gestures likewise (TW-5.17) — a release that finished
+/// or cancelled a drag closes nothing, and the drag exception of TW-6.1 holds structurally
+/// because the drag capture never moves focus. Application deactivation and modal dialogs are
+/// covered structurally: focus leaving the TopLevel raises no GotFocus here.
 ///
 /// The same focus path carries the activity wiring (DA-6.4): a focus gain inside a
 /// <see cref="DockTabHost"/> of any materialized tree reduces to ActivateTab — a dock tab
@@ -191,6 +192,14 @@ internal sealed class AutoHideController
         if (onSplitter || HasSplitterAncestor(e.Source as ILogical))
         {
             return; // a splitter drag is a resize gesture, not a click (TW-6.2)
+        }
+
+        if (_workspace.Drag?.GestureConsumedClick == true)
+        {
+            // A DnD gesture is not a click (TW-6.2, TW-5.17): the release that finished or
+            // cancelled a drag closes nothing on the pointer path; the focus path is
+            // untouched structurally — the capture never moved focus.
+            return;
         }
 
         // A click outside closes, fixed on the release (TW-6.2); the window's own stripe icon

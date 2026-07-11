@@ -790,3 +790,97 @@ envVariables, processType`; позиции в дереве/сплите нет. 
   COMBO("combo") (`platform/ide-core/.../ToolWindowContentUiType.java`), персистится пер-окно
   (`WindowInfoImpl.kt:94-95`, атрибут `content_ui`, дефолт tabs); Project — combo. Кандидат v2
   (раздел 12 tool-windows).
+
+---
+
+## Трассировка к фазе 5: DnD-механизмы эталона (задача 5.0)
+
+Отчёт подготовлен субагентом (Sonnet, 2026-07) по вопросам владельца перед реализацией
+собственного DnD; каждая ссылка дана после открытия файла и построчного чтения. Пути —
+относительно корня `intellij-community-master`.
+
+**Устройство.** Базовый класс всех четырёх источников — `MouseDragHelper`
+(`platform/platform-api/src/com/intellij/ui/MouseDragHelper.java`): подключается к `IdeGlassPane`
+как препроцессор событий (`:94-110`), общие порог/commit/cancel. Конкретные хелперы:
+`ToolWindowDragHelper` (кнопки стрипов **и** заголовки тул-окон — один класс,
+`toolWindow/ToolWindowDragHelper.kt`), `ToolWindowInnerDragHelper` (вкладки контента тул-окна),
+`DragHelper` + `JBTabsImpl` (вкладки редактора), `DockManagerImpl` (кросс-контейнерная сессия).
+
+**Порог старта.** `MouseDragHelper.DRAG_START_DEADZONE = 7` px, JBUI-scaled (`:32`, проверка
+`:279-285`); для заголовка тул-окна — отдельный Registry-ключ с тем же дефолтом 7
+(`ToolWindowDragHelper.kt:149-157`). Клик от drag отличается флагом `myDraggingNow` на
+отпускании: не взведён — событие уходит компоненту штатно (`:145-182`). Второй, независимый
+порог у вкладок редактора — переход reorder → drag-out: вертикальное отклонение больше
+`0.1 × высота вкладки` (`ide.tabbedPane.dragOutMultiplier`, registry.properties:572;
+`SingleRowLayoutStrategy.java:100-105`) либо выход за границы полосы; допуск промаха
+`TabsUtil.UNSCALED_DROP_TOLERANCE = 15` px (TabsUtil.java:28).
+
+**Зоны дропа вкладки редактора.** `TabsUtil.getDropSideFor` (TabsUtil.java:53-93): область
+группы делится диагоналями на четыре краевых клина и центр; доля клина —
+`ide.tabbedPane.dragToSplitRatio`, дефолт **0.2** (клемп 0.05–0.45, registry.properties:574).
+Приоритет у строки вкладок: `JBTabsImpl.processDropOver` (JBTabsImpl.kt:3385-3402) сначала
+пробует индекс вставки среди `TabLabel` и только при промахе — геометрию клиньев. Три исхода
+в `DockableEditorTabbedContainer.add()` (`:167-235`): полоса → вставка по индексу; клин →
+`window.split(...)`; центр → открыть в этой группе.
+
+**Заголовок тул-окна.** Цели — стрипы LEFT/RIGHT/BOTTOM всех `ToolWindowPane` (TOP исключён;
+`getTargetStripeByDropLocation`, ToolWindowDragHelper.kt:715-729). Отпускание вне целей →
+FLOATING c bounds у точки отпускания + `activateToolWindow` (`processDragFinish`, `:455-511`) —
+единственное место активации во всём хелпере. **Старт drag не активирует и не фокусирует**
+(`startDrag`, `:204-269`); кнопки стрипов нефокусируемы (StripeButton.kt:68). Взято в Berth:
+активация заголовка — на отпускании клика, не на нажатии (TW-6.6, задача 5.0).
+
+**Кнопка стрипа.** Индекс вставки — по ближайшей середине соседней кнопки, без пиксельной
+дед-зоны (`recomputeBounds`, AbstractDroppableStripe.kt:307-359); маркер — заливка
+вычисленного прямоугольника (`paintComponent`, `:556-587`). Split/non-split в new UI —
+геометрический тест «по какую сторону разделителя», разделитель — виртуальный элемент списка
+(`:401-409`, `:507-546`); при пустом Secondary разделителя нет — пустой сегмент дропом
+недостижим (у Berth — достижим: зона нулевой позиции, TW-5.17 строже эталона). Коммит —
+`finishDrop` → `setSideToolAndAnchor` (`:210-226`), одна команда (= ADR-0004).
+
+**Спринг-лоадинг: отсутствует.** Целевой поиск по обоим путям обработки наведения
+(`ToolWindowDragHelper.relocate()`, `:311-446`; `StripeButton.processDrag()`) — только
+визуальная подсветка, ни вызова открытия, ни таймера, ни Registry-ключа. Дроп вкладки
+редактора на закрытое тул-окно тоже невозможен: `TerminalDockContainer` регистрируется через
+`launchOnShow` — контейнер-мост существует, только пока декоратор видим
+(TerminalDockContainer.kt:96-110); зона приёма — весь декоратор, не кнопка стрипа.
+
+**Гонки.** Цели пересчитываются живьём на каждый mouse-move во всех четырёх хелперах
+(вынужденно: визуал эталона мутирует во время drag). Универсальной инвалидации сессии нет,
+защита точечная и непоследовательная: проверка `graphicsConfiguration != null` есть в
+`MyDragSession.getResponse` (DockManagerImpl.kt:244-259), но отсутствует в `findContainerFor`
+(`:369-391`). Единственный явный механизм «не трогать структуру во время drag» — busy-gate
+`DockManagerImpl.ready`: закрытие опустевшего окна документов откладывается до конца сессии
+(DockWindow.kt:107,153). Berth выбирает противоположный явный инвариант: раскладка во время
+жеста заморожена самим жестом, внешнее изменение перестраивает цели, исчезновение субъекта
+отменяет жест (TW-5.17).
+
+**Отмена.** Три степени чистоты у эталона: (а) кнопка/заголовок тул-окна — состояние не
+мутировалось до коммита, отмена бесследна (`stopDrag`, ToolWindowDragHelper.kt:513-550);
+(б) вкладка контента тул-окна — явный откат `removeContent`+`addContent` на исходный индекс
+(ToolWindowInnerDragHelper.kt:272-286); (в) вкладка редактора — необратимые следы: выбор
+переключается на соседку в `dragOutStarted` и не возвращается (EditorTabbedContainer.kt:464-530),
+reorder мутирует `visibleInfos` немедленно (`DragHelper.java:231-235`) без отката. Berth
+всюду держит модель (а) — DA-E22 (расхождение с (в) зафиксировано ещё в трассировке DA).
+
+**Ghost.** Абстракция `DragImageView` с двумя воплощениями: недекорированное always-on-top
+окно ОС (`DialogDragImageView`, opacity 0.85 — `THUMB_OPACITY`, ToolWindowDragHelper.kt:93;
+миниатюра до 220 px) и рисование на glass-pane (`GlassPaneDragImageView`, фолбэк Wayland —
+«Wayland doesn't support moving windows», DragImageView.kt:17-18). Оверлей-слой Berth —
+аналог glass-pane-варианта; постоянный путь для браузера (ADR-0006), оконное воплощение —
+фаза 6 за тем же узким контрактом. Reorder вкладок редактора у эталона ghost'а не имеет
+вовсе — двигается сам `TabLabel` (DragHelper.java:234-244): ровно та мутация визуала,
+из-за которой отмена (в) грязная.
+
+**Автоскрытие во время drag.** Явного исключения у эталона нет — эффект эмерджентный:
+единственный механизм автоскрытия фокусный (`hideIfAutoHideToolWindowLostFocus`,
+ToolWindowManagerLifecycle.kt:55-138), а drag фокуса не порождает (кнопки нефокусируемы,
+`startDrag` фокус не трогает). Berth фиксирует исключение явно (TW-6.2, задача 5.0) —
+спроектированная гарантия вместо совпадения свойств виджетов.
+
+**Дефолты эталона, взятые как ориентиры:** deadzone 7 px; доля клиньев сплита 0.2;
+drag-out-порог 0.1 высоты вкладки; допуск промаха мимо полосы 15 px; `ide.tool.window.header.dnd`
+(drag за заголовок) — advanced setting, дефолт true; `ide.allow.tool.window.tabs.reorder` —
+дефолт true. Урок достижимости: легаси-путь `StripeButton.processDrag` (StripeButton.kt:168-222)
+жив только при выключенном `ide.tool.window.header.dnd` — при дефолте мёртв, активный путь
+всегда `ToolWindowDragHelper`.

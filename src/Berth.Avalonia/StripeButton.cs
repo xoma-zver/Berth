@@ -23,6 +23,7 @@ public sealed class StripeButton : Decorator
 {
     private readonly Border _face;
     private readonly string? _iconKey;
+    private readonly string _title;
     private readonly BerthWorkspace _workspace;
     private bool _pressed;
 
@@ -31,6 +32,7 @@ public sealed class StripeButton : Decorator
         ToolWindowId = window.Id;
         IsOpen = window.IsOpen;
         _iconKey = descriptor.IconKey;
+        _title = descriptor.Title;
         _workspace = workspace;
         _face = new Border
         {
@@ -67,6 +69,9 @@ public sealed class StripeButton : Decorator
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             _pressed = true;
+            // The press is also a drag candidate (TW-5.17): past the threshold the gesture
+            // becomes a drag and this button never sees the release.
+            _workspace.Drag?.Arm(new DragSubject(DragSourceKind.StripeIcon, ToolWindowId, _title), e);
             e.Handled = true;
         }
     }
@@ -75,7 +80,9 @@ public sealed class StripeButton : Decorator
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (_pressed && e.InitialPressMouseButton == MouseButton.Left)
+        if (_pressed
+            && e.InitialPressMouseButton == MouseButton.Left
+            && _workspace.Drag?.GestureConsumedClick != true)
         {
             // TW-5.4: the click toggles openness, regardless of the window's activity.
             // Openness is read from the command's input state, so the lambda does not
