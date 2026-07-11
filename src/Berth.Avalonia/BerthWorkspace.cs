@@ -15,10 +15,10 @@ namespace Berth.Controls;
 /// root group's strip lives in the decorator header row, hidden for the degenerate solitary
 /// body (DA-8.4) — splits with splitters, the active tab's content per group; tab hosts come
 /// from a single workspace-wide cache keyed by tab id, so a move between a panel and the dock
-/// area reattaches the same host with its built view. Tab clicks, tab menus and split drags
-/// reduce to the dock commands (DA-5.2…DA-5.9, ADR-0004), focus gains in tab content reduce
-/// to ActivateTab (DA-6.4), and Esc inside a tool window returns focus to the current tab
-/// (TW-6.3). Document windows, like Float and Window tool window modes, are not materialized
+/// area reattaches the same host with its built view. Tab clicks, tab menus, split drags and
+/// tab drag-and-drop reduce to the dock commands (DA-5.2…DA-5.9, DA-9.7, ADR-0004), focus
+/// gains in tab content reduce to ActivateTab (DA-6.4), and Esc inside a tool window returns
+/// focus to the current tab (TW-6.3). Document windows, like Float and Window tool window modes, are not materialized
 /// until the floating-window phase — their tabs keep cached views while away. The control is a pure projection of the state (ADR-0002):
 /// fractions become pixels here and render-time minimums clamp without touching the state
 /// (TW-2.8). Input reduces to core commands (ADR-0004): a stripe icon click toggles openness

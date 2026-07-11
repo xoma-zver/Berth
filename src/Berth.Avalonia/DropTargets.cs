@@ -5,13 +5,26 @@ using Avalonia.VisualTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// One drop target of a drag gesture (spec TW-5.17): the hit zone and the insertion marker in
-/// workspace coordinates, plus the core command of the drop (ADR-0004). The commit factory is
-/// written defensively against its input state — the catalog may predate an external state
-/// change that arrived without a pointer move in between — and returns the state unchanged
-/// when the drop is an identity or its precondition vanished (TW-5.17).
+/// One drop target of a drag gesture (spec TW-5.17, DA-9.7): the hit zone and the marker in
+/// workspace coordinates, plus the commit of the drop — the core command(s) of the gesture,
+/// run through the workspace funnel (ADR-0004). The commit is written defensively against the
+/// live state — the catalog may predate an external state change that arrived without a
+/// pointer move in between — and does nothing when the drop is an identity or its
+/// precondition vanished (TW-5.17, DA-E40). <see cref="HitTest"/> optionally refines the
+/// rectangular zone — the diagonal wedges of DA-9.7 are not expressible as rectangles.
 /// </summary>
-internal sealed record DropTarget(Rect HitRect, Rect MarkerRect, Func<LayoutState, LayoutState> Commit);
+internal sealed record DropTarget(
+    Rect HitRect, Rect MarkerRect, Action<BerthWorkspace> Commit, Func<Point, bool>? HitTest = null)
+{
+    /// <summary>
+    /// Whether the marker is a translucent area preview — the half-group and whole-group
+    /// previews of DA-9.7 — rather than the opaque insertion line.
+    /// </summary>
+    public bool AreaMarker { get; init; }
+
+    /// <summary>Whether the pointer position lies in the target's zone.</summary>
+    public bool Contains(Point position) => HitRect.Contains(position) && HitTest?.Invoke(position) != false;
+}
 
 /// <summary>
 /// Catalog builder of the stripe drop targets (spec TW-5.17): the six slot segments of the two
@@ -235,10 +248,13 @@ internal static class StripeDropTargets
         }
 
         var markerY = Math.Clamp(markerAnchor, zoneStart, zoneEnd - BerthMetrics.DropMarkerThickness);
+        var commit = MoveCommit(draggedId, slot, predecessorId);
         targets.Add(new DropTarget(
             new Rect(stripeRect.X, zoneStart, stripeRect.Width, zoneEnd - zoneStart),
             new Rect(stripeRect.X + 2, markerY, stripeRect.Width - 4, BerthMetrics.DropMarkerThickness),
-            MoveCommit(draggedId, slot, predecessorId)));
+            // Exactly one core command per stripe drop (TW-5.17); an identity returns the
+            // state unchanged inside the funnel.
+            ws => ws.Execute(commit)));
     }
 
     /// <summary>
@@ -288,7 +304,8 @@ internal static class StripeDropTargets
             return state.Move(id, slot, index);
         };
 
-    private static Rect? BoundsIn(Control control, Visual ancestor)
+    /// <summary>Bounds of a control in workspace coordinates; shared with the tab drop catalog (DA-9.7).</summary>
+    internal static Rect? BoundsIn(Control control, Visual ancestor)
     {
         var origin = control.TranslatePoint(default, ancestor);
         return origin is null ? null : new Rect(origin.Value, control.Bounds.Size);

@@ -38,6 +38,12 @@ internal static class BerthMetrics
     public const double DropMarkerThickness = 2;
 
     /// <summary>
+    /// Depth of an edge wedge of a tab group as a fraction of the group's extent (spec DA-9.7);
+    /// = the reference's dragToSplitRatio 0.2.
+    /// </summary>
+    public const double SplitWedgeRatio = 0.2;
+
+    /// <summary>
     /// Guard of drag-committed fractions: a fraction derived from rendered bounds is clamped
     /// into [Min, 1−Min] before entering a core command, which requires the open interval
     /// (0..1) (spec TW-5.9, INV-4). Fractions of any realistic drag pass through untouched —
@@ -70,6 +76,9 @@ internal static class BerthBrushes
 
     /// <summary>Insertion marker over the active drop target (spec TW-5.17) — stronger than <see cref="Separator"/> to read as a live cue.</summary>
     public static readonly IBrush DropMarker = new ImmutableSolidColorBrush(Color.FromArgb(0xB0, 0x80, 0x80, 0x80));
+
+    /// <summary>Translucent area preview of a wedge or center drop target (spec DA-9.7) — the content stays legible underneath.</summary>
+    public static readonly IBrush DropAreaPreview = new ImmutableSolidColorBrush(Color.FromArgb(0x38, 0x80, 0x80, 0x80));
 
     /// <summary>Opaque backdrop of overlay windows in the light theme variant (spec TW-3.3: panels must not show through).</summary>
     public static readonly IBrush LightOverlaySurface = new ImmutableSolidColorBrush(Color.FromRgb(0xF7, 0xF8, 0xFA));

@@ -2,8 +2,10 @@ using System.Collections.Immutable;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace Berth.Controls;
 
@@ -45,6 +47,9 @@ internal sealed class TabGroupView : DockPanel
         Children.Add(_stripBar);
         Children.Add(_content);
     }
+
+    /// <summary>Context of the tree the group belongs to — the canHost key of the drop catalog (spec DA-9.7).</summary>
+    public TabTreeContext Context => _context;
 
     /// <summary>Tabs currently projected — the reconciliation key (spec DA-1.3).</summary>
     public HashSet<string> Tabs { get; } = new(StringComparer.Ordinal);
@@ -114,10 +119,15 @@ internal sealed class TabGroupView : DockPanel
 /// always reflects the state it was built from. A left click activates the tab and moves
 /// keyboard focus into its content (DA-5.3, DA-6.4) — committed on release, like every chrome
 /// gesture (TW-6.2); a middle click and the «×» button close it (DA-5.2); the context menu
-/// carries the tab commands (ADR-0004, TW-5.16). The group's active tab carries the
-/// <c>:active</c> pseudo-class; the active document — the current tab of the effective active
-/// host while no tool window is active (DA-6.2) — additionally carries <c>:current</c>.
-/// Headers share the PART name and are discriminated by <c>Tag</c> holding the tab id.
+/// carries the tab commands (ADR-0004, TW-5.16). The header is also a drag source (spec
+/// DA-9.7): its press arms the workspace drag controller, whose workspace-level tunnel
+/// handler already marked the press handled — deferring the platform press-focus — so the
+/// header's own press handling runs on the tunnel with handledEventsToo, and the click
+/// semantics complete on the release only when the gesture never became a drag. The group's
+/// active tab carries the <c>:active</c> pseudo-class; the active document — the current tab
+/// of the effective active host while no tool window is active (DA-6.2) — additionally
+/// carries <c>:current</c>. Headers share the PART name and are discriminated by <c>Tag</c>
+/// holding the tab id.
 /// </summary>
 internal sealed class DockTabHeader : Border
 {
@@ -139,6 +149,7 @@ internal sealed class DockTabHeader : Border
         Name = "PART_TabHeader";
         Tag = tabId;
         Padding = new Thickness(8, 0, 2, 0);
+        AddHandler(PointerPressedEvent, OnPreviewPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
 
         var workspace = context.Workspace;
         var isActive = string.Equals(group.ActiveTabId, tabId, StringComparison.Ordinal);
@@ -174,25 +185,63 @@ internal sealed class DockTabHeader : Border
             state, tabId, registry, workspace, canRotate: !path.IsEmpty, context.PanelId);
     }
 
-    /// <inheritdoc/>
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    /// <summary>Id of the tab the header represents.</summary>
+    internal string TabId => _tabId;
+
+    /// <summary>Context of the tree the header belongs to — the canHost key of the drop catalog (spec DA-9.7).</summary>
+    internal TabTreeContext Context => _context;
+
+    /// <summary>Nearest tab header above the press target, or null.</summary>
+    internal static DockTabHeader? FindHeader(object? source) =>
+        (source as Visual)?.FindAncestorOfType<DockTabHeader>(includeSelf: true);
+
+    /// <summary>
+    /// Whether the press target is an interactive child of this header — the «×» button keeps
+    /// its own press and the platform press-focus path (spec DA-9.6, DA-9.7).
+    /// </summary>
+    internal bool IsPressOnInteractiveChild(object? source)
     {
-        base.OnPointerPressed(e);
-        if (e.Handled)
+        for (var node = source as Visual;
+            node is not null && !ReferenceEquals(node, this);
+            node = node.GetVisualParent())
         {
-            return; // the «×» button handled its own press
+            if (node is Button)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Press handling on the tunnel with handledEventsToo: the workspace drag controller marks
+    /// bare header presses handled earlier on the same tunnel (the press-focus deferral of
+    /// DA-9.7), so the bubble path never fires for them. Flags are re-armed on every press —
+    /// a drag's release routes to the capture owner and never resets them here (TW-5.17).
+    /// </summary>
+    private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        _leftPressed = false;
+        _middlePressed = false;
+        if (IsPressOnInteractiveChild(e.Source))
+        {
+            return;
         }
 
         var properties = e.GetCurrentPoint(this).Properties;
         if (properties.IsLeftButtonPressed)
         {
             _leftPressed = true;
-            e.Handled = true;
+            // The press is also a drag candidate (DA-9.7): past the threshold the gesture
+            // becomes a drag and this header never sees the release.
+            _context.Workspace.Drag?.Arm(
+                new DragSubject(DragSourceKind.TreeTab, _tabId, TabHostCache.TitleOf(_context.Workspace, _tabId)),
+                e);
         }
         else if (properties.IsMiddleButtonPressed)
         {
             _middlePressed = true;
-            e.Handled = true;
         }
     }
 
@@ -200,6 +249,15 @@ internal sealed class DockTabHeader : Border
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        if (_context.Workspace.Drag?.GestureConsumedClick == true)
+        {
+            // A gesture that became a drag is not a click (TW-5.17); its release normally
+            // routes to the capture owner and never arrives here — this is the safety net.
+            _leftPressed = false;
+            _middlePressed = false;
+            return;
+        }
+
         if (_leftPressed && e.InitialPressMouseButton == MouseButton.Left)
         {
             // DA-5.3 + DA-6.4: the gesture activates the tab and transfers focus into its

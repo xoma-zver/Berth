@@ -61,9 +61,13 @@ internal sealed class DragLayer : Canvas
         SetTop(_ghost, position.Y + 12);
     }
 
-    /// <summary>Shows the insertion marker over the active drop target, in workspace coordinates.</summary>
-    public void ShowMarker(Rect rect)
+    /// <summary>
+    /// Shows the marker over the active drop target, in workspace coordinates: the opaque
+    /// insertion line, or the translucent area preview of a wedge or center drop (DA-9.7).
+    /// </summary>
+    public void ShowMarker(Rect rect, bool isArea = false)
     {
+        _marker.Background = isArea ? BerthBrushes.DropAreaPreview : BerthBrushes.DropMarker;
         _marker.Width = rect.Width;
         _marker.Height = rect.Height;
         SetLeft(_marker, rect.X);

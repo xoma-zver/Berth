@@ -5,7 +5,7 @@ using Avalonia.Interactivity;
 
 namespace Berth.Controls;
 
-/// <summary>Kind of a drag source (spec TW-5.17); tab drags arrive with DA-9.7 (task 5.1).</summary>
+/// <summary>Kind of a drag source (spec TW-5.17, DA-9.7).</summary>
 internal enum DragSourceKind
 {
     /// <summary>A stripe icon (spec TW-1.4).</summary>
@@ -13,10 +13,17 @@ internal enum DragSourceKind
 
     /// <summary>The header bar of a tool window decorator (spec TW-7.8 in phase 6; slots until then).</summary>
     PanelHeader,
+
+    /// <summary>A tab header of a materialized tree (spec DA-9.7).</summary>
+    TreeTab,
 }
 
-/// <summary>The dragged subject: what the gesture moves and what the ghost shows (spec TW-5.17).</summary>
-internal readonly record struct DragSubject(DragSourceKind Kind, string ToolWindowId, string Title);
+/// <summary>
+/// The dragged subject: what the gesture moves and what the ghost shows (spec TW-5.17).
+/// <see cref="SubjectId"/> is a tool window id for a stripe icon or a header, and a tab id
+/// for a tree tab (spec DA-9.7).
+/// </summary>
+internal readonly record struct DragSubject(DragSourceKind Kind, string SubjectId, string Title);
 
 /// <summary>
 /// The drag gesture controller (spec TW-5.17, ADR-0004): one instance per workspace, driving
@@ -28,11 +35,19 @@ internal readonly record struct DragSubject(DragSourceKind Kind, string ToolWind
 /// marker, no state changes, no focus moves. The drop target catalog is built from the current
 /// state and layout, and rebuilt when an external state change re-projects the workspace
 /// mid-gesture — the gesture continues over the updated targets and is cancelled only when the
-/// dragged subject leaves the layout (TW-5.17). A drop commits exactly one core command
-/// through the workspace funnel; a cancelled gesture — Esc, a release outside every target, a
+/// dragged subject leaves the layout (TW-5.17). A drop commits through the workspace funnel —
+/// exactly one core command for a stripe drop (TW-5.17), the menu-mirroring command sequence
+/// for a tab drop (DA-9.7); a cancelled gesture — Esc, a release outside every target, a
 /// lost capture — leaves no trace: no command, no activation, no focus transfer (DA-E22). A
 /// gesture that became a drag also consumes the click: sources and the auto-hide pointer path
 /// check <see cref="GestureConsumedClick"/> (TW-6.2: a DnD gesture is not a click).
+///
+/// The controller also owns the press-focus deferral of tab headers (spec DA-9.7, the mirror
+/// of the decorator's bare-header interception of TW-6.6): a tunnel handler on the workspace
+/// root marks presses on tab headers handled before the platform's press-focus class handler
+/// at the source can park focus on the nearest focusable ancestor — a press that may become a
+/// drag must not activate the hosting panel; the click semantics run on the release. Presses
+/// on interactive header children (the «×» button) are left alone.
 /// </summary>
 internal sealed class DragController
 {
@@ -63,6 +78,8 @@ internal sealed class DragController
     public DragController(BerthWorkspace workspace)
     {
         _workspace = workspace;
+        workspace.AddHandler(
+            InputElement.PointerPressedEvent, OnPreviewPressed, RoutingStrategies.Tunnel);
         workspace.AddHandler(
             InputElement.PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         workspace.AddHandler(
@@ -106,7 +123,7 @@ internal sealed class DragController
             return;
         }
 
-        if (state.ToolWindows.Any(w => string.Equals(w.Id, _subject.ToolWindowId, StringComparison.Ordinal)))
+        if (SubjectInLayout(state))
         {
             _catalogDirty = true;
         }
@@ -128,6 +145,30 @@ internal sealed class DragController
         Layer = null;
     }
 
+    /// <summary>
+    /// The press-focus deferral of tab headers (spec DA-9.7): a left or middle press whose
+    /// target lies in a tab header is marked handled on the tunnel, before the platform's
+    /// press-focus class handler at the source parks focus on the nearest focusable ancestor —
+    /// on a panel tree that would activate the panel right on the press, leaving a trace
+    /// behind a cancelled drag (TW-5.17). The header runs its own tunnel handler afterwards
+    /// (handledEventsToo) to arm the gesture; the click semantics complete on the release.
+    /// Presses on the «×» button keep the platform path (DA-9.6); right presses keep the
+    /// context-menu gesture.
+    /// </summary>
+    private void OnPreviewPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var properties = e.GetCurrentPoint(_workspace).Properties;
+        if (!properties.IsLeftButtonPressed && !properties.IsMiddleButtonPressed)
+        {
+            return;
+        }
+
+        if (DockTabHeader.FindHeader(e.Source) is { } header && !header.IsPressOnInteractiveChild(e.Source))
+        {
+            e.Handled = true;
+        }
+    }
+
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (_phase is Phase.Dragging or Phase.CancelledAwaitingRelease)
@@ -136,8 +177,8 @@ internal sealed class DragController
         }
 
         // A press that armed nothing resets the leftover flag of the previous gesture; an
-        // Armed phase here was set by this very press — the source's class handler runs
-        // before the press bubbles to the workspace.
+        // Armed phase here was set by this very press — the source's handlers run before
+        // the press bubbles to the workspace.
         if (_phase == Phase.Idle)
         {
             GestureConsumedClick = false;
@@ -183,14 +224,10 @@ internal sealed class DragController
             case Phase.Dragging:
                 var target = _current;
                 EndGesture();
-                if (target is not null)
-                {
-                    // Exactly one core command per drop (ADR-0004); the factory guards
-                    // against a state that changed after the last catalog rebuild and
-                    // yields no command for an identity drop (TW-5.17).
-                    _workspace.Execute(target.Commit);
-                }
-
+                // The commit runs through the workspace funnel (ADR-0004); the factory
+                // guards against a state that changed after the last catalog rebuild and
+                // does nothing for an identity drop (TW-5.17, DA-E40).
+                target?.Commit(_workspace);
                 break;
             case Phase.CancelledAwaitingRelease:
                 EndGesture();
@@ -231,8 +268,7 @@ internal sealed class DragController
     private void RebuildCatalog()
     {
         _catalogDirty = false;
-        if (_workspace.State is not { } state
-            || !state.ToolWindows.Any(w => string.Equals(w.Id, _subject.ToolWindowId, StringComparison.Ordinal)))
+        if (_workspace.State is not { } state || !SubjectInLayout(state))
         {
             CancelDrag();
             return;
@@ -240,9 +276,16 @@ internal sealed class DragController
 
         // Zone geometry reads rendered bounds: settle the layout of the re-projection first.
         _workspace.UpdateLayout();
-        _targets = StripeDropTargets.Build(_workspace, state, _subject.ToolWindowId);
+        _targets = _subject.Kind == DragSourceKind.TreeTab
+            ? TabDropTargets.Build(_workspace, state, _subject.SubjectId)
+            : StripeDropTargets.Build(_workspace, state, _subject.SubjectId);
         _current = null;
     }
+
+    /// <summary>Whether the dragged subject is still present in the layout (spec TW-5.17, DA-9.7).</summary>
+    private bool SubjectInLayout(LayoutState state) => _subject.Kind == DragSourceKind.TreeTab
+        ? DockTrees.LayoutContainsTab(state, _subject.SubjectId)
+        : state.ToolWindows.Any(w => string.Equals(w.Id, _subject.SubjectId, StringComparison.Ordinal));
 
     private void UpdateVisuals(Point position)
     {
@@ -252,7 +295,7 @@ internal sealed class DragController
         {
             foreach (var target in _targets)
             {
-                if (target.HitRect.Contains(position))
+                if (target.Contains(position))
                 {
                     _current = target;
                     break;
@@ -262,7 +305,7 @@ internal sealed class DragController
 
         if (_current is { } current)
         {
-            Layer?.ShowMarker(current.MarkerRect);
+            Layer?.ShowMarker(current.MarkerRect, current.AreaMarker);
         }
         else
         {
