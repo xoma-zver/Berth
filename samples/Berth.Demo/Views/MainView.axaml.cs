@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 
 namespace Berth.Demo.Views;
 
@@ -7,13 +8,15 @@ public partial class MainView : UserControl
 {
     // The demo keymap: activation shortcuts belong to the application, not to the
     // registrations (spec TW-5.5) — the workspace only executes the tri-state activation
-    // and shows the hints its provider supplies (TW-6.4).
-    private static readonly (string Id, Key Key, string Hint)[] Shortcuts =
+    // and shows the hints its provider supplies (TW-6.4). Gestures are matched with
+    // KeyGesture (canonical Key + modifier comparison) on the tunnel of KeyDown, so the
+    // application keymap resolves Alt+digit before access-key or menu handling can claim it.
+    private static readonly (string Id, KeyGesture Gesture, string Hint)[] Shortcuts =
     [
-        ("project", Key.D1, "Alt+1"),
-        ("structure", Key.D2, "Alt+2"),
-        ("terminal", Key.D3, "Alt+3"),
-        ("properties", Key.D4, "Alt+4"),
+        ("project", new KeyGesture(Key.D1, KeyModifiers.Alt), "Alt+1"),
+        ("structure", new KeyGesture(Key.D2, KeyModifiers.Alt), "Alt+2"),
+        ("terminal", new KeyGesture(Key.D3, KeyModifiers.Alt), "Alt+3"),
+        ("properties", new KeyGesture(Key.D4, KeyModifiers.Alt), "Alt+4"),
     ];
 
     public MainView()
@@ -31,19 +34,14 @@ public partial class MainView : UserControl
 
             return null;
         };
+        AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
+    private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
-        base.OnKeyDown(e);
-        if (e.Handled || e.KeyModifiers != KeyModifiers.Alt)
+        foreach (var (id, gesture, _) in Shortcuts)
         {
-            return;
-        }
-
-        foreach (var (id, key, _) in Shortcuts)
-        {
-            if (key == e.Key)
+            if (gesture.Matches(e))
             {
                 Workspace.ActivateToolWindow(id);
                 e.Handled = true;

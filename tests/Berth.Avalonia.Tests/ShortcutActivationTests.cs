@@ -98,6 +98,22 @@ public class ShortcutActivationTests
         Dispatcher.UIThread.RunJobs();
     }
 
+    /// <summary>
+    /// Puts keyboard focus into the stripe icon's logical subtree. The icon itself is not
+    /// focusable, so focus reaches it only through a popup the icon owns — its context menu
+    /// (TW-5.16); this is the icon leg of the «active» predicate, which walks the logical tree
+    /// (TW-6.1). Mirrors the real gesture «open the icon menu, then hit the shortcut».
+    /// </summary>
+    private static void FocusIconMenu(Window window, string id)
+    {
+        var icon = Button(window, id);
+        var flyout = (MenuFlyout)icon.ContextFlyout!;
+        flyout.ShowAt(icon);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(flyout.Items.OfType<MenuItem>().First().Focus());
+        Dispatcher.UIThread.RunJobs();
+    }
+
     // ---- TW-5.5: the tri-state shortcut ----
 
     [AvaloniaFact]
@@ -184,6 +200,46 @@ public class ShortcutActivationTests
 
         Assert.True(Get(window, "a").IsOpen); // активация, не закрытие
         Assert.True(boxA.IsFocused); // и перенос фокуса — хотя поле не менялось (TW-5.2, TW-6.6)
+    }
+
+    [AvaloniaFact]
+    public void TW_5_5_focus_in_the_icon_menu_makes_the_shortcut_close_the_panel()
+    {
+        // «Открыта и активна» — фокус логически внутри панели ИЛИ её иконки (предикат TW-6.1).
+        // Фокус в контекстном меню иконки — единственный путь фокуса в её поддерево (сама
+        // иконка не фокусируема) — активирует панель так же, как фокус в контенте: шорткат
+        // закрывает.
+        var registry = Registry("a:Alpha");
+        var state = LayoutState.Empty with
+        {
+            ToolWindows = [Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true }],
+        };
+        var window = Show(state, registry);
+        FocusIconMenu(window, "a");
+
+        ActivateShortcut(window, "a");
+
+        Assert.False(Get(window, "a").IsOpen);
+    }
+
+    [AvaloniaFact]
+    public void TW_5_5_closed_panel_opens_even_with_focus_in_its_icon_menu()
+    {
+        // Гвард IsOpenIn: у закрытой панели иконка и её меню на месте (TW-1.4), фокус там
+        // делает предикат TW-6.1 истинным — но трёхпозиционка обязана открыть закрытую, не
+        // «закрыть активную». Без гварда шорткат свёлся бы к Close закрытой панели (no-op).
+        var registry = new ToolWindowRegistry();
+        var lifecycle = new ContentLifecycle(registry);
+        var boxA = new TextBox();
+        var state = Register(lifecycle, LayoutState.Empty, "a", ToolWindowSide.Left, ToolWindowGroup.Primary, _ => boxA);
+        var window = Show(state, registry, lifecycle: lifecycle);
+        FocusIconMenu(window, "a");
+
+        ActivateShortcut(window, "a");
+
+        Assert.True(Get(window, "a").IsOpen);
+        Assert.Equal("a", St(window).ActiveToolWindowId);
+        Assert.True(boxA.IsFocused); // открыть + активировать = ещё и перенос фокуса (TW-6.6)
     }
 
     // ---- TW-5.5 / TW-6.4: the tooltip hint ----
