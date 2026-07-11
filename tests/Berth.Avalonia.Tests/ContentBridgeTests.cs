@@ -196,19 +196,23 @@ public class ContentBridgeTests
     }
 
     [AvaloniaFact]
-    public void TW_9_2_body_living_in_a_dock_host_is_not_materialized_by_the_decorator()
+    public void TW_9_2_body_living_in_a_dock_host_is_materialized_there_not_by_the_decorator()
     {
-        var factory = new CountingFactory();
+        var factory = new CountingFactory(_ => new TextBlock { Text = "body" });
         var (registry, lifecycle, state) = Setup(factory);
 
         // Тело переезжает в док-зону штатными командами (DA-8.1); декоратору панели
-        // материализовывать нечего — тело показывает хост док-зоны (фаза 4).
+        // материализовывать нечего — тело показывает хост док-зоны (DA-9.6), через ту же
+        // единую запись моста TW-9.5.
         var moved = state.Open("a")
             .OpenDocument("d", registry)
             .MoveTab("a", DockGroupRef.AtTab("d"), 1, registry);
         var window = Show(moved, registry, lifecycle: lifecycle);
 
-        Assert.Null(Content(window).Child);
-        Assert.Equal(0, factory.Created);
+        Assert.Null(Content(window).Child); // декоратор панели тело не хостит
+        var body = Assert.IsType<TextBlock>(TabHost(window, "a").Child);
+        Assert.Equal("body", body.Text);
+        Assert.Equal(1, factory.Created);
+        Assert.Same(body, lifecycle.GetOrCreateToolWindowContent("a")); // единая запись контента
     }
 }

@@ -16,7 +16,7 @@ namespace Berth.Controls;
 internal sealed class WorkspaceGrid : Grid
 {
     private readonly Grid _row = new();
-    private readonly Border _dockArea = new() { Name = "PART_DockArea" }; // the document area arrives in phase 4
+    private readonly Border _dockArea = new() { Name = "PART_DockArea" };
     private readonly SidePane _left;
     private readonly SidePane _right;
     private readonly SidePane _bottom;
@@ -24,8 +24,9 @@ internal sealed class WorkspaceGrid : Grid
     private readonly GridSplitter _rightSplitter;
     private readonly GridSplitter _bottomSplitter;
 
-    public WorkspaceGrid(BerthWorkspace workspace)
+    public WorkspaceGrid(BerthWorkspace workspace, Control dockContent)
     {
+        _dockArea.Child = dockContent; // the dock-area tree projection (spec DA-9.6)
         _left = new SidePane(ToolWindowSide.Left, workspace);
         _right = new SidePane(ToolWindowSide.Right, workspace);
         _bottom = new SidePane(ToolWindowSide.Bottom, workspace);

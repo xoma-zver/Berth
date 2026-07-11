@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -9,8 +10,9 @@ namespace Berth.Demo.ViewModels;
 /// Composition root of the walking skeleton: registers demo tool windows exercising both
 /// content paths (a view model resolved by the ViewLocator, and factory-built controls) and
 /// both lifecycle axes (Eager/OnFirstOpen creation, KeepWhileRegistered/DisposeOnClose
-/// retention), then builds the initial layout. The workspace binds State two-way, so user
-/// gestures flow back into this property.
+/// retention), registers dock-area content claimed by the "doc:" prefix (spec TW-9.11), then
+/// builds the initial layout with two open documents. The workspace binds State two-way, so
+/// user gestures flow back into this property.
 /// </summary>
 public partial class MainViewModel : ViewModelBase
 {
@@ -62,13 +64,28 @@ public partial class MainViewModel : ViewModelBase
             }),
         });
 
+        // Dock-area documents: claimed by prefix (TW-9.11), materialized lazily by the
+        // workspace (DA-9.3); titles come from the TabTitleProvider wired in MainView.
+        state = Lifecycle.RegisterDockContent(state, new DelegateTabFactory(
+            id => id.StartsWith("doc:", StringComparison.Ordinal),
+            id => new TextBox
+            {
+                Text = $"// {id[4..]}\nOpen a second document, split and rotate via the tab menu.\n",
+                AcceptsReturn = true,
+                FontFamily = new FontFamily("monospace"),
+            }));
+
         // Application-performed transitions are the application's to report, one call per
         // command (the NotifyTransition contract).
         var opened = state.Open("project");
         Lifecycle.NotifyTransition(state, opened);
         var withTerminal = opened.Open("terminal");
         Lifecycle.NotifyTransition(opened, withTerminal);
-        State = withTerminal;
+        var withReadme = withTerminal.OpenDocument("doc:README.md", Registry);
+        Lifecycle.NotifyTransition(withTerminal, withReadme);
+        var withSpec = withReadme.OpenDocument("doc:tool-windows.md", Registry);
+        Lifecycle.NotifyTransition(withReadme, withSpec);
+        State = withSpec;
     }
 
     public ToolWindowRegistry Registry { get; }

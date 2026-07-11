@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 
 namespace Berth.Controls;
 
@@ -8,8 +10,13 @@ namespace Berth.Controls;
 /// Root control materializing a <see cref="LayoutState"/> (spec TW-2.1): the stripes at the
 /// left and right edges; between them the side panes and the dock area above the bottom pane,
 /// which spans the full width between the stripes; open Undock windows overlay the workspace
-/// (TW-3.3). Float and Window modes are not materialized until the floating-window phase —
-/// only their stripe icons show. The control is a pure projection of the state (ADR-0002):
+/// (TW-3.3). The dock area materializes the main window's tab tree (TW-2.1, DA-9.6): tab
+/// groups with strips, splits with splitters, the active tab's content per group; tab clicks,
+/// tab menus and split drags reduce to the dock commands (DA-5.2…DA-5.9, ADR-0004), focus
+/// gains in tab content reduce to ActivateTab (DA-6.4), and Esc inside a tool window returns
+/// focus to the current tab (TW-6.3). Document windows, like Float and Window tool window
+/// modes, are not materialized until the floating-window phase — their tabs keep cached views
+/// while away. The control is a pure projection of the state (ADR-0002):
 /// fractions become pixels here and render-time minimums clamp without touching the state
 /// (TW-2.8). Input reduces to core commands (ADR-0004): a stripe icon click toggles openness
 /// (TW-5.4), the decorator buttons close the window and open its menu (TW-5.3, TW-5.16), the
@@ -58,11 +65,16 @@ public sealed class BerthWorkspace : Decorator
     public static readonly StyledProperty<Func<string, string?>?> ShortcutHintProviderProperty =
         AvaloniaProperty.Register<BerthWorkspace, Func<string, string?>?>(nameof(ShortcutHintProvider));
 
+    /// <summary>Defines the <see cref="TabTitleProvider"/> property.</summary>
+    public static readonly StyledProperty<Func<string, string?>?> TabTitleProviderProperty =
+        AvaloniaProperty.Register<BerthWorkspace, Func<string, string?>?>(nameof(TabTitleProvider));
+
     private readonly Dictionary<string, ToolWindowDecorator> _hosts = new(StringComparer.Ordinal);
     private ToolWindowStripe? _leftStripe;
     private ToolWindowStripe? _rightStripe;
     private WorkspaceGrid? _grid;
     private UndockOverlay? _overlay;
+    private DockAreaView? _dockView;
     private AutoHideController? _autoHide;
 
     /// <summary>The layout to materialize; null renders nothing.</summary>
@@ -109,13 +121,27 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
+    /// Optional application-supplied tab titles (spec DA-9.6): maps a tab id to the display
+    /// string of its header and placeholder. The layout stores identifiers only (ADR-0003),
+    /// and a title must exist before content materializes and for sleeping tabs (DA-9.4), so
+    /// titles come from the application, not from the content. Null — the provider or its
+    /// result for an id — falls back to the id itself.
+    /// </summary>
+    public Func<string, string?>? TabTitleProvider
+    {
+        get => GetValue(TabTitleProviderProperty);
+        set => SetValue(TabTitleProviderProperty, value);
+    }
+
+    /// <summary>
     /// The activation shortcut of one tool window (spec TW-5.5) — the public entry the
     /// application binds its keymap to: a closed window opens and activates, an open inactive
     /// one activates, an open active one closes. «Active» is decided by keyboard focus lying
     /// logically within the window or its stripe icon — the equivalent of the reference, whose
     /// active id derives from focus; the stored <see cref="LayoutState.ActiveToolWindowId"/>
-    /// means «last active» until phase 4 (TW-6.6) and would close an open DockPinned window
-    /// while the user works in a document. Runs through the command channel: activation
+    /// lags behind focus (TW-6.6: with focus in another window it still names the previous
+    /// active) and a check against it would close a window without focus. Runs through the
+    /// command channel: activation
     /// transfers focus into the content (TW-6.6) and the transition is reported to
     /// <see cref="Lifecycle"/> once (ADR-0004). A no-op without a state; an id absent from
     /// the layout is a caller error, as in the core operations.
@@ -147,8 +173,10 @@ public sealed class BerthWorkspace : Decorator
     /// after operations that mutate the registry in place — the live registration lifecycle
     /// (<see cref="ContentLifecycle.Register"/>, RegisterDockContent, Unregister): they may
     /// return a state value-equal to the current one while titles, icons and claims changed,
-    /// and the property system deduplicates equal assignments. Core layout commands need no
-    /// explicit refresh beyond assigning their result to <see cref="State"/>.
+    /// and the property system deduplicates equal assignments. Sleeping dock tabs re-resolve
+    /// their owners on every projection, so a refresh after a live registration also wakes
+    /// them up (DA-9.4). Core layout commands need no explicit refresh beyond assigning their
+    /// result to <see cref="State"/>.
     /// </summary>
     public void Refresh() => Sync();
 
@@ -191,8 +219,66 @@ public sealed class BerthWorkspace : Decorator
                     FocusActivated(active);
                 }
             }
+
+            RestoreDockFocus(focusedBefore, state, result);
         }
     }
+
+    /// <summary>
+    /// The dock side of the focus contract (spec DA-9.6, DA-E21, TW-6.3): when the command
+    /// left keyboard focus dangling — the focused element was detached together with its
+    /// host — the command channel restores it: into the same tab's content after a legal
+    /// reattachment (the mirror of TW-6.6), or into the current tab of the effective active
+    /// host when the focused tab or tool window is gone. Focus held by a live owner is never
+    /// stolen; direct <see cref="State"/> assignments do not pass here (DA-6.4).
+    /// </summary>
+    private void RestoreDockFocus(IInputElement? focusedBefore, LayoutState before, LayoutState after)
+    {
+        if (_dockView is null || focusedBefore is not Visual visual)
+        {
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        var focusedNow = topLevel?.FocusManager?.GetFocusedElement();
+        if (focusedNow is not null && !ReferenceEquals(focusedNow, topLevel))
+        {
+            return; // not dangling: the focus belongs to a live owner
+        }
+
+        if (visual.FindAncestorOfType<DockTabHost>(includeSelf: true) is { } tabHost)
+        {
+            if (!_dockView.TryFocusTab(tabHost.TabId))
+            {
+                // The tab is closed or away: its fallback took over as the current tab
+                // (DA-5.2, DA-6.3) — focus follows it.
+                _dockView.TryFocusTab(after.DockArea.CurrentTabId);
+            }
+
+            return;
+        }
+
+        if (visual.FindAncestorOfType<ToolWindowDecorator>(includeSelf: true) is { } panel
+            && IsOpenIn(before, panel.ToolWindowId)
+            && !IsOpenIn(after, panel.ToolWindowId))
+        {
+            // The command closed the focused tool window: focus returns to the document
+            // (DA-E21 — the shortcut close, the hide button, an outside-click close).
+            _dockView.TryFocusTab(after.DockArea.CurrentTabId);
+        }
+    }
+
+    /// <summary>
+    /// Focuses the current tab of the effective active host (spec TW-6.3, DA-E21) — the main
+    /// window until document windows materialize (phase 6): a stored ActiveDockHost pointing
+    /// at a document window of a restored layout degrades in presentation only (DA-6.4).
+    /// False without a target — the empty main window (TW-6.3: Esc without a target is a
+    /// no-op).
+    /// </summary>
+    internal bool FocusCurrentDockTab() => _dockView?.TryFocusTab(State?.DockArea.CurrentTabId) == true;
+
+    /// <summary>The focus transfer of a dock gesture (DA-6.4); a no-op when the tab has no attached host.</summary>
+    internal void FocusDockTab(string id) => _dockView?.TryFocusTab(id);
 
     /// <summary>
     /// Whether the command factually reattached the window's host: open before and after with
@@ -289,10 +375,11 @@ public sealed class BerthWorkspace : Decorator
             Reset();
             Sync();
         }
-        else if (change.Property == ShortcutHintProviderProperty)
+        else if (change.Property == ShortcutHintProviderProperty || change.Property == TabTitleProviderProperty)
         {
-            // Tooltips live on leaf chrome: a re-projection rebuilds them (TW-9.13); the
-            // host cache and retained views are untouched, unlike a Registry/Lifecycle swap.
+            // Tooltips and tab titles live on leaf chrome: a re-projection rebuilds them
+            // (TW-9.13, DA-9.6); the host caches and retained views are untouched, unlike a
+            // Registry/Lifecycle swap.
             Sync();
         }
     }
@@ -344,6 +431,7 @@ public sealed class BerthWorkspace : Decorator
         }
 
         _grid!.Update(state, slot => OpenDocked(state, slot) is { } window ? GetHost(window.Id) : null);
+        _dockView!.Update(state, registry);
         _overlay!.Update(state, GetHost);
         _leftStripe!.Update(state, registry, this);
         _rightStripe!.Update(state, registry, this);
@@ -368,7 +456,8 @@ public sealed class BerthWorkspace : Decorator
     {
         _leftStripe = new ToolWindowStripe(QuickAccessSide.Left);
         _rightStripe = new ToolWindowStripe(QuickAccessSide.Right);
-        _grid = new WorkspaceGrid(this);
+        _dockView = new DockAreaView(this);
+        _grid = new WorkspaceGrid(this, _dockView);
         _overlay = new UndockOverlay();
 
         // The overlay is the second child, painting above the docked layout (TW-3.3).
@@ -397,6 +486,7 @@ public sealed class BerthWorkspace : Decorator
         _rightStripe = null;
         _grid = null;
         _overlay = null;
+        _dockView = null; // the tab host cache and retained tab views die with the projection
         Child = null;
     }
 }

@@ -1,11 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
-using Avalonia.VisualTree;
 
 namespace Berth.Controls;
 
@@ -121,7 +119,7 @@ public sealed class ToolWindowDecorator : Decorator
     /// </summary>
     internal void FocusContent()
     {
-        if (FirstFocusable(_content) is { } target && target.Focus())
+        if (ContentViews.FirstFocusable(_content) is { } target && target.Focus())
         {
             return;
         }
@@ -164,7 +162,7 @@ public sealed class ToolWindowDecorator : Decorator
             object? body = null;
             if (_workspace.Lifecycle is { } lifecycle
                 && descriptor is not null
-                && ContainsTab(window.ContentTree, window.Id))
+                && DockTrees.ContainsTab(window.ContentTree, window.Id))
             {
                 body = lifecycle.GetOrCreateToolWindowContent(window.Id);
             }
@@ -196,71 +194,17 @@ public sealed class ToolWindowDecorator : Decorator
     }
 
     /// <summary>
-    /// Builds the body view once per content object and keeps it (TW-9.13): a Control content
-    /// is its own view; anything else is opaque to the core (ADR-0003) and gets the view built
-    /// by the application's data templates over the logical tree (the MVVM path) — deferred
-    /// until attachment when the tree is not there yet.
+    /// Builds the body view once per content object and keeps it (TW-9.13) — the shared
+    /// manual ContentPresenter cut of <see cref="ContentViews.Build"/>; the template path is
+    /// deferred until attachment when the logical tree is not there yet.
     /// </summary>
     private void BuildBodyView()
     {
-        if (_content.Child is not null || _bodyContent is null)
+        if (_content.Child is null && _bodyContent is not null)
         {
-            return;
+            _content.Child = ContentViews.Build(this, _bodyContent);
         }
-
-        if (_bodyContent is Control control)
-        {
-            // After a full reconfiguration (Registry/Lifecycle swap) the surviving instance
-            // may still sit in a discarded host — detach before adopting.
-            if (control.Parent is Decorator previous)
-            {
-                previous.Child = null;
-            }
-
-            _content.Child = control;
-            return;
-        }
-
-        if (!((ILogical)this).IsAttachedToLogicalTree)
-        {
-            return; // retried by OnAttachedToLogicalTree
-        }
-
-        // The template is selected once per content object: a live DataTemplates or theme
-        // swap does not re-select the built view — a conscious v1 limitation (spec section
-        // 12); the view's own controls theme normally.
-        var view = this.FindDataTemplate(_bodyContent)?.Build(_bodyContent)
-            ?? new TextBlock { Text = _bodyContent.ToString() };
-        view.DataContext = _bodyContent;
-        _content.Child = view;
     }
-
-    /// <summary>First focusable element of the subtree in depth-first order — the focus target of activation (TW-6.6).</summary>
-    private static InputElement? FirstFocusable(Visual root)
-    {
-        foreach (var child in root.GetVisualChildren())
-        {
-            if (child is InputElement { Focusable: true, IsEffectivelyVisible: true, IsEffectivelyEnabled: true } element)
-            {
-                return element;
-            }
-
-            if (FirstFocusable(child) is { } nested)
-            {
-                return nested;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Whether the tree contains the tab, over the public node types.</summary>
-    private static bool ContainsTab(TabTreeNode node, string tabId) => node switch
-    {
-        TabGroupNode group => group.Tabs.Contains(tabId, StringComparer.Ordinal),
-        SplitNode split => split.Children.Any(c => ContainsTab(c.Node, tabId)),
-        _ => false,
-    };
 
     private static Button ChromeButton(string glyph, string name) => new()
     {

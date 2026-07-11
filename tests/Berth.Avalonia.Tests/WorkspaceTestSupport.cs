@@ -97,4 +97,54 @@ internal static class WorkspaceTestSupport
 
         return registry;
     }
+
+    /// <summary>Attached dock tab hosts; detached cache entries are invisible to the visual walk.</summary>
+    public static IReadOnlyList<DockTabHost> TabHosts(Visual root) =>
+        [.. root.GetVisualDescendants().OfType<DockTabHost>()];
+
+    public static DockTabHost TabHost(Visual root, string tabId) =>
+        TabHosts(root).Single(h => string.Equals(h.TabId, tabId, StringComparison.Ordinal));
+
+    /// <summary>Tab headers share one PART name and are discriminated by Tag holding the tab id.</summary>
+    public static Control TabHeader(Visual root, string tabId) =>
+        root.GetVisualDescendants().OfType<Control>().Single(c =>
+            string.Equals(c.Name, "PART_TabHeader", StringComparison.Ordinal)
+            && c.Tag is string id
+            && string.Equals(id, tabId, StringComparison.Ordinal));
+
+    public static void PressEscape(Window window)
+    {
+        window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+    }
+}
+
+/// <summary>
+/// Counting tab content factory of the dock-area tests, claiming ids by prefix (spec
+/// TW-9.11); a refusal predicate models spec DA-9.3. Content defaults to a fresh TextBlock.
+/// </summary>
+internal sealed class CountingTabFactory(string prefix, Func<string, object>? create = null) : ITabContentFactory
+{
+    private readonly Func<string, object> _create = create ?? (_ => new TextBlock());
+
+    public int Created { get; private set; }
+
+    public int Released { get; private set; }
+
+    public Func<string, bool>? Refuse { get; set; }
+
+    public bool OwnsTab(string tabId) => tabId.StartsWith(prefix, StringComparison.Ordinal);
+
+    public object? CreateContent(string tabId)
+    {
+        if (Refuse?.Invoke(tabId) == true)
+        {
+            return null;
+        }
+
+        Created++;
+        return _create(tabId);
+    }
+
+    public void ReleaseContent(string tabId, object content) => Released++;
 }

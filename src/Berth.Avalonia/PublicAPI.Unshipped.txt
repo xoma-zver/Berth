@@ -21,3 +21,8 @@ Berth.Controls.BerthWorkspace.ActivateToolWindow(string! id) -> void
 Berth.Controls.BerthWorkspace.ShortcutHintProvider.get -> System.Func<string!, string?>?
 Berth.Controls.BerthWorkspace.ShortcutHintProvider.set -> void
 static readonly Berth.Controls.BerthWorkspace.ShortcutHintProviderProperty -> Avalonia.StyledProperty<System.Func<string!, string?>?>!
+Berth.Controls.BerthWorkspace.TabTitleProvider.get -> System.Func<string!, string?>?
+Berth.Controls.BerthWorkspace.TabTitleProvider.set -> void
+static readonly Berth.Controls.BerthWorkspace.TabTitleProviderProperty -> Avalonia.StyledProperty<System.Func<string!, string?>?>!
+Berth.Controls.DockTabHost
+Berth.Controls.DockTabHost.TabId.get -> string!

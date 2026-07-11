@@ -24,6 +24,11 @@ namespace Berth.Controls;
 /// from the pointer path (TW-6.2). Application deactivation and modal dialogs are covered
 /// structurally: focus leaving the TopLevel raises no GotFocus here. The drag exception of
 /// TW-6.1 becomes reachable with drag-and-drop (phase 5).
+///
+/// The same focus path carries the dock activity wiring (DA-6.4): a focus gain inside a
+/// <see cref="DockTabHost"/> reduces to ActivateTab, which clears the active tool window
+/// (TW-6.5); Esc inside a tool window moves focus into the current tab of the effective
+/// active dock host (TW-6.3) — the auto-hide close then follows from the ordinary focus loss.
 /// </summary>
 internal sealed class AutoHideController
 {
@@ -38,6 +43,8 @@ internal sealed class AutoHideController
         topLevel.AddHandler(InputElement.GotFocusEvent, OnGotFocus, RoutingStrategies.Bubble, handledEventsToo: true);
         topLevel.AddHandler(
             InputElement.PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
+        // Not handledEventsToo: content that handles Esc itself — a popup, an editor — wins.
+        topLevel.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Bubble);
     }
 
     /// <summary>Removes the TopLevel subscriptions — called when the workspace detaches from the visual tree.</summary>
@@ -45,6 +52,7 @@ internal sealed class AutoHideController
     {
         _topLevel.RemoveHandler(InputElement.GotFocusEvent, OnGotFocus);
         _topLevel.RemoveHandler(InputElement.PointerReleasedEvent, OnPointerReleased);
+        _topLevel.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
     }
 
     /// <summary>
@@ -87,9 +95,48 @@ internal sealed class AutoHideController
             _workspace.Execute(s => s.Open(id));
         }
 
+        // Dock activation by focus (DA-6.4): any real focus gain inside a tab's content —
+        // clicks and window-level focus restoration alike — reduces to ActivateTab, which
+        // also clears the active tool window (TW-6.5). Idempotent for an already current
+        // tab: the command returns the same state and the assignment deduplicates.
+        if (gained is Visual gainedVisual
+            && gainedVisual.FindAncestorOfType<DockTabHost>(includeSelf: true) is { } tab
+            && _workspace.State is { } layout
+            && DockTrees.ContainsTab(layout.DockArea.Root, tab.TabId))
+        {
+            var tabId = tab.TabId;
+            _workspace.Execute(s => s.ActivateTab(tabId));
+        }
+
         // The focus loser closes (TW-6.1): the previous focus was inside, the new one is not.
         CloseAutoHidden(w =>
             IsWithinPanel(previous as ILogical, w.Id) && !IsWithinPanel(gained as ILogical, w.Id));
+    }
+
+    /// <summary>
+    /// Esc inside a tool window moves keyboard focus into the current tab of the effective
+    /// active dock host (spec TW-6.3); auto-hiding windows then close by the ordinary focus
+    /// loss (TW-6.1). Without a target — the empty main window — nothing happens and nothing
+    /// closes: Esc without a target is a no-op.
+    /// </summary>
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape)
+        {
+            return;
+        }
+
+        var focused = _topLevel.FocusManager?.GetFocusedElement();
+        if (focused is not Visual visual
+            || visual.FindAncestorOfType<ToolWindowDecorator>(includeSelf: true) is null)
+        {
+            return;
+        }
+
+        if (_workspace.FocusCurrentDockTab())
+        {
+            e.Handled = true;
+        }
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)

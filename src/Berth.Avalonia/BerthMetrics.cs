@@ -21,6 +21,9 @@ internal static class BerthMetrics
     /// <summary>Height of a tool window decorator header.</summary>
     public const double HeaderHeight = 28;
 
+    /// <summary>Height of a dock tab strip — leaf chrome of a tab group (spec DA-9.6).</summary>
+    public const double TabStripHeight = 28;
+
     /// <summary>Thickness of a splitter separator between panes.</summary>
     public const double SplitterThickness = 4;
 
