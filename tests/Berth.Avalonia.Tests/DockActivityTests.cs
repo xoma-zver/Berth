@@ -51,7 +51,8 @@ public class DockActivityTests
     /// dock area is set afterwards, so the layout starts from the reconciled panel state.
     /// </summary>
     private static (ToolWindowRegistry Registry, ContentLifecycle Lifecycle, LayoutState State,
-        Dictionary<string, TextBox> Boxes, TextBox PanelBox) Setup(ToolWindowMode mode)
+        Dictionary<string, TextBox> Boxes, TextBox PanelBox) Setup(
+        ToolWindowMode mode, ContentRetentionPolicy retention = ContentRetentionPolicy.KeepWhileRegistered)
     {
         var registry = new ToolWindowRegistry();
         var boxes = new Dictionary<string, TextBox>(StringComparer.Ordinal);
@@ -61,6 +62,7 @@ public class DockActivityTests
         var state = lifecycle.Register(LayoutState.Empty, new ToolWindowDescriptor(
             "p", "P", new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Primary))
         {
+            RetentionPolicy = retention,
             ContentFactory = new PanelFactory(_ => panelBox),
         });
         state = state with
@@ -182,6 +184,25 @@ public class DockActivityTests
 
         Assert.False(Panel(window, "p").IsOpen);
         Assert.True(boxes["d1"].IsFocused); // DA-E21
+    }
+
+    [AvaloniaFact]
+    public void DA_E21_shortcut_close_of_a_dispose_on_close_panel_returns_focus()
+    {
+        // Regression: a DisposeOnClose panel releases (orphans) its focused content on close,
+        // before the focus wiring resolves the owning panel. The owning host must be resolved
+        // before the command, or the DA-E21 focus return is lost (the demo's Terminal is
+        // DisposeOnClose — this is the seam that shipped broken until the fix).
+        var (registry, lifecycle, state, boxes, panelBox) = Setup(
+            ToolWindowMode.DockPinned, ContentRetentionPolicy.DisposeOnClose);
+        state = WithDock(state, Group("d1", "d1"), "d1");
+        var window = Show(state, registry, lifecycle: lifecycle);
+        Focus(panelBox);
+        Assert.Equal("p", St(window).ActiveToolWindowId);
+        Workspace(window).ActivateToolWindow("p"); // open & focused -> close (DisposeOnClose releases the body)
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(Panel(window, "p").IsOpen);
+        Assert.True(boxes["d1"].IsFocused); // focus returns to the document despite the orphaned body
     }
 
     [AvaloniaFact]

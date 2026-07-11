@@ -194,6 +194,12 @@ public sealed class BerthWorkspace : Decorator
             // loses keyboard focus as a side effect, so only the pre-command position can
             // tell whether the focus belonged to the moved window.
             var focusedBefore = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+            // Resolve the owning host now, while the tree is intact: closing a DisposeOnClose
+            // panel releases (orphans) its focused content during the assignment below, after
+            // which the ancestry can no longer be walked — the DA-E21 focus return would be lost.
+            var focusedVisual = focusedBefore as Visual;
+            var tabHostBefore = focusedVisual?.FindAncestorOfType<DockTabHost>(includeSelf: true);
+            var panelBefore = focusedVisual?.FindAncestorOfType<ToolWindowDecorator>(includeSelf: true);
             var result = command(state);
             // Assign first: the sync detaches released content from the visual tree before
             // the coordinator hands it back to its factory.
@@ -220,7 +226,7 @@ public sealed class BerthWorkspace : Decorator
                 }
             }
 
-            RestoreDockFocus(focusedBefore, state, result);
+            RestoreDockFocus(focusedBefore, tabHostBefore, panelBefore, state, result);
         }
     }
 
@@ -232,9 +238,14 @@ public sealed class BerthWorkspace : Decorator
     /// host when the focused tab or tool window is gone. Focus held by a live owner is never
     /// stolen; direct <see cref="State"/> assignments do not pass here (DA-6.4).
     /// </summary>
-    private void RestoreDockFocus(IInputElement? focusedBefore, LayoutState before, LayoutState after)
+    private void RestoreDockFocus(
+        IInputElement? focusedBefore,
+        DockTabHost? tabHostBefore,
+        ToolWindowDecorator? panelBefore,
+        LayoutState before,
+        LayoutState after)
     {
-        if (_dockView is null || focusedBefore is not Visual visual)
+        if (_dockView is null || focusedBefore is null)
         {
             return;
         }
@@ -246,7 +257,7 @@ public sealed class BerthWorkspace : Decorator
             return; // not dangling: the focus belongs to a live owner
         }
 
-        if (visual.FindAncestorOfType<DockTabHost>(includeSelf: true) is { } tabHost)
+        if (tabHostBefore is { } tabHost)
         {
             if (!_dockView.TryFocusTab(tabHost.TabId))
             {
@@ -258,12 +269,14 @@ public sealed class BerthWorkspace : Decorator
             return;
         }
 
-        if (visual.FindAncestorOfType<ToolWindowDecorator>(includeSelf: true) is { } panel
+        if (panelBefore is { } panel
             && IsOpenIn(before, panel.ToolWindowId)
             && !IsOpenIn(after, panel.ToolWindowId))
         {
             // The command closed the focused tool window: focus returns to the document
-            // (DA-E21 — the shortcut close, the hide button, an outside-click close).
+            // (DA-E21 — the shortcut close, the hide button, an outside-click close). The
+            // owning host was resolved before the command, so a released DisposeOnClose body
+            // (orphaned by the close) does not lose the return.
             _dockView.TryFocusTab(after.DockArea.CurrentTabId);
         }
     }
