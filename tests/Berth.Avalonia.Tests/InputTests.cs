@@ -225,9 +225,11 @@ public class InputTests
         };
         var window = Show(state, registry);
         var menuButton = (Button)Part(window, "PART_MenuButton");
-        var flyout = (MenuFlyout)menuButton.Flyout!;
 
         Click(window, menuButton);
+        // Первый клик по хрому неактивной панели её активирует (TW-6.6), и Sync пересобирает
+        // меню до показа — флайаут захватывается после: открывается текущий экземпляр.
+        var flyout = (MenuFlyout)menuButton.Flyout!;
         Assert.True(flyout.IsOpen, "open via the menu button");
         flyout.Hide();
         Dispatcher.UIThread.RunJobs();

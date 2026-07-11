@@ -52,6 +52,9 @@ internal static class BerthBrushes
     /// <summary>Highlight of an open stripe icon (spec TW-6.4).</summary>
     public static readonly IBrush OpenIcon = new ImmutableSolidColorBrush(Color.FromArgb(0x40, 0x80, 0x80, 0x80));
 
+    /// <summary>Header accent of the active tool window — the theme-discretion indication of spec TW-6.4.</summary>
+    public static readonly IBrush ActiveHeader = new ImmutableSolidColorBrush(Color.FromArgb(0x30, 0x80, 0x80, 0x80));
+
     /// <summary>Opaque backdrop of overlay windows in the light theme variant (spec TW-3.3: panels must not show through).</summary>
     public static readonly IBrush LightOverlaySurface = new ImmutableSolidColorBrush(Color.FromRgb(0xF7, 0xF8, 0xFA));
 

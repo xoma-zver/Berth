@@ -1,9 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace Berth.Controls;
 
@@ -40,6 +42,7 @@ public sealed class ToolWindowDecorator : Decorator
         ToolWindowId = id;
         Title = id;
         _workspace = workspace;
+        Focusable = true; // the activation fallback focus target (TW-6.6): content may offer no focusable element
 
         _menuButton = ChromeButton("⋮", "PART_MenuButton");
         var hideButton = ChromeButton("—", "PART_HideButton");
@@ -96,15 +99,34 @@ public sealed class ToolWindowDecorator : Decorator
     /// <summary>Displayed title: the registered <see cref="ToolWindowDescriptor.Title"/>, or the id for a sleeping window.</summary>
     public string Title { get; private set; }
 
-    /// <summary>Projects one window state into the persistent chrome (spec TW-9.13): the title, the menus and the body.</summary>
-    internal void Update(ToolWindowState window, ToolWindowDescriptor? descriptor)
+    /// <summary>Projects one window state into the persistent chrome (spec TW-9.13): the title, the active accent, the menus and the body.</summary>
+    internal void Update(ToolWindowState window, ToolWindowDescriptor? descriptor, bool isActive)
     {
         Title = descriptor?.Title ?? window.Id;
         _titleText.Text = Title;
+        // The active-window accent is the theme-discretion indication of TW-6.4; the
+        // pseudo-class is the theming hook.
+        PseudoClasses.Set(":active", isActive);
+        _headerBorder.Background = isActive ? BerthBrushes.ActiveHeader : BerthBrushes.Pane;
         var menu = ToolWindowMenus.BuildWindowMenu(window, _workspace);
         _menuButton.Flyout = menu;
         _headerBorder.ContextFlyout = menu;
         UpdateBody(window, descriptor);
+    }
+
+    /// <summary>
+    /// Adopts keyboard focus for activation (spec TW-6.6): the first focusable element of the
+    /// built body view, with the decorator itself as the fallback that keeps the focus-loss
+    /// semantics of TW-6.1 reachable for content without focusable elements.
+    /// </summary>
+    internal void FocusContent()
+    {
+        if (FirstFocusable(_content) is { } target && target.Focus())
+        {
+            return;
+        }
+
+        Focus();
     }
 
     /// <inheritdoc/>
@@ -113,6 +135,19 @@ public sealed class ToolWindowDecorator : Decorator
         base.OnAttachedToLogicalTree(e);
         // A view whose building was deferred — template resolution needs the tree.
         BuildBodyView();
+    }
+
+    /// <inheritdoc/>
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        // A press on the header or a non-focusable body area moves focus into the window and
+        // thereby activates it (TW-6.6); focus already inside stays where it is — interactive
+        // children handle their presses and focus themselves before this bubble handler.
+        if (!e.Handled && !IsKeyboardFocusWithin)
+        {
+            Focus();
+        }
     }
 
     /// <summary>
@@ -198,6 +233,25 @@ public sealed class ToolWindowDecorator : Decorator
             ?? new TextBlock { Text = _bodyContent.ToString() };
         view.DataContext = _bodyContent;
         _content.Child = view;
+    }
+
+    /// <summary>First focusable element of the subtree in depth-first order — the focus target of activation (TW-6.6).</summary>
+    private static InputElement? FirstFocusable(Visual root)
+    {
+        foreach (var child in root.GetVisualChildren())
+        {
+            if (child is InputElement { Focusable: true, IsEffectivelyVisible: true, IsEffectivelyEnabled: true } element)
+            {
+                return element;
+            }
+
+            if (FirstFocusable(child) is { } nested)
+            {
+                return nested;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Whether the tree contains the tab, over the public node types.</summary>

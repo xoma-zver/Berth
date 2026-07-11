@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 
 namespace Berth.Controls;
 
@@ -15,7 +16,11 @@ namespace Berth.Controls;
 /// menus change modes and placement (TW-5.16), the «⋯» flyout restores hidden windows
 /// (TW-8.3), and splitter drags are pure visuals until the release commits one resize command
 /// (TW-5.9, TW-2.7 R2). Every command assigns its result back to <see cref="State"/> —
-/// observe user-driven changes with <c>GetObservable(StateProperty)</c>.
+/// observe user-driven changes with <c>GetObservable(StateProperty)</c>. Activation transfers
+/// keyboard focus into the activated window's content and focus gains inside a window
+/// activate it (TW-6.6); DockUnpinned/Undock windows auto-hide on focus loss and on outside
+/// clicks (TW-6.1, TW-6.2) — wired by an <see cref="AutoHideController"/> on the TopLevel
+/// while the workspace is attached.
 ///
 /// Materialization is incremental (spec TW-9.13): the visual skeleton is built once, and each
 /// state change is projected as a diff. Tool window hosts (<see cref="ToolWindowDecorator"/>)
@@ -51,6 +56,7 @@ public sealed class BerthWorkspace : Decorator
     private ToolWindowStripe? _rightStripe;
     private WorkspaceGrid? _grid;
     private UndockOverlay? _overlay;
+    private AutoHideController? _autoHide;
 
     /// <summary>The layout to materialize; null renders nothing.</summary>
     public LayoutState? State
@@ -107,7 +113,59 @@ public sealed class BerthWorkspace : Decorator
             // the coordinator hands it back to its factory.
             State = result;
             Lifecycle?.NotifyTransition(state, result);
+            // The focus transfer of activation (TW-6.6) runs last: a nested command raised
+            // by the focus change — the auto-hide close of the focus loser (TW-6.1) — then
+            // reports its own transition after this one, in gesture order. Recursion is
+            // finite: the nested commands never activate another window.
+            if (result.ActiveToolWindowId is { } activated
+                && !string.Equals(activated, state.ActiveToolWindowId, StringComparison.Ordinal))
+            {
+                FocusActivated(activated);
+            }
         }
+    }
+
+    /// <summary>
+    /// The focus transfer of spec TW-6.6: keyboard focus moves into the activated window's
+    /// content — unless it is already inside (activation never re-arranges focus within the
+    /// window) or the window has no attached host (a floating-mode record before phase 6).
+    /// Only the command funnel transfers focus: direct <see cref="State"/> assignments by the
+    /// application do not pass here (TW-6.6).
+    /// </summary>
+    private void FocusActivated(string id)
+    {
+        // A parentless host is the detached cache entry of TW-9.13 — nothing to focus; the
+        // parent is the attachment signal DetachFromParent maintains.
+        if (!_hosts.TryGetValue(id, out var host) || host.Parent is null)
+        {
+            return;
+        }
+
+        var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        if (AutoHideController.IsWithinPanel(focused as ILogical, id))
+        {
+            return;
+        }
+
+        host.FocusContent();
+    }
+
+    /// <inheritdoc/>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (TopLevel.GetTopLevel(this) is { } topLevel)
+        {
+            _autoHide = new AutoHideController(this, topLevel);
+        }
+    }
+
+    /// <inheritdoc/>
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _autoHide?.Detach();
+        _autoHide = null;
     }
 
     /// <summary>
@@ -186,7 +244,8 @@ public sealed class BerthWorkspace : Decorator
             }
 
             registry.TryGet(window.Id, out var descriptor);
-            GetHost(window.Id).Update(window, descriptor);
+            GetHost(window.Id).Update(window, descriptor, string.Equals(
+                state.ActiveToolWindowId, window.Id, StringComparison.Ordinal));
         }
 
         _grid!.Update(state, slot => OpenDocked(state, slot) is { } window ? GetHost(window.Id) : null);
