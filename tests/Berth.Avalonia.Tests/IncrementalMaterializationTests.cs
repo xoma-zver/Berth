@@ -48,9 +48,10 @@ public class IncrementalMaterializationTests
         return () => count;
     }
 
-    private static Border ContentOf(ToolWindowDecorator host) => (Border)Part(host, "PART_Content");
+    /// <summary>The body tab host of a decorator: with 4.1 the body view lives there (DA-9.6), not in PART_Content directly.</summary>
+    private static DockTabHost BodyHost(ToolWindowDecorator host) => TabHost(host, host.ToolWindowId);
 
-    private static TextBlock BuiltView(ToolWindowDecorator host) => (TextBlock)ContentOf(host).Child!;
+    private static TextBlock BuiltView(ToolWindowDecorator host) => (TextBlock)BodyHost(host).Child!;
 
     /// <summary>Registry + coordinator with a templated-body window «a» and a plain window «b» in the given slot.</summary>
     private static (ToolWindowRegistry Registry, ContentLifecycle Lifecycle, LayoutState State, CountingFactory Factory)
@@ -267,7 +268,7 @@ public class IncrementalMaterializationTests
         window.Content = new BerthWorkspace { State = state.Open("a"), Registry = registry, Lifecycle = lifecycle };
         window.Show();
         Dispatcher.UIThread.RunJobs();
-        var box = Assert.IsType<TextBox>(ContentOf(Decorator(window, "a")).Child);
+        var box = Assert.IsType<TextBox>(BodyHost(Decorator(window, "a")).Child);
         Assert.True(box.Focus());
 
         var workspace = Workspace(window);
@@ -293,7 +294,9 @@ public class IncrementalMaterializationTests
         Click(window, Button(window, "a")); // закрытие освобождает контент — и вид над ним
 
         Assert.Equal(1, factory.Released);
-        Assert.Null(ContentOf(host).Child); // хост не удерживает ни контент, ни вид (TW-9.13)
+        // Хост тела не удерживает ни контент, ни вид (TW-9.13, DA-9.6): сброшен к заглушке.
+        Assert.NotSame(view, BodyHost(host).Child);
+        Assert.Equal("Alpha", ((TextBlock)BodyHost(host).Child!).Text);
 
         Click(window, Button(window, "a")); // переоткрытие строит новый вид над новым контентом
         Assert.Equal(2, factory.Created);

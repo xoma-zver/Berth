@@ -153,7 +153,7 @@ public class DockAreaInputTests
         var window = Show(state, registry, lifecycle: lifecycle);
 
         var flyout = (MenuFlyout)TabHeader(window, "d2").ContextFlyout!;
-        Invoke(Item(flyout.Items, "Split Right"));
+        Invoke(Item(flyout.Items, "Split and Move Right"));
 
         var root = Assert.IsType<SplitNode>(St(window).DockArea.Root);
         Assert.Equal(SplitOrientation.Row, root.Orientation);

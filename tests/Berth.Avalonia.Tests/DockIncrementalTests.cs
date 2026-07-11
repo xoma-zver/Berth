@@ -111,7 +111,7 @@ public class DockIncrementalTests
 
         // Сплит активной вкладки соседней группы перестраивает только её узел: вставка
         // соседа вдоль оси не переприсоединяет пережившие поддеревья (DA-9.6).
-        Invoke(Item(((MenuFlyout)TabHeader(window, "d2").ContextFlyout!).Items, "Split Right"));
+        Invoke(Item(((MenuFlyout)TabHeader(window, "d2").ContextFlyout!).Items, "Split and Move Right"));
 
         var root = Assert.IsType<SplitNode>(St(window).DockArea.Root);
         Assert.Equal(3, root.Children.Length);
@@ -151,7 +151,7 @@ public class DockIncrementalTests
 
         // Сплит собственной группы — белосписочная перестройка адресованного узла: хост
         // переприсоединяется, командный канал возвращает фокус в контент (DA-9.6).
-        Invoke(Item(((MenuFlyout)TabHeader(window, "d1").ContextFlyout!).Items, "Split Down"));
+        Invoke(Item(((MenuFlyout)TabHeader(window, "d1").ContextFlyout!).Items, "Split and Move Down"));
 
         var root = Assert.IsType<SplitNode>(St(window).DockArea.Root);
         Assert.Equal(SplitOrientation.Column, root.Orientation);
@@ -236,12 +236,13 @@ public class DockIncrementalTests
         var window = Show(state, registry, lifecycle: lifecycle);
         var view = Assert.IsType<TextBox>(TabHost(window, "p:t1").Child);
 
-        // В дерево панели-владельца — вкладка уходит из материализованной области…
+        // В дерево панели-владельца: с 4.1 переносу сопутствует активация (панель
+        // открывается по DA-E39) — вкладка остаётся материализованной уже в панели…
         Invoke(Item(((MenuFlyout)TabHeader(window, "p:t1").ContextFlyout!).Items, "Move to Panel"));
         Assert.Equal(["d1"], RootGroup(window).Tabs);
         Assert.Equal(0, panelTabs.Released); // перенос — не закрытие (DA-5.4)
 
-        // …и возвращается прямым присвоением (UI-ручка панельных вкладок — следующая задача).
+        // …и возвращается прямым присвоением: вид и контент те же.
         Workspace(window).State = St(window).MoveTab("p:t1", DockGroupRef.AtTab("d1"), 1, registry);
         Dispatcher.UIThread.RunJobs();
 

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "berth-wasm-demo",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "samples/Berth.Demo.Browser"],
+      "port": 5240
+    }
+  ]
+}

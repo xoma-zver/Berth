@@ -10,13 +10,16 @@ namespace Berth.Controls;
 /// Root control materializing a <see cref="LayoutState"/> (spec TW-2.1): the stripes at the
 /// left and right edges; between them the side panes and the dock area above the bottom pane,
 /// which spans the full width between the stripes; open Undock windows overlay the workspace
-/// (TW-3.3). The dock area materializes the main window's tab tree (TW-2.1, DA-9.6): tab
-/// groups with strips, splits with splitters, the active tab's content per group; tab clicks,
-/// tab menus and split drags reduce to the dock commands (DA-5.2…DA-5.9, ADR-0004), focus
-/// gains in tab content reduce to ActivateTab (DA-6.4), and Esc inside a tool window returns
-/// focus to the current tab (TW-6.3). Document windows, like Float and Window tool window
-/// modes, are not materialized until the floating-window phase — their tabs keep cached views
-/// while away. The control is a pure projection of the state (ADR-0002):
+/// (TW-3.3). The dock area and the content trees of open tool windows materialize their tab
+/// trees by one shared projection (TW-2.1, TW-9.5, DA-9.6): tab groups with strips — a panel
+/// root group's strip lives in the decorator header row, hidden for the degenerate solitary
+/// body (DA-8.4) — splits with splitters, the active tab's content per group; tab hosts come
+/// from a single workspace-wide cache keyed by tab id, so a move between a panel and the dock
+/// area reattaches the same host with its built view. Tab clicks, tab menus and split drags
+/// reduce to the dock commands (DA-5.2…DA-5.9, ADR-0004), focus gains in tab content reduce
+/// to ActivateTab (DA-6.4), and Esc inside a tool window returns focus to the current tab
+/// (TW-6.3). Document windows, like Float and Window tool window modes, are not materialized
+/// until the floating-window phase — their tabs keep cached views while away. The control is a pure projection of the state (ADR-0002):
 /// fractions become pixels here and render-time minimums clamp without touching the state
 /// (TW-2.8). Input reduces to core commands (ADR-0004): a stripe icon click toggles openness
 /// (TW-5.4), the decorator buttons close the window and open its menu (TW-5.3, TW-5.16), the
@@ -38,9 +41,9 @@ namespace Berth.Controls;
 /// another slot or layer, so keyboard focus and view-state are never lost to materialization
 /// itself; sides and pairs collapse and expand around the remaining hosts, and a closed
 /// KeepWhileRegistered host retains its built view until reopening or unregistration. Leaf
-/// chrome — stripe buttons, menus, splitters — is rebuilt per update. With a
-/// <see cref="Lifecycle"/> attached, decorator bodies materialize through the factory bridge
-/// and every gesture command reports its transition to the coordinator (TW-9.3). Registry
+/// chrome — stripe buttons, tab headers, menus, splitters — is rebuilt per update. With a
+/// <see cref="Lifecycle"/> attached, tab content materializes through the coordinator's pull
+/// pass and every gesture command reports its transition to it (TW-9.3). Registry
 /// mutations are invisible to the property system — and the live registration operations of
 /// <see cref="ContentLifecycle"/> may return a value-equal state, which assignment
 /// deduplicates — so call <see cref="Refresh"/> after them. Replacing <see cref="Registry"/>
@@ -70,12 +73,19 @@ public sealed class BerthWorkspace : Decorator
         AvaloniaProperty.Register<BerthWorkspace, Func<string, string?>?>(nameof(TabTitleProvider));
 
     private readonly Dictionary<string, ToolWindowDecorator> _hosts = new(StringComparer.Ordinal);
+    private TabHostCache? _tabHosts;
     private ToolWindowStripe? _leftStripe;
     private ToolWindowStripe? _rightStripe;
     private WorkspaceGrid? _grid;
     private UndockOverlay? _overlay;
     private DockAreaView? _dockView;
     private AutoHideController? _autoHide;
+
+    /// <summary>
+    /// The single tab-host cache of the workspace (spec DA-9.6): shared by the dock area and
+    /// the panel trees, so a move between hosts reattaches the same host with its built view.
+    /// </summary>
+    internal TabHostCache TabHosts => _tabHosts ??= new TabHostCache(this);
 
     /// <summary>The layout to materialize; null renders nothing.</summary>
     public LayoutState? State
@@ -92,14 +102,16 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Optional content coordinator. When set, decorator bodies materialize through the
-    /// factory bridge (spec TW-9.3, TW-9.5): a <see cref="Control"/> content object is hosted
-    /// directly, anything else gets its view built once by the application's data templates
-    /// and hosted for the content's lifetime (TW-9.13). Every gesture command reports its transition to
-    /// <see cref="ContentLifecycle.NotifyTransition"/> — exactly one call per command
-    /// (ADR-0004); transitions the application performs itself — direct <see cref="State"/>
-    /// assignments, Apply, ResetToDefaults — remain the application's to report. Null keeps
-    /// the static skeleton: bodies stay placeholders.
+    /// Optional content coordinator. When set, tab content — documents, panel tabs and panel
+    /// bodies via the factory bridge of TW-9.5 — materializes lazily through
+    /// <see cref="ContentLifecycle.MaterializeTab"/> in a pull pass outside the projection
+    /// (spec TW-9.3, DA-9.3): a <see cref="Control"/> content object is hosted directly,
+    /// anything else gets its view built once by the application's data templates and hosted
+    /// for the content's lifetime (TW-9.13, DA-9.6). Every gesture command reports its
+    /// transition to <see cref="ContentLifecycle.NotifyTransition"/> — exactly one call per
+    /// command (ADR-0004); transitions the application performs itself — direct
+    /// <see cref="State"/> assignments, Apply, ResetToDefaults — remain the application's to
+    /// report. Null keeps the static skeleton: tabs stay placeholders.
     /// </summary>
     public ContentLifecycle? Lifecycle
     {
@@ -245,7 +257,7 @@ public sealed class BerthWorkspace : Decorator
         LayoutState before,
         LayoutState after)
     {
-        if (_dockView is null || focusedBefore is null)
+        if (_tabHosts is null || focusedBefore is null)
         {
             return;
         }
@@ -259,13 +271,23 @@ public sealed class BerthWorkspace : Decorator
 
         if (tabHostBefore is { } tabHost)
         {
-            if (!_dockView.TryFocusTab(tabHost.TabId))
+            if (_tabHosts.TryFocusTab(tabHost.TabId))
             {
-                // The tab is closed or away: its fallback took over as the current tab
-                // (DA-5.2, DA-6.3) — focus follows it.
-                _dockView.TryFocusTab(after.DockArea.CurrentTabId);
+                return;
             }
 
+            // The focused tab is gone or detached. Inside a still-open panel the focus stays
+            // with the owner — its group's new active tab (DA-5.2): a jump to the dock area
+            // would deactivate the still-active panel and auto-hide an unpinned one (TW-6.1).
+            // Otherwise — the tab closed together with its panel, or it was a dock tab — the
+            // dock area's current tab takes the focus (DA-6.3, DA-E21).
+            if (panelBefore is { } owner && IsOpenIn(after, owner.ToolWindowId))
+            {
+                owner.FocusContent();
+                return;
+            }
+
+            _tabHosts.TryFocusTab(after.DockArea.CurrentTabId);
             return;
         }
 
@@ -277,7 +299,7 @@ public sealed class BerthWorkspace : Decorator
             // (DA-E21 — the shortcut close, the hide button, an outside-click close). The
             // owning host was resolved before the command, so a released DisposeOnClose body
             // (orphaned by the close) does not lose the return.
-            _dockView.TryFocusTab(after.DockArea.CurrentTabId);
+            _tabHosts.TryFocusTab(after.DockArea.CurrentTabId);
         }
     }
 
@@ -288,10 +310,10 @@ public sealed class BerthWorkspace : Decorator
     /// False without a target — the empty main window (TW-6.3: Esc without a target is a
     /// no-op).
     /// </summary>
-    internal bool FocusCurrentDockTab() => _dockView?.TryFocusTab(State?.DockArea.CurrentTabId) == true;
+    internal bool FocusCurrentDockTab() => _tabHosts?.TryFocusTab(State?.DockArea.CurrentTabId) == true;
 
-    /// <summary>The focus transfer of a dock gesture (DA-6.4); a no-op when the tab has no attached host.</summary>
-    internal void FocusDockTab(string id) => _dockView?.TryFocusTab(id);
+    /// <summary>The focus transfer of a tab gesture (DA-6.4); a no-op when the tab has no attached host.</summary>
+    internal void FocusTab(string id) => _tabHosts?.TryFocusTab(id);
 
     /// <summary>
     /// Whether the command factually reattached the window's host: open before and after with
@@ -312,6 +334,14 @@ public sealed class BerthWorkspace : Decorator
 
     private static bool IsOpenIn(LayoutState state, string id) =>
         state.ToolWindows.Any(w => string.Equals(w.Id, id, StringComparison.Ordinal) && w.IsOpen);
+
+    /// <summary>
+    /// Whether the window's content is hosted in the workspace layout: open in a docked or
+    /// overlay mode (spec TW-3.2); floating modes are not materialized until phase 6. The
+    /// shared gate of the decorator projection, its tree materialization and the pull pass.
+    /// </summary>
+    internal static bool IsHosted(ToolWindowState window) =>
+        window.IsOpen && window.Mode.GetLayer() != ToolWindowLayer.Floating;
 
     /// <summary>
     /// The focus transfer of spec TW-6.6: keyboard focus moves into the activated window's
@@ -411,6 +441,11 @@ public sealed class BerthWorkspace : Decorator
             BuildSkeleton();
         }
 
+        // The tab-host sweep of DA-9.6 runs first: hosts of ids gone from the layout are
+        // dropped, released content of unregistered owners is forgotten (TW-9.4) — during the
+        // assignment sync, before the coordinator's release in NotifyTransition.
+        TabHosts.Sweep(state, registry);
+
         // Hosts of ids gone from the layout are dropped; the rest update in place.
         List<string>? gone = null;
         foreach (var id in _hosts.Keys)
@@ -432,7 +467,7 @@ public sealed class BerthWorkspace : Decorator
 
         foreach (var window in state.ToolWindows)
         {
-            var hosted = window.IsOpen && window.Mode.GetLayer() != ToolWindowLayer.Floating;
+            var hosted = IsHosted(window);
             if (!hosted && !_hosts.ContainsKey(window.Id))
             {
                 continue; // never materialized — nothing cached to update
@@ -440,7 +475,7 @@ public sealed class BerthWorkspace : Decorator
 
             registry.TryGet(window.Id, out var descriptor);
             GetHost(window.Id).Update(window, descriptor, string.Equals(
-                state.ActiveToolWindowId, window.Id, StringComparison.Ordinal));
+                state.ActiveToolWindowId, window.Id, StringComparison.Ordinal), state, registry);
         }
 
         _grid!.Update(state, slot => OpenDocked(state, slot) is { } window ? GetHost(window.Id) : null);
@@ -448,6 +483,7 @@ public sealed class BerthWorkspace : Decorator
         _overlay!.Update(state, GetHost);
         _leftStripe!.Update(state, registry, this);
         _rightStripe!.Update(state, registry, this);
+        TabHosts.ScheduleMaterialization();
     }
 
     private ToolWindowDecorator GetHost(string id)
@@ -495,11 +531,13 @@ public sealed class BerthWorkspace : Decorator
         }
 
         _hosts.Clear();
+        _tabHosts?.Clear();
+        _tabHosts = null; // the tab-host cache and retained tab views die with the projection
         _leftStripe = null;
         _rightStripe = null;
         _grid = null;
         _overlay = null;
-        _dockView = null; // the tab host cache and retained tab views die with the projection
+        _dockView = null;
         Child = null;
     }
 }

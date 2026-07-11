@@ -6,8 +6,9 @@ using Avalonia.LogicalTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// Host of one dock-area tab — the persistent visual node of spec DA-9.6: created once per
-/// tab id, updated in place, reattached only by the semantics of a command (a move, an
+/// Host of one tab — the persistent visual node of spec DA-9.6, shared by every materialized
+/// tree (the dock area and the content trees of tool windows): created once per tab id,
+/// updated in place, reattached only by the semantics of a command (a move, an
 /// activation switch, a structural rebuild of the addressed node) and living detached in the
 /// projection cache while the tab is inactive or away in a non-materialized host. The content
 /// view is built once per content object over the application's data templates — the same
@@ -48,7 +49,11 @@ public sealed class DockTabHost : Decorator
     /// <summary>Updates the placeholder title — the provider string or the id (spec DA-9.6).</summary>
     internal void UpdateTitle(string title) => _placeholder.Text = title;
 
-    /// <summary>Adopts the materialized content and builds its view once (spec DA-9.6).</summary>
+    /// <summary>
+    /// Adopts the materialized content and builds its view once per content object (spec
+    /// DA-9.6). Replacing the content — a DisposeOnClose body recreated after reopening —
+    /// drops the previous view first: a view must never outlive its content (TW-9.13).
+    /// </summary>
     internal void SetContent(object content)
     {
         if (ReferenceEquals(_content, content))
@@ -57,7 +62,21 @@ public sealed class DockTabHost : Decorator
         }
 
         _content = content;
+        Child = _placeholder;
         BuildView();
+    }
+
+    /// <summary>
+    /// Forgets the content and its built view, returning to the placeholder (spec DA-9.6):
+    /// called when the coordinator releases content whose id stays in the layout — the
+    /// DisposeOnClose transition of a panel body out of openness (TW-9.2) or the owner's
+    /// unregistration (TW-9.4). The host only drops references; releasing the content object
+    /// is the coordinator's job.
+    /// </summary>
+    internal void ResetContent()
+    {
+        _content = null;
+        Child = _placeholder;
     }
 
     /// <summary>
@@ -106,6 +125,13 @@ public sealed class DockTabHost : Decorator
         if (ContentViews.Build(this, _content) is { } view)
         {
             Child = view;
+            // The focus upgrade of lazy materialization (TW-6.6, DA-6.4): activation focused
+            // the placeholder host as the fallback before the content arrived — the just
+            // built view completes the transfer. Focus anywhere else is never stolen.
+            if (IsFocused)
+            {
+                FocusContent();
+            }
         }
     }
 }

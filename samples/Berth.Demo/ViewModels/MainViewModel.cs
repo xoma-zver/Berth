@@ -53,6 +53,16 @@ public partial class MainViewModel : ViewModelBase
                 AcceptsReturn = true,
                 FontFamily = new FontFamily("monospace"),
             }),
+            // Panel tabs claimed by prefix (TW-9.11): the terminal's own sessions living in
+            // its tree next to the body — the strip, splits and «Move to Document Area» demo.
+            TabFactory = new DelegateTabFactory(
+                id => id.StartsWith("term:", StringComparison.Ordinal),
+                id => new TextBox
+                {
+                    Text = $"$ {id[5..]} — a terminal session tab\n",
+                    AcceptsReturn = true,
+                    FontFamily = new FontFamily("monospace"),
+                }),
         });
         state = Lifecycle.Register(state, new ToolWindowDescriptor(
             "properties", "Properties", new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Primary))
@@ -85,7 +95,11 @@ public partial class MainViewModel : ViewModelBase
         Lifecycle.NotifyTransition(withTerminal, withReadme);
         var withSpec = withReadme.OpenDocument("doc:tool-windows.md", Registry);
         Lifecycle.NotifyTransition(withReadme, withSpec);
-        State = withSpec;
+        var withLocal = withSpec.OpenPanelTab("term:Local", Registry);
+        Lifecycle.NotifyTransition(withSpec, withLocal);
+        var withSecond = withLocal.OpenPanelTab("term:Local (2)", Registry);
+        Lifecycle.NotifyTransition(withLocal, withSecond);
+        State = withSecond;
     }
 
     public ToolWindowRegistry Registry { get; }

@@ -697,3 +697,96 @@ Float=owned / Window=independent (раздел 7); валидация bounds (TW
    деградирует (TW-10.4/10.5).
 10. **Частичный `Arrangement`-merge** (собственные vs коллективные свойства, TW-10.7) — наша семантика;
     у IDEA `setLayout` полон.
+
+---
+
+## Трассировка к задаче 4.1: TW-9.5 (дерево вкладок панели) — устройство Terminal Reworked
+
+Дополнение к записи TW-9.5 выше. Ссылки проверены по исходникам `intellij-community-master`
+(сверка владельца, 2026-07); пути относительны корня репозитория.
+
+**Terminal не имеет собственного движка вкладок+сплитов — это тот же `InternalDecoratorImpl`.**
+`=` (по механизму), `—` (специфика terminal — надстройка)
+
+Полоса вкладок терминала — обычный `ContentManagerImpl`/`ToolWindowContentUi`, тот же класс, что
+рисует вкладки у любого тулвиндова. Сплит — тот же бинарный движок, что уже оттрассирован в
+записи TW-9.5: `Mode.{SINGLE,VERTICAL_SPLIT,HORIZONTAL_SPLIT,CELL}` (`InternalDecoratorImpl.kt:263-270`).
+Terminal подключает этот **общий** механизм двумя декларативными точками, ничего не переопределяя:
+
+- `toolWindow.setTabsSplittingAllowed(true)` (`TerminalToolWindowTabsManagerImpl.kt:407`) — тот же
+  флаг стоит у Run/Debug (`RunContentManagerImpl.kt:188`);
+- `<toolWindow.splitContentProvider toolWindowId="terminal" implementationClass="...TerminalToolWindowSplitContentProvider"/>`
+  (`plugins/terminal/frontend/resources/intellij.terminal.frontend.xml:45`).
+
+Вывод: причина сверяться именно с terminal — не «другая модель дерева» (её нет), а лучший живой
+пример UX-конвенций поверх уже известного бинарного механизма.
+
+**Сплит = копия контента, а не перенос вкладки.** `≠` (важное расхождение с дизайном Berth)
+
+Doc-комментарий платформы: `ToolWindowSplitContentProvider.kt:16` — *«These actions require the
+copy of the selected tool window content to split the current window with it»*. Реализация
+(`ToolWindowSplitActions.kt:20-21`): `createContentCopy` → `decorator.splitWithContent(newContent, ...)`.
+`InternalDecoratorImpl.splitWithContent` (`:376-413`) заводит две новые дочерние ячейки
+(`toolWindow.createCellDecorator()`), у каждой — **свой** `ContentManagerImpl` (`attach()` →
+`parentManager.addNestedManager(childManager)`, `:453-459`), разводит по ним существующие вкладки
+полосы и кладёт новую (скопированную) вкладку в противоположную от `dropSide` ячейку. Для terminal
+«копия» — не клон состояния, а **новая сессия в той же рабочей директории**
+(`TerminalToolWindowSplitContentProvider.kt:37-42`). У документов эталона в меню есть **обе**
+семантики: «Split Right» (копия) и «Split and Move Right» (перенос).
+
+У Berth `SplitTab` (DA-5.5) **переносит** вкладку — вкладка не дублируется и не порождает новый
+контент; это соответствует DnD-пути эталона (`splitWithContent` переносит Content между ячейками,
+см. TW-9.8), а не его меню-сплиту. Следствие для UI: пункты сплита вкладочных меню Berth названы
+«Split and Move …» — по эталонному имени переносящей семантики; короткий ярлык «Split …»
+зарезервирован за возможным «Split and Duplicate» v2 (раздел 11 document-area). Дубликат у нас —
+клон-`Id` приложения (DA-2.4), как и «новая сессия» terminal — решение приложения, не раскладки.
+
+**Реордер вкладок — плоский index-swap внутри одного `ContentManager`, не операция над деревом.** `≈`
+
+`MoveTerminalToolwindowTabLeftRightAction.kt:34-46`: `manager.removeContent(otherContent, ...)` →
+`manager.addContent(otherContent, ind)` — обмен двух соседних `Content` в одном менеджере, только
+внутри своей ячейки/полосы. Действия terminal-специфичны: платформенное контекстное меню вкладки
+панели (Run) реордера не содержит (сверка владельца по живой IDE, 2026-07). Решение владельца:
+пункты меню реордера не заводим, жест — перетаскивание вкладки в фазе 5 (`MoveTab`-реордер ядра
+готов с 1.5b/1.8).
+
+**`TerminalDnDHandler` — не про перетаскивание вкладок.** `—`
+
+Обрабатывает только drop **файлов** (`:47-53`): на тело терминала — вставить путь, на полосу —
+новая вкладка с этой рабочей директорией. Перетаскивания самой вкладки здесь нет — DnD полосы
+панели целиком в фазе 5.
+
+**Фокус переносится на выбор/сплит вкладки — механизм общий, не terminal-specific.** `=`
+
+`ContentManagerImpl.java:701-708` — `requestFocusWithFallback(content)`; после `splitWithContent`
+фокус переустанавливается явно (`InternalDecoratorImpl.kt:411-412`). Ровно то, что уже делает
+проводка 4.0 (`FocusDockTab` после жеста) — переносится на панельное дерево без изменений.
+
+**«Detached tab» — контент отсоединяется от `Content`/UI, но живёт.** `=` по смыслу
+
+`DetachedTabs.kt` — book-keeping: помечает `TerminalView`, чья вкладка вынута из `ContentManager`
+(перенесена в редактор), чтобы backend не восстановил её как вкладку тулвиндова. У Berth аналог
+не нужен: перенос — не закрытие (DA-5.4), контент живёт до ухода id из раскладки (TW-9.2) по спеке.
+
+**Персистентность: у IDEA сплиты панелей не переживают рестарт, только плоский список вкладок.**
+`≠` (Berth сильнее эталона)
+
+`TerminalSessionPersistedTab.kt`: поля — `name, isUserDefinedName, shellCommand, workingDirectory,
+envVariables, processType`; позиции в дереве/сплите нет. Структура разбиений терминала при
+рестарте IDE не восстанавливается. У Berth `ContentTree` персистится целиком, включая сплиты
+(TW-9.9, задача 1.6) — фиксируется как `≠` в нашу пользу, доработки не требует.
+
+**Представление полосы: титул и кнопки врисованы в полосы угловых ячеек; одиночная вкладка
+показывается; есть combo-вариант.** (факты для решений 4.1)
+
+- Отдельного заголовка панели на всю ширину у эталона нет: при сплите каждая ячейка имеет свою
+  полосу (свой `ContentManager`), титул панели живёт в полосе верхне-левой ячейки, кнопки окна —
+  в полосе верхне-правой (скриншоты владельца, 2026-07). Berth 4.1: гибрид — при корне-группе
+  полоса врисована в ряд заголовка декоратора (= эталон визуально), при корне-сплите заголовок
+  остаётся отдельным рядом, полосы — по группам (упрощение, граница постоянного хрома TW-9.13).
+- Tabs-тип показывает и одиночную вкладку контента (Run, Terminal); панель одного «тела»
+  (Project) вкладок не показывает — легло в уточнение DA-8.4 v0.10.
+- Второй вариант представления — выпадающий список: `ToolWindowContentUiType` TABBED("tabs") |
+  COMBO("combo") (`platform/ide-core/.../ToolWindowContentUiType.java`), персистится пер-окно
+  (`WindowInfoImpl.kt:94-95`, атрибут `content_ui`, дефолт tabs); Project — combo. Кандидат v2
+  (раздел 12 tool-windows).

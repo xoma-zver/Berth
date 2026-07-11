@@ -4,7 +4,7 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// One split node of the dock-area tree (spec DA-2.1): a Grid laying the reconciled child
+/// One split node of a materialized tree (spec DA-2.1): a Grid laying the reconciled child
 /// views along the split orientation with a splitter between each adjacent pair. Children are
 /// matched to state nodes by tab overlap and placed by grid index without reordering the
 /// visual children, so inserting or removing a sibling — and even rotating the split
@@ -12,22 +12,17 @@ namespace Berth.Controls;
 /// splitters are leaf chrome, rebuilt on every update. Star sizes follow the shares (DA-2.2)
 /// with render-time minimums that never touch the state (DA-E24); releasing a splitter drag
 /// after actual movement commits one SetSplitShares changing only the adjacent pair
-/// (DA-5.6, ADR-0004).
+/// (DA-5.6, ADR-0004) — addressed to the tree's host: the main window or the panel (DA-1.3).
 /// </summary>
 internal sealed class SplitView : Grid
 {
-    private readonly BerthWorkspace _workspace;
-    private readonly DockAreaView _area;
+    private readonly TabTreeContext _context;
     private readonly List<Control> _childViews = [];
     private readonly List<GridSplitter> _splitters = [];
     private ImmutableArray<int> _path;
     private bool _vertical;
 
-    public SplitView(BerthWorkspace workspace, DockAreaView area)
-    {
-        _workspace = workspace;
-        _area = area;
-    }
+    public SplitView(TabTreeContext context) => _context = context;
 
     /// <summary>Tabs of the projected subtree — the reconciliation key (spec DA-1.3).</summary>
     public HashSet<string> Tabs { get; } = new(StringComparer.Ordinal);
@@ -59,7 +54,7 @@ internal sealed class SplitView : Grid
         {
             for (var j = 0; j < _childViews.Count; j++)
             {
-                if (used[j] || !DockAreaView.TabsOfView(_childViews[j]).Overlaps(childTabs[i]))
+                if (used[j] || !TabTreeContext.TabsOfView(_childViews[j]).Overlaps(childTabs[i]))
                 {
                     continue;
                 }
@@ -74,7 +69,7 @@ internal sealed class SplitView : Grid
                 }
                 else
                 {
-                    DockAreaView.ReleaseHosts(_childViews[j]);
+                    TabTreeContext.ReleaseHosts(_childViews[j]);
                     Children.Remove(_childViews[j]);
                 }
 
@@ -86,7 +81,7 @@ internal sealed class SplitView : Grid
         {
             if (!used[j])
             {
-                DockAreaView.ReleaseHosts(_childViews[j]);
+                TabTreeContext.ReleaseHosts(_childViews[j]);
                 Children.Remove(_childViews[j]);
             }
         }
@@ -94,7 +89,7 @@ internal sealed class SplitView : Grid
         _childViews.Clear();
         for (var i = 0; i < split.Children.Length; i++)
         {
-            var view = _area.Reconcile(split.Children[i].Node, matches[i], state, registry, path.Add(i));
+            var view = _context.Reconcile(split.Children[i].Node, matches[i], state, registry, path.Add(i));
             if (!Children.Contains(view))
             {
                 Children.Add(view);
@@ -192,11 +187,12 @@ internal sealed class SplitView : Grid
 
         var ratio = BerthMetrics.ClampFraction(a / (a + b));
         var path = _path;
-        _workspace.Execute(s =>
+        _context.Workspace.Execute(s =>
         {
             // The path is fresh — every state change re-projects and a drag is pure
             // visualization (ADR-0004) — but the walk stays guarded against surprises.
-            if (DockTrees.SplitAt(s.DockArea.Root, path) is not { } node
+            if (_context.GetRoot(s) is not { } root
+                || DockTrees.SplitAt(root, path) is not { } node
                 || node.Children.Length <= pairIndex + 1)
             {
                 return s;
@@ -211,7 +207,7 @@ internal sealed class SplitView : Grid
                     : i == pairIndex + 1 ? pairTotal * (1 - ratio) : node.Children[i].Share);
             }
 
-            return s.SetSplitShares(DockHost.MainWindow, path, shares.ToImmutable());
+            return _context.SetShares(s, path, shares.ToImmutable());
         });
     }
 }

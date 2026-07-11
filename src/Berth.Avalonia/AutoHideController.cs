@@ -13,9 +13,9 @@ namespace Berth.Controls;
 /// DockUnpinned/Undock window that keyboard focus actually left — the focus loser, so an open
 /// window that never had focus survives foreign focus moves and a restored layout is not
 /// reaped by the initial focus placement (TW-6.1) — and the pointer path closes open
-/// auto-hide windows on a click that moves no focus, on release: closing on press would
-/// rebuild the leaf chrome under the started gesture and tear the press/release pair
-/// (TW-6.2, TW-9.13). The focus path also activates the window whose content gained focus
+/// auto-hide windows on a click that moves no focus: the click's containment is captured at
+/// the press and the close applies on the release, keeping the press/release pair whole
+/// while commands of the gesture rebuild leaf chrome underneath (TW-6.2, TW-9.13, DA-9.6). The focus path also activates the window whose content gained focus
 /// (TW-6.6). Popups are neutral on both paths: events inside popup roots bubble in their own
 /// visual root and never reach these handlers, and the containment predicate walks the
 /// logical tree, so elements of a popup owned by the window or its stripe icon count as
@@ -25,22 +25,30 @@ namespace Berth.Controls;
 /// structurally: focus leaving the TopLevel raises no GotFocus here. The drag exception of
 /// TW-6.1 becomes reachable with drag-and-drop (phase 5).
 ///
-/// The same focus path carries the dock activity wiring (DA-6.4): a focus gain inside a
-/// <see cref="DockTabHost"/> reduces to ActivateTab, which clears the active tool window
-/// (TW-6.5); Esc inside a tool window moves focus into the current tab of the effective
-/// active dock host (TW-6.3) — the auto-hide close then follows from the ordinary focus loss.
+/// The same focus path carries the activity wiring (DA-6.4): a focus gain inside a
+/// <see cref="DockTabHost"/> of any materialized tree reduces to ActivateTab — a dock tab
+/// activates the document and clears the active tool window (TW-6.5), a panel tab activates
+/// its owner panel (DA-5.3); Esc inside a tool window moves focus into the current tab of the
+/// effective active dock host (TW-6.3) — the auto-hide close then follows from the ordinary
+/// focus loss.
 /// </summary>
 internal sealed class AutoHideController
 {
     private readonly BerthWorkspace _workspace;
     private readonly TopLevel _topLevel;
     private IInputElement? _lastFocused;
+    private HashSet<string>? _pressWithin;
+    private HashSet<string>? _pressOpenAutoHide;
+    private bool _pressSeen;
+    private bool _pressOnSplitter;
 
     public AutoHideController(BerthWorkspace workspace, TopLevel topLevel)
     {
         _workspace = workspace;
         _topLevel = topLevel;
         topLevel.AddHandler(InputElement.GotFocusEvent, OnGotFocus, RoutingStrategies.Bubble, handledEventsToo: true);
+        topLevel.AddHandler(
+            InputElement.PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         topLevel.AddHandler(
             InputElement.PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         // Not handledEventsToo: content that handles Esc itself — a popup, an editor — wins.
@@ -51,6 +59,7 @@ internal sealed class AutoHideController
     public void Detach()
     {
         _topLevel.RemoveHandler(InputElement.GotFocusEvent, OnGotFocus);
+        _topLevel.RemoveHandler(InputElement.PointerPressedEvent, OnPointerPressed);
         _topLevel.RemoveHandler(InputElement.PointerReleasedEvent, OnPointerReleased);
         _topLevel.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
     }
@@ -84,28 +93,29 @@ internal sealed class AutoHideController
         var previous = _lastFocused;
         _lastFocused = gained;
 
-        // Activation by focus (TW-6.6): visual containment only — popup focus is neutral.
-        if (gained is Visual visual
-            && visual.FindAncestorOfType<ToolWindowDecorator>(includeSelf: true) is { } host
+        // Activity by focus (DA-6.4, TW-6.6): visual containment only — popup focus is
+        // neutral. A focus gain inside a tab host of any materialized tree reduces to
+        // ActivateTab: for a dock tab it activates the document, clearing the active tool
+        // window (TW-6.5); for a panel tab it activates the owner panel (DA-5.3), so the
+        // enclosing decorator needs no command of its own. Focus in panel chrome outside any
+        // tab host — the header, an empty-tree placeholder — reduces to the panel activation.
+        // Both reductions are idempotent: an unchanged state deduplicates on assignment.
+        var gainedVisual = gained as Visual;
+        var tab = gainedVisual?.FindAncestorOfType<DockTabHost>(includeSelf: true);
+        if (tab is not null
+            && _workspace.State is { } layout
+            && DockTrees.LayoutContainsTab(layout, tab.TabId))
+        {
+            var tabId = tab.TabId;
+            _workspace.Execute(s => s.ActivateTab(tabId));
+        }
+        else if (gainedVisual?.FindAncestorOfType<ToolWindowDecorator>(includeSelf: true) is { } host
             && _workspace.State is { } state
             && !string.Equals(state.ActiveToolWindowId, host.ToolWindowId, StringComparison.Ordinal)
             && IsOpen(state, host.ToolWindowId))
         {
             var id = host.ToolWindowId;
             _workspace.Execute(s => s.Open(id));
-        }
-
-        // Dock activation by focus (DA-6.4): any real focus gain inside a tab's content —
-        // clicks and window-level focus restoration alike — reduces to ActivateTab, which
-        // also clears the active tool window (TW-6.5). Idempotent for an already current
-        // tab: the command returns the same state and the assignment deduplicates.
-        if (gained is Visual gainedVisual
-            && gainedVisual.FindAncestorOfType<DockTabHost>(includeSelf: true) is { } tab
-            && _workspace.State is { } layout
-            && DockTrees.ContainsTab(layout.DockArea.Root, tab.TabId))
-        {
-            var tabId = tab.TabId;
-            _workspace.Execute(s => s.ActivateTab(tabId));
         }
 
         // The focus loser closes (TW-6.1): the previous focus was inside, the new one is not.
@@ -139,17 +149,79 @@ internal sealed class AutoHideController
         }
     }
 
+    /// <summary>
+    /// The click's containment — and the set of auto-hide windows open at that moment — is
+    /// captured at the press (spec TW-6.2: the close must not tear the press/release pair):
+    /// commands running during the release — a tab activation, a toggle — rebuild leaf chrome
+    /// under the still-bubbling event (TW-9.13, DA-9.6), orphaning the target, so a
+    /// release-time walk would misread a click inside the window as outside; and they may
+    /// open a window mid-gesture (a move to a closed owner, DA-E39) that the same release
+    /// must not immediately reap.
+    /// </summary>
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        _pressSeen = true;
+        _pressOnSplitter = HasSplitterAncestor(e.Source as ILogical);
+        _pressWithin = PanelsContaining(e.Source as ILogical);
+        _pressOpenAutoHide = null;
+        if (_workspace.State is not { } state)
+        {
+            return;
+        }
+
+        foreach (var window in state.ToolWindows)
+        {
+            if (window.IsOpen && IsAutoHiding(window.Mode))
+            {
+                (_pressOpenAutoHide ??= new HashSet<string>(StringComparer.Ordinal)).Add(window.Id);
+            }
+        }
+    }
+
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        var target = e.Source as ILogical;
-        if (HasSplitterAncestor(target))
+        var seen = _pressSeen;
+        var within = _pressWithin;
+        var openAtPress = _pressOpenAutoHide;
+        var onSplitter = _pressOnSplitter;
+        _pressSeen = false;
+        _pressWithin = null;
+        _pressOpenAutoHide = null;
+        _pressOnSplitter = false;
+        if (onSplitter || HasSplitterAncestor(e.Source as ILogical))
         {
             return; // a splitter drag is a resize gesture, not a click (TW-6.2)
         }
 
-        // A click outside closes (TW-6.2); the window's own stripe icon is the TW-5.4 toggle
-        // and counts as inside for this check (IsWithinPanel).
-        CloseAutoHidden(w => !IsWithinPanel(target, w.Id));
+        // A click outside closes, fixed on the release (TW-6.2); the window's own stripe icon
+        // is the TW-5.4 toggle and counts as inside (IsWithinPanel). A window opened by the
+        // gesture's own command between press and release was not clicked past — it survives
+        // until the next interaction. A release without an observed press falls back to the
+        // conservative close.
+        CloseAutoHidden(w =>
+            (!seen || openAtPress?.Contains(w.Id) == true)
+            && within?.Contains(w.Id) != true);
+    }
+
+    /// <summary>Ids of every tool window the element belongs to, by one logical-ancestor walk (see <see cref="IsWithinPanel"/>).</summary>
+    private static HashSet<string>? PanelsContaining(ILogical? element)
+    {
+        HashSet<string>? result = null;
+        for (var node = element; node is not null; node = node.LogicalParent)
+        {
+            var id = node switch
+            {
+                ToolWindowDecorator decorator => decorator.ToolWindowId,
+                StripeButton icon => icon.ToolWindowId,
+                _ => null,
+            };
+            if (id is not null)
+            {
+                (result ??= new HashSet<string>(StringComparer.Ordinal)).Add(id);
+            }
+        }
+
+        return result;
     }
 
     private void CloseAutoHidden(Func<ToolWindowState, bool> lost)

@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
-using Avalonia.LogicalTree;
 using Avalonia.Media;
 
 namespace Berth.Controls;
@@ -11,35 +10,37 @@ namespace Berth.Controls;
 /// Chrome of one tool window — the persistent host of spec TW-9.13: created once per id,
 /// updated in place on every state change, reattached only when the window actually moves to
 /// another slot or layer, and living detached in the workspace cache while the window is
-/// closed. A header with the title and the menu and hide buttons, the body area below. The «—»
-/// button closes the window (spec TW-5.3); the «⋮» button and the title-bar context menu open
-/// the full menu of TW-5.16 — every gesture reduces to a core command (ADR-0004); menus are
-/// leaf chrome, rebuilt per update so their checkmarks reflect the state. The body materializes
-/// through the workspace's <see cref="BerthWorkspace.Lifecycle"/> — the factory bridge of
-/// TW-9.5 (spec TW-9.3: content creation is the materialization layer's duty) — and its view is
-/// built once per content object and hosted directly: a Control content object is its own view,
-/// anything else gets the view built by the application's data templates (the MVVM path) —
-/// deliberately not through a ContentPresenter, which rebuilds its child on every reattachment
-/// and would defeat the view retention of TW-9.13. The built view survives updates,
-/// reattachment and, under KeepWhileRegistered, closing and reopening. Without a coordinator,
-/// for a sleeping window (DA-9.4), for a window without a body factory, and for a body tab
-/// living outside the panel's own tree the body stays a placeholder. The title is not otherwise
-/// regulated by the spec (TW-6.4).
+/// closed. A header with the title, the tab strip of the tree's root group (TW-9.5: the strip
+/// lives in the header row, like the reference embedding the title into the top-left cell's
+/// strip; hidden for the degenerate solitary body, DA-8.4) and the menu and hide buttons; the
+/// content area below materializes the window's tab tree — groups, splits and splitters — by
+/// the shared projection of spec DA-9.6: tab hosts come from the workspace-wide cache, their
+/// content is pulled lazily by the workspace's materialization pass while the window is open
+/// (TW-9.3), and the built views survive updates, reattachment and, under KeepWhileRegistered,
+/// closing and reopening. A closed DisposeOnClose window drops the body view together with the
+/// released content (TW-9.2, DA-9.6) — unless the body lives in a dock host, which shields it
+/// from the panel's openness (DA-8.3). The «—» button closes the window (spec TW-5.3); the «⋮»
+/// button and the title-bar context menu open the full menu of TW-5.16 — every gesture reduces
+/// to a core command (ADR-0004); menus and the header strip are leaf chrome, rebuilt per
+/// update so they reflect the state they were built from. The title is not otherwise regulated
+/// by the spec (TW-6.4).
 /// </summary>
 public sealed class ToolWindowDecorator : Decorator
 {
     private readonly BerthWorkspace _workspace;
+    private readonly TabTreeContext _context;
     private readonly TextBlock _titleText;
+    private readonly StackPanel _headerTabs;
     private readonly Button _menuButton;
     private readonly Border _headerBorder;
     private readonly Border _content;
-    private object? _bodyContent;
 
     internal ToolWindowDecorator(string id, BerthWorkspace workspace)
     {
         ToolWindowId = id;
         Title = id;
         _workspace = workspace;
+        _context = new TabTreeContext(workspace, id);
         Focusable = true; // the activation fallback focus target (TW-6.6): content may offer no focusable element
 
         _menuButton = ChromeButton("⋮", "PART_MenuButton");
@@ -63,9 +64,21 @@ public sealed class ToolWindowDecorator : Decorator
             Margin = new Thickness(8, 0, 0, 0),
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
+        DockPanel.SetDock(_titleText, Dock.Left);
+        _headerTabs = new StackPanel
+        {
+            Name = "PART_HeaderTabs",
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(8, 0, 0, 0),
+            // Strip overflow is unhandled by design (document-area, section 11), but it must
+            // stay inside the panel: unclipped headers would paint over — and steal clicks
+            // from — the neighbouring pane.
+            ClipToBounds = true,
+        };
         var header = new DockPanel { Height = BerthMetrics.HeaderHeight };
         header.Children.Add(buttons);
         header.Children.Add(_titleText);
+        header.Children.Add(_headerTabs);
 
         _headerBorder = new Border
         {
@@ -97,8 +110,13 @@ public sealed class ToolWindowDecorator : Decorator
     /// <summary>Displayed title: the registered <see cref="ToolWindowDescriptor.Title"/>, or the id for a sleeping window.</summary>
     public string Title { get; private set; }
 
-    /// <summary>Projects one window state into the persistent chrome (spec TW-9.13): the title, the active accent, the menus and the body.</summary>
-    internal void Update(ToolWindowState window, ToolWindowDescriptor? descriptor, bool isActive)
+    /// <summary>Projects one window state into the persistent chrome (spec TW-9.13): the title, the active accent, the menus and the content tree.</summary>
+    internal void Update(
+        ToolWindowState window,
+        ToolWindowDescriptor? descriptor,
+        bool isActive,
+        LayoutState state,
+        ToolWindowRegistry registry)
     {
         Title = descriptor?.Title ?? window.Id;
         _titleText.Text = Title;
@@ -109,30 +127,34 @@ public sealed class ToolWindowDecorator : Decorator
         var menu = ToolWindowMenus.BuildWindowMenu(window, _workspace);
         _menuButton.Flyout = menu;
         _headerBorder.ContextFlyout = menu;
-        UpdateBody(window, descriptor);
+        UpdateTree(window, descriptor, state, registry);
     }
 
     /// <summary>
     /// Adopts keyboard focus for activation (spec TW-6.6): the first focusable element of the
-    /// built body view, with the decorator itself as the fallback that keeps the focus-loss
-    /// semantics of TW-6.1 reachable for content without focusable elements.
+    /// materialized content, with the decorator itself as the fallback that keeps the
+    /// focus-loss semantics of TW-6.1 reachable for content without focusable elements.
     /// </summary>
     internal void FocusContent()
     {
-        if (ContentViews.FirstFocusable(_content) is { } target && target.Focus())
+        if (ContentViews.FirstFocusable(_content) is { } target)
         {
-            return;
+            // The active tab's host comes first in the walk: delegate into it — content
+            // first, the host itself as the fallback (TW-6.6); a placeholder host completes
+            // the transfer when its content materializes (DockTabHost.BuildView).
+            if (target is DockTabHost host)
+            {
+                host.FocusContent();
+                return;
+            }
+
+            if (target.Focus())
+            {
+                return;
+            }
         }
 
         Focus();
-    }
-
-    /// <inheritdoc/>
-    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
-    {
-        base.OnAttachedToLogicalTree(e);
-        // A view whose building was deferred — template resolution needs the tree.
-        BuildBodyView();
     }
 
     /// <inheritdoc/>
@@ -149,62 +171,47 @@ public sealed class ToolWindowDecorator : Decorator
     }
 
     /// <summary>
-    /// The body area. The body materializes only for a hosted, registered window whose body
-    /// tab — id equal to the window's id (TW-9.5) — lives in the window's own tree: a body
-    /// moved into a dock host is shown there, not here (DA-8.1), and a tree without the body
-    /// tab has no content to create («content without a tab» does not exist, TW-9.2). Other
-    /// tabs of the tree and the tab strip arrive with phase 4.
+    /// The content area — the window's tab tree materialized by the shared projection
+    /// (TW-9.5, DA-9.6). A hosted window reconciles its tree and the header strip; a detached
+    /// one keeps its views (TW-9.13) — except that a closed DisposeOnClose window forgets the
+    /// body view together with the content the coordinator releases on this transition
+    /// (TW-9.2): the reset runs during the assignment sync, before the release in
+    /// NotifyTransition, and only when the body tab lives in the window's own tree — a body
+    /// in a dock host is shielded by DA-8.3 and keeps its view there.
     /// </summary>
-    private void UpdateBody(ToolWindowState window, ToolWindowDescriptor? descriptor)
+    private void UpdateTree(
+        ToolWindowState window, ToolWindowDescriptor? descriptor, LayoutState state, ToolWindowRegistry registry)
     {
-        if (window.IsOpen && window.Mode.GetLayer() != ToolWindowLayer.Floating)
+        var hosted = BerthWorkspace.IsHosted(window);
+        if (hosted)
         {
-            object? body = null;
-            if (_workspace.Lifecycle is { } lifecycle
-                && descriptor is not null
-                && DockTrees.ContainsTab(window.ContentTree, window.Id))
+            _context.ReconcileRoot(_content, window.ContentTree, state, registry);
+            _headerTabs.Children.Clear();
+            if (window.ContentTree is TabGroupNode rootGroup && ShowHeaderStrip(rootGroup, window.Id))
             {
-                body = lifecycle.GetOrCreateToolWindowContent(window.Id);
+                TabGroupView.FillStrip(_headerTabs, rootGroup, state, registry, _context, []);
             }
 
-            SetBody(body);
             return;
         }
 
-        // A detached host: under KeepWhileRegistered the built view is retained until
-        // reopening or unregistration (TW-9.13); a released body — the DisposeOnClose
-        // transition out of openness, or a gone registration — must not be kept alive
-        // by the retained view.
+        _headerTabs.Children.Clear();
         if (!window.IsOpen
-            && (descriptor is null || descriptor.RetentionPolicy == ContentRetentionPolicy.DisposeOnClose))
+            && descriptor?.RetentionPolicy == ContentRetentionPolicy.DisposeOnClose
+            && DockTrees.ContainsTab(window.ContentTree, window.Id))
         {
-            SetBody(null);
+            _workspace.TabHosts.ResetContent(window.Id);
         }
-    }
-
-    private void SetBody(object? content)
-    {
-        if (!ReferenceEquals(_bodyContent, content))
-        {
-            _bodyContent = content;
-            _content.Child = null;
-        }
-
-        BuildBodyView();
     }
 
     /// <summary>
-    /// Builds the body view once per content object and keeps it (TW-9.13) — the shared
-    /// manual ContentPresenter cut of <see cref="ContentViews.Build"/>; the template path is
-    /// deferred until attachment when the logical tree is not there yet.
+    /// The strip visibility rule of DA-8.4: hidden exactly for the degenerate solitary body —
+    /// the panel looks classic; a solitary tab with its own id shows, or it would have no UI
+    /// handle at all. The empty root group shows nothing either (DA-2.3).
     /// </summary>
-    private void BuildBodyView()
-    {
-        if (_content.Child is null && _bodyContent is not null)
-        {
-            _content.Child = ContentViews.Build(this, _bodyContent);
-        }
-    }
+    private static bool ShowHeaderStrip(TabGroupNode root, string windowId) =>
+        !root.Tabs.IsEmpty
+        && !(root.Tabs.Length == 1 && string.Equals(root.Tabs[0], windowId, StringComparison.Ordinal));
 
     private static Button ChromeButton(string glyph, string name) => new()
     {

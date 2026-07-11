@@ -35,13 +35,31 @@ internal static class ToolWindowMenus
         return menu;
     }
 
-    /// <summary>The full menu of the decorator's «⋮» button and title-bar context: View Mode and Move to (spec TW-5.16).</summary>
+    /// <summary>The full menu of the decorator's «⋮» button and title-bar context (spec TW-5.16).</summary>
     public static MenuFlyout BuildWindowMenu(ToolWindowState window, BerthWorkspace workspace)
     {
         var menu = new MenuFlyout();
+        AppendWindowItems(menu, window, workspace);
+        return menu;
+    }
+
+    /// <summary>
+    /// The items of the full menu (spec TW-5.16): View Mode, Move to, «Remove from Sidebar» —
+    /// icon hiding, the same command as «Hide» of the compact icon menu (TW-5.10) — and
+    /// «Hide» — closing, the «—» button's command (TW-5.3). Shared with the tail of the panel
+    /// tab menu: the reference's tab menu includes the window menu.
+    /// </summary>
+    public static void AppendWindowItems(MenuFlyout menu, ToolWindowState window, BerthWorkspace workspace)
+    {
+        var id = window.Id;
         menu.Items.Add(ViewModeItem(window, workspace));
         menu.Items.Add(MoveToItem(window, workspace));
-        return menu;
+        var remove = new MenuItem { Header = "Remove from Sidebar" };
+        remove.Click += (_, _) => workspace.Execute(s => s.SetIconVisible(id, false));
+        menu.Items.Add(remove);
+        var hide = new MenuItem { Header = "Hide" };
+        hide.Click += (_, _) => workspace.Execute(s => s.Close(id));
+        menu.Items.Add(hide);
     }
 
     /// <summary>The quick access list (spec TW-8.2): selecting an item returns the icon and opens the window (TW-8.3).</summary>

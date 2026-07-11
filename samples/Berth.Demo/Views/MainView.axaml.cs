@@ -36,7 +36,9 @@ public partial class MainView : UserControl
         };
         // Tab titles belong to the application (DA-9.6): the layout stores ids only.
         Workspace.TabTitleProvider = id =>
-            id.StartsWith("doc:", System.StringComparison.Ordinal) ? id[4..] : null;
+            id.StartsWith("doc:", System.StringComparison.Ordinal) ? id[4..]
+            : id.StartsWith("term:", System.StringComparison.Ordinal) ? id[5..]
+            : null;
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
     }
 

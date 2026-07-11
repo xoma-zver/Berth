@@ -53,7 +53,8 @@ public class ContentBridgeTests
         return (registry, lifecycle, state);
     }
 
-    private static Border Content(Window window) => (Border)Part(window, "PART_Content");
+    /// <summary>The body view: with 4.1 the body lives in its tab host inside the panel tree (TW-9.5, DA-9.6).</summary>
+    private static Control? Body(Window window) => TabHost(window, "a").Child;
 
     [AvaloniaFact]
     public void TW_9_3_decorator_materializes_the_body_through_the_bridge()
@@ -63,7 +64,7 @@ public class ContentBridgeTests
 
         var window = Show(state.Open("a"), registry, lifecycle: lifecycle);
 
-        var text = Assert.IsType<TextBlock>(Content(window).Child);
+        var text = Assert.IsType<TextBlock>(Body(window));
         Assert.Equal("body", text.Text);
         Assert.Equal(1, factory.Created); // OnFirstOpen: создан первой материализацией
     }
@@ -81,7 +82,7 @@ public class ContentBridgeTests
         Assert.Equal(0, factory.Released);
 
         Click(window, Button(window, "a")); // переоткрытие: тот же хост с тем же экземпляром (TW-9.13)
-        Assert.Same(control, Content(window).Child);
+        Assert.Same(control, Body(window));
         Assert.Equal(1, factory.Created);
     }
 
@@ -100,7 +101,7 @@ public class ContentBridgeTests
             "a", new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Primary), 0);
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Same(control, Content(window).Child);
+        Assert.Same(control, Body(window));
         Assert.Equal(1, factory.Created);
     }
 
@@ -117,7 +118,7 @@ public class ContentBridgeTests
 
         Click(window, Button(window, "a")); // повторное открытие пересоздаёт контент
         Assert.Equal(2, factory.Created);
-        Assert.NotNull(Content(window).Child);
+        Assert.IsType<TextBlock>(Body(window)); // новый вид над новым контентом
     }
 
     [AvaloniaFact]
@@ -142,7 +143,7 @@ public class ContentBridgeTests
         // Вид построен шаблоном приложения однократно и хостится напрямую (MVVM-путь):
         // ContentPresenter не используется — он перестраивал бы вид при каждом
         // переприсоединении, ломая удержание вида (TW-9.13).
-        var built = Assert.IsType<TextBlock>(Content(window).Child);
+        var built = Assert.IsType<TextBlock>(Body(window));
         Assert.Equal("templated", built.Text);
         Assert.IsType<BodyModel>(built.DataContext);
     }
@@ -155,7 +156,9 @@ public class ContentBridgeTests
 
         var window = Show(state.Open("a"), registry); // Lifecycle не задан — статический скелет
 
-        Assert.Null(Content(window).Child);
+        // Хост тела показывает заглушку с заголовком (DA-9.6), фабрика не тронута.
+        var placeholder = Assert.IsType<TextBlock>(Body(window));
+        Assert.Equal("Alpha", placeholder.Text);
         Assert.Equal(0, factory.Created);
     }
 
@@ -169,7 +172,7 @@ public class ContentBridgeTests
 
         var window = Show(state.Open("a"), registry, lifecycle: lifecycle);
 
-        Assert.Null(Content(window).Child); // нет фабрики — нет тела (TW-9.5); дерево пусто (DA-8.4)
+        Assert.Empty(TabHosts(window)); // нет фабрики — нет тела (TW-9.5); дерево пусто (DA-8.4)
     }
 
     [AvaloniaFact]
@@ -192,7 +195,9 @@ public class ContentBridgeTests
 
         var window = Show(state, new ToolWindowRegistry(), lifecycle: lifecycle);
 
-        Assert.Null(Content(window).Child);
+        // Спящая вкладка — заглушка (DA-9.4): координатор не тронут, контента нет.
+        var placeholder = Assert.IsType<TextBlock>(TabHost(window, "sleeper").Child);
+        Assert.Equal("sleeper", placeholder.Text);
     }
 
     [AvaloniaFact]
@@ -209,7 +214,7 @@ public class ContentBridgeTests
             .MoveTab("a", DockGroupRef.AtTab("d"), 1, registry);
         var window = Show(moved, registry, lifecycle: lifecycle);
 
-        Assert.Null(Content(window).Child); // декоратор панели тело не хостит
+        Assert.Empty(TabHosts(Decorator(window, "a"))); // декоратор панели тело не хостит
         var body = Assert.IsType<TextBlock>(TabHost(window, "a").Child);
         Assert.Equal("body", body.Text);
         Assert.Equal(1, factory.Created);

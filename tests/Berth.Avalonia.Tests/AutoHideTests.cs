@@ -241,6 +241,35 @@ public class AutoHideTests
     }
 
     [AvaloniaFact]
+    public void TW_6_2_panel_opened_during_the_gesture_survives_the_release()
+    {
+        // Команда жеста может открыть панель между нажатием и отпусканием — перенос вкладки
+        // в закрытого владельца (DA-E39); на платформах с оверлей-попапами так выглядит любой
+        // клик пункта меню. Отпускание закрывает только панели, открытые на момент нажатия
+        // (TW-6.2) — свежеоткрытую тот же клик не «пролистнул».
+        var registry = new ToolWindowRegistry();
+        var lifecycle = new ContentLifecycle(registry);
+        var state = Register(lifecycle, LayoutState.Empty, "a", ToolWindowSide.Left, ToolWindowGroup.Primary);
+        state = Mutate(state, "a", w => w with
+        {
+            Mode = ToolWindowMode.DockUnpinned,
+            LastInternalMode = ToolWindowMode.DockUnpinned,
+        });
+        var window = Show(state, registry, lifecycle: lifecycle);
+
+        var point = Center(Part(window, "PART_DockArea"), window);
+        window.MouseDown(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        // Модель команды, выполнившейся внутри жеста: панель открылась между press и release.
+        Workspace(window).State = St(window).Open("a");
+        Dispatcher.UIThread.RunJobs();
+        window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(Get(window, "a").IsOpen);
+    }
+
+    [AvaloniaFact]
     public void TW_6_2_click_on_another_icon_processes_the_toggle_and_closes()
     {
         // Каскад одного жеста: toggle открывает c (команда 1), перенос фокуса активации
@@ -464,7 +493,7 @@ public class AutoHideTests
         state = OpenAs(state, "a", ToolWindowMode.DockUnpinned);
         state = OpenAs(state, "b", ToolWindowMode.DockPinned);
         var window = Show(state, registry, lifecycle: lifecycle);
-        var boxA = (TextBox)((Border)Part(Decorator(window, "a"), "PART_Content")).Child!;
+        var boxA = (TextBox)TabHost(Decorator(window, "a"), "a").Child!;
         Focus(boxA);
 
         Focus(boxB);
