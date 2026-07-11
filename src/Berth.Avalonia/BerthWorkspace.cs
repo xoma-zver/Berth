@@ -20,7 +20,10 @@ namespace Berth.Controls;
 /// keyboard focus into the activated window's content and focus gains inside a window
 /// activate it (TW-6.6); DockUnpinned/Undock windows auto-hide on focus loss and on outside
 /// clicks (TW-6.1, TW-6.2) — wired by an <see cref="AutoHideController"/> on the TopLevel
-/// while the workspace is attached.
+/// while the workspace is attached. The application binds its keymap to
+/// <see cref="ActivateToolWindow"/> — the tri-state activation shortcut of TW-5.5 — and may
+/// supply <see cref="ShortcutHintProvider"/> to show the shortcuts in stripe icon tooltips
+/// (TW-6.4).
 ///
 /// Materialization is incremental (spec TW-9.13): the visual skeleton is built once, and each
 /// state change is projected as a diff. Tool window hosts (<see cref="ToolWindowDecorator"/>)
@@ -50,6 +53,10 @@ public sealed class BerthWorkspace : Decorator
     /// <summary>Defines the <see cref="Lifecycle"/> property.</summary>
     public static readonly StyledProperty<ContentLifecycle?> LifecycleProperty =
         AvaloniaProperty.Register<BerthWorkspace, ContentLifecycle?>(nameof(Lifecycle));
+
+    /// <summary>Defines the <see cref="ShortcutHintProvider"/> property.</summary>
+    public static readonly StyledProperty<Func<string, string?>?> ShortcutHintProviderProperty =
+        AvaloniaProperty.Register<BerthWorkspace, Func<string, string?>?>(nameof(ShortcutHintProvider));
 
     private readonly Dictionary<string, ToolWindowDecorator> _hosts = new(StringComparer.Ordinal);
     private ToolWindowStripe? _leftStripe;
@@ -89,6 +96,53 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
+    /// Optional application-supplied shortcut hints (spec TW-5.5, TW-6.4): maps a tool window
+    /// id to the display string of its activation shortcut, which extends the stripe icon
+    /// tooltip beyond the title. The shortcuts themselves are the application's keymap — bind
+    /// them to <see cref="ActivateToolWindow"/>; the provider only supplies what to display.
+    /// Null — the provider or its result for an id — leaves the tooltip as the bare title.
+    /// </summary>
+    public Func<string, string?>? ShortcutHintProvider
+    {
+        get => GetValue(ShortcutHintProviderProperty);
+        set => SetValue(ShortcutHintProviderProperty, value);
+    }
+
+    /// <summary>
+    /// The activation shortcut of one tool window (spec TW-5.5) — the public entry the
+    /// application binds its keymap to: a closed window opens and activates, an open inactive
+    /// one activates, an open active one closes. «Active» is decided by keyboard focus lying
+    /// logically within the window or its stripe icon — the equivalent of the reference, whose
+    /// active id derives from focus; the stored <see cref="LayoutState.ActiveToolWindowId"/>
+    /// means «last active» until phase 4 (TW-6.6) and would close an open DockPinned window
+    /// while the user works in a document. Runs through the command channel: activation
+    /// transfers focus into the content (TW-6.6) and the transition is reported to
+    /// <see cref="Lifecycle"/> once (ADR-0004). A no-op without a state; an id absent from
+    /// the layout is a caller error, as in the core operations.
+    /// </summary>
+    /// <param name="id">Id of a tool window present in the layout.</param>
+    /// <exception cref="ArgumentException">The id is empty, or no such tool window exists in the layout.</exception>
+    public void ActivateToolWindow(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        if (State is not { } state)
+        {
+            return;
+        }
+
+        var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        var close = AutoHideController.IsWithinPanel(focused as ILogical, id) && IsOpenIn(state, id);
+        Execute(s => close ? s.Close(id) : s.Open(id));
+        if (!close)
+        {
+            // Open of an already open window only re-activates (TW-5.2): the stored active id
+            // may not change — a stale «last active» before phase 4 — while the shortcut's
+            // activation must still move focus (TW-6.6). A no-op when Execute already did.
+            FocusActivated(id);
+        }
+    }
+
+    /// <summary>
     /// Projects the current <see cref="State"/> and <see cref="Registry"/> again. Required
     /// after operations that mutate the registry in place — the live registration lifecycle
     /// (<see cref="ContentLifecycle.Register"/>, RegisterDockContent, Unregister): they may
@@ -108,6 +162,10 @@ public sealed class BerthWorkspace : Decorator
     {
         if (State is { } state)
         {
+            // Captured before the command: the whitelisted reattachment of TW-9.13 below
+            // loses keyboard focus as a side effect, so only the pre-command position can
+            // tell whether the focus belonged to the moved window.
+            var focusedBefore = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
             var result = command(state);
             // Assign first: the sync detaches released content from the visual tree before
             // the coordinator hands it back to its factory.
@@ -117,13 +175,44 @@ public sealed class BerthWorkspace : Decorator
             // by the focus change — the auto-hide close of the focus loser (TW-6.1) — then
             // reports its own transition after this one, in gesture order. Recursion is
             // finite: the nested commands never activate another window.
-            if (result.ActiveToolWindowId is { } activated
-                && !string.Equals(activated, state.ActiveToolWindowId, StringComparison.Ordinal))
+            if (result.ActiveToolWindowId is { } active)
             {
-                FocusActivated(activated);
+                if (!string.Equals(active, state.ActiveToolWindowId, StringComparison.Ordinal))
+                {
+                    FocusActivated(active);
+                }
+                else if (WasReattached(state, result, active)
+                    && AutoHideController.IsWithinPanel(focusedBefore as ILogical, active))
+                {
+                    // The extended trigger of TW-6.6: the command factually reattached the
+                    // active window's host (another slot or layer, TW-9.13), dropping the
+                    // keyboard focus it held — restore it into the content it left. Focus
+                    // that was outside the window stays with its owner.
+                    FocusActivated(active);
+                }
             }
         }
     }
+
+    /// <summary>
+    /// Whether the command factually reattached the window's host: open before and after with
+    /// the slot or the layer changed — the reattachment whitelist of spec TW-9.13
+    /// (DockPinned ↔ DockUnpinned changes neither and never touches the host).
+    /// </summary>
+    private static bool WasReattached(LayoutState before, LayoutState after, string id)
+    {
+        var was = Find(before, id);
+        var now = Find(after, id);
+        return was is { IsOpen: true }
+            && now is { IsOpen: true }
+            && (was.Slot != now.Slot || was.Mode.GetLayer() != now.Mode.GetLayer());
+
+        static ToolWindowState? Find(LayoutState state, string id) =>
+            state.ToolWindows.FirstOrDefault(w => string.Equals(w.Id, id, StringComparison.Ordinal));
+    }
+
+    private static bool IsOpenIn(LayoutState state, string id) =>
+        state.ToolWindows.Any(w => string.Equals(w.Id, id, StringComparison.Ordinal) && w.IsOpen);
 
     /// <summary>
     /// The focus transfer of spec TW-6.6: keyboard focus moves into the activated window's
@@ -198,6 +287,12 @@ public sealed class BerthWorkspace : Decorator
             // A full reconfiguration: cached hosts and their retained views belong to the
             // previous registry and coordinator.
             Reset();
+            Sync();
+        }
+        else if (change.Property == ShortcutHintProviderProperty)
+        {
+            // Tooltips live on leaf chrome: a re-projection rebuilds them (TW-9.13); the
+            // host cache and retained views are untouched, unlike a Registry/Lifecycle swap.
             Sync();
         }
     }

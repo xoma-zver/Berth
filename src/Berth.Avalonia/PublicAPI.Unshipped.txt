@@ -17,3 +17,7 @@ static readonly Berth.Controls.BerthWorkspace.LifecycleProperty -> Avalonia.Styl
 static readonly Berth.Controls.BerthWorkspace.RegistryProperty -> Avalonia.StyledProperty<Berth.ToolWindowRegistry?>!
 static readonly Berth.Controls.BerthWorkspace.StateProperty -> Avalonia.StyledProperty<Berth.LayoutState?>!
 Berth.Controls.BerthWorkspace.Refresh() -> void
+Berth.Controls.BerthWorkspace.ActivateToolWindow(string! id) -> void
+Berth.Controls.BerthWorkspace.ShortcutHintProvider.get -> System.Func<string!, string?>?
+Berth.Controls.BerthWorkspace.ShortcutHintProvider.set -> void
+static readonly Berth.Controls.BerthWorkspace.ShortcutHintProviderProperty -> Avalonia.StyledProperty<System.Func<string!, string?>?>!

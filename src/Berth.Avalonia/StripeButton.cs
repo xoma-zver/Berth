@@ -12,7 +12,9 @@ namespace Berth.Controls;
 /// <summary>
 /// Stripe icon of one tool window (spec TW-1.4): shows the application-supplied icon resource
 /// when <see cref="ToolWindowDescriptor.IconKey"/> resolves to an <see cref="IImage"/>,
-/// otherwise the initials of the title; the tooltip is the title. An open window is
+/// otherwise the initials of the title; the tooltip is the title, extended with the
+/// application-supplied shortcut hint when the workspace has a
+/// <see cref="BerthWorkspace.ShortcutHintProvider"/> (spec TW-5.5, TW-6.4). An open window is
 /// highlighted and carries the <c>:open</c> pseudo-class (spec TW-6.4). A left click toggles
 /// openness regardless of activity (spec TW-5.4); the right-click context menu is the compact
 /// menu of TW-5.16 — both reduce to core commands (ADR-0004).
@@ -46,7 +48,8 @@ public sealed class StripeButton : Decorator
             },
         };
         Child = _face;
-        ToolTip.SetTip(this, descriptor.Title);
+        var hint = workspace.ShortcutHintProvider?.Invoke(window.Id);
+        ToolTip.SetTip(this, string.IsNullOrEmpty(hint) ? descriptor.Title : $"{descriptor.Title}  {hint}");
         PseudoClasses.Set(":open", window.IsOpen);
         ContextFlyout = ToolWindowMenus.BuildIconMenu(window, workspace);
     }

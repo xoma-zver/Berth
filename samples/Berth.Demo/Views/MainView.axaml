@@ -14,8 +14,11 @@ to set the actual DataContext for runtime, set the DataContext property in code 
     </Design.DataContext>
 
     <!-- State is two-way: workspace gestures assign the command result back and the view
-         model observes it (persistence hooks onto this property in a real application). -->
-    <berth:BerthWorkspace State="{Binding State, Mode=TwoWay}"
+         model observes it (persistence hooks onto this property in a real application).
+         The demo keymap (Alt+1..Alt+4 -> ActivateToolWindow) and the shortcut hint
+         provider are wired in code-behind: shortcuts live in the application (TW-5.5). -->
+    <berth:BerthWorkspace x:Name="Workspace"
+                          State="{Binding State, Mode=TwoWay}"
                           Registry="{Binding Registry}"
                           Lifecycle="{Binding Lifecycle}"/>
 </UserControl>
