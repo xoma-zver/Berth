@@ -5,35 +5,69 @@ namespace Berth.Controls;
 
 /// <summary>
 /// Context of one materialized tab tree (spec DA-9.6): the dock area of the main window
-/// (<see cref="PanelId"/> null) or the content tree of a tool window. Group and split views
-/// are tree-agnostic and reach everything host-specific — the root, the SetSplitShares
-/// receiver, the shared host cache — through this context; the reconciliation logic is shared
-/// verbatim between the trees.
+/// (<see cref="PanelId"/> null), the content tree of a tool window, or the tree of a
+/// document window. Group and split views are tree-agnostic and reach everything
+/// host-specific — the root, the SetSplitShares receiver, the shared host cache — through
+/// this context; the reconciliation logic is shared verbatim between the trees. Document
+/// windows have no identity of their own (spec DA-1.3): the floating layer refreshes
+/// <see cref="DocumentWindowIndex"/> on every reconciliation pass, and every state change
+/// re-projects before any further command can run, so the index is fresh at command time.
 /// </summary>
 internal sealed class TabTreeContext
 {
+    private readonly bool _isDocumentWindow;
+
     public TabTreeContext(BerthWorkspace workspace, string? panelId)
     {
         Workspace = workspace;
         PanelId = panelId;
     }
 
+    private TabTreeContext(BerthWorkspace workspace)
+    {
+        Workspace = workspace;
+        _isDocumentWindow = true;
+    }
+
+    /// <summary>Context of one document window's tree (spec DA-7.1); the index is set by the floating layer per pass.</summary>
+    public static TabTreeContext ForDocumentWindow(BerthWorkspace workspace) => new(workspace);
+
     /// <summary>The owning workspace — the command funnel and the shared host cache.</summary>
     public BerthWorkspace Workspace { get; }
 
-    /// <summary>Id of the tool window hosting the tree, or null for the main window's dock area.</summary>
+    /// <summary>Id of the tool window hosting the tree, or null for a dock-area host — the canHost key of the drop catalog (spec DA-9.7).</summary>
     public string? PanelId { get; }
 
-    /// <summary>Root of the projected tree in the given state; null when the panel left the layout.</summary>
-    public TabTreeNode? GetRoot(LayoutState state) => PanelId is null
-        ? state.DockArea.Root
-        : state.ToolWindows.FirstOrDefault(w => string.Equals(w.Id, PanelId, StringComparison.Ordinal))?.ContentTree;
+    /// <summary>Index of the projected document window in <see cref="DockAreaState.Windows"/>; meaningful only for a document-window context.</summary>
+    public int DocumentWindowIndex { get; set; } = -1;
 
-    /// <summary>The SetSplitShares receiver of this tree (spec DA-5.6): the main window or the panel overload.</summary>
+    /// <summary>Root of the projected tree in the given state; null when the host left the layout.</summary>
+    public TabTreeNode? GetRoot(LayoutState state)
+    {
+        if (PanelId is { } panelId)
+        {
+            return state.ToolWindows.FirstOrDefault(
+                w => string.Equals(w.Id, panelId, StringComparison.Ordinal))?.ContentTree;
+        }
+
+        if (_isDocumentWindow)
+        {
+            return DocumentWindowIndex >= 0 && DocumentWindowIndex < state.DockArea.Windows.Length
+                ? state.DockArea.Windows[DocumentWindowIndex].Root
+                : null;
+        }
+
+        return state.DockArea.Root;
+    }
+
+    /// <summary>The SetSplitShares receiver of this tree (spec DA-5.6): the dock host or the panel overload.</summary>
     public LayoutState SetShares(LayoutState state, ImmutableArray<int> path, ImmutableArray<double> shares) =>
-        PanelId is null
-            ? state.SetSplitShares(DockHost.MainWindow, path, shares)
-            : state.SetSplitShares(PanelId, path, shares);
+        PanelId is { } panelId
+            ? state.SetSplitShares(panelId, path, shares)
+            : state.SetSplitShares(
+                _isDocumentWindow ? DockHost.DocumentWindow(DocumentWindowIndex) : DockHost.MainWindow,
+                path,
+                shares);
 
     /// <summary>Reconciles one state node into a view: an existing view of the right kind updates in place.</summary>
     public Control Reconcile(

@@ -204,11 +204,13 @@ public class DockAreaInputTests
         };
         var window = Show(state, registry, lifecycle: lifecycle);
 
-        // У документа пункта Move нет — владелец не панель (DA-8.1).
+        // У документа нет пункта переноса в панель — владелец не панель (DA-8.1); легален
+        // только «Move to New Window»: хосты док-зоны принимают любые вкладки (DA-5.7).
         var documentItems = ((MenuFlyout)TabHeader(window, "d1").ContextFlyout!).Items;
         Assert.DoesNotContain(
             documentItems.OfType<MenuItem>(),
-            i => (i.Header as string)?.StartsWith("Move to", StringComparison.Ordinal) == true);
+            i => (i.Header as string)?.StartsWith("Move to", StringComparison.Ordinal) == true
+                && !string.Equals(i.Header as string, "Move to New Window", StringComparison.Ordinal));
 
         Invoke(Item(((MenuFlyout)TabHeader(window, "p:t1").ContextFlyout!).Items, "Move to Panel"));
 

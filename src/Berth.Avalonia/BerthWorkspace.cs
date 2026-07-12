@@ -18,8 +18,15 @@ namespace Berth.Controls;
 /// area reattaches the same host with its built view. Tab clicks, tab menus, split drags and
 /// tab drag-and-drop reduce to the dock commands (DA-5.2…DA-5.9, DA-9.7, ADR-0004), focus
 /// gains in tab content reduce to ActivateTab (DA-6.4), and Esc inside a tool window returns
-/// focus to the current tab (TW-6.3). Document windows, like Float and Window tool window modes, are not materialized
-/// until the floating-window phase — their tabs keep cached views while away. The control is a pure projection of the state (ADR-0002):
+/// focus to the current tab of the active host (TW-6.3). On a platform with real windows —
+/// the workspace attached under a <see cref="Window"/> TopLevel — the floating layer
+/// materializes too (task 6.0): open Float/Window tool windows become OS windows hosting the
+/// same cached decorators (TW-7.1, TW-7.2) and document windows become independent OS windows
+/// projecting their trees over the same tab-host cache (DA-7.1, DA-9.6); window gestures
+/// reduce to core commands (TW-7.3, DA-7.3, TW-5.9, DA-5.8) and closing the main window tears
+/// the layer down without commands (TW-7.5, DA-7.6). Elsewhere (the browser until the overlay
+/// task) floating records stay unmaterialized and their tabs keep cached views while away.
+/// The control is a pure projection of the state (ADR-0002):
 /// fractions become pixels here and render-time minimums clamp without touching the state
 /// (TW-2.8). Input reduces to core commands (ADR-0004): a stripe icon click toggles openness
 /// (TW-5.4), the decorator buttons close the window and open its menu (TW-5.3, TW-5.16), the
@@ -82,6 +89,7 @@ public sealed class BerthWorkspace : Decorator
     private DragLayer? _dragLayer;
     private DragController? _drag;
     private AutoHideController? _autoHide;
+    private FloatingWindowLayer? _floating;
 
     /// <summary>
     /// The single tab-host cache of the workspace (spec DA-9.6): shared by the dock area and
@@ -292,7 +300,7 @@ public sealed class BerthWorkspace : Decorator
                 return;
             }
 
-            _tabHosts.TryFocusTab(after.DockArea.CurrentTabId);
+            _tabHosts.TryFocusTab(CurrentTabOfActiveHost(after));
             return;
         }
 
@@ -304,18 +312,31 @@ public sealed class BerthWorkspace : Decorator
             // (DA-E21 — the shortcut close, the hide button, an outside-click close). The
             // owning host was resolved before the command, so a released DisposeOnClose body
             // (orphaned by the close) does not lose the return.
-            _tabHosts.TryFocusTab(after.DockArea.CurrentTabId);
+            _tabHosts.TryFocusTab(CurrentTabOfActiveHost(after));
         }
     }
 
     /// <summary>
-    /// Focuses the current tab of the effective active host (spec TW-6.3, DA-E21) — the main
-    /// window until document windows materialize (phase 6): a stored ActiveDockHost pointing
-    /// at a document window of a restored layout degrades in presentation only (DA-6.4).
-    /// False without a target — the empty main window (TW-6.3: Esc without a target is a
-    /// no-op).
+    /// Focuses the current tab of the effective active host (spec TW-6.3, DA-E21): the active
+    /// dock host when its window is materialized, else the main window — a stored
+    /// ActiveDockHost pointing at a document window degrades in presentation only on a
+    /// platform without real windows (DA-6.4). False without a target — the empty main window
+    /// (TW-6.3: Esc without a target is a no-op).
     /// </summary>
-    internal bool FocusCurrentDockTab() => _tabHosts?.TryFocusTab(State?.DockArea.CurrentTabId) == true;
+    internal bool FocusCurrentDockTab() =>
+        State is { } state && _tabHosts?.TryFocusTab(CurrentTabOfActiveHost(state)) == true;
+
+    /// <summary>
+    /// Current tab of the effective active host (spec DA-6.4): the active dock host's own
+    /// current tab when document windows are materialized, else the main window's — the
+    /// presentation degradation of a platform without real windows.
+    /// </summary>
+    private string? CurrentTabOfActiveHost(LayoutState state) =>
+        _floating is not null
+            && state.DockArea.ActiveDockHost.DocumentWindowIndex is { } index
+            && index < state.DockArea.Windows.Length
+        ? state.DockArea.Windows[index].CurrentTabId
+        : state.DockArea.CurrentTabId;
 
     /// <summary>The focus transfer of a tab gesture (DA-6.4); a no-op when the tab has no attached host.</summary>
     internal void FocusTab(string id) => _tabHosts?.TryFocusTab(id);
@@ -342,18 +363,77 @@ public sealed class BerthWorkspace : Decorator
 
     /// <summary>
     /// Whether the window's content is hosted in the workspace layout: open in a docked or
-    /// overlay mode (spec TW-3.2); floating modes are not materialized until phase 6. The
-    /// shared gate of the decorator projection, its tree materialization and the pull pass.
+    /// overlay mode (spec TW-3.2) — or in a floating mode while the floating layer is
+    /// materialized (a Window TopLevel, task 6.0). The shared gate of the decorator
+    /// projection, its tree materialization and the pull pass.
     /// </summary>
-    internal static bool IsHosted(ToolWindowState window) =>
-        window.IsOpen && window.Mode.GetLayer() != ToolWindowLayer.Floating;
+    internal bool IsHosted(ToolWindowState window) =>
+        window.IsOpen && (window.Mode.GetLayer() != ToolWindowLayer.Floating || _floating is not null);
+
+    /// <summary>
+    /// Whether the floating layer is materialized: real OS windows for Float/Window tool
+    /// windows and document windows (spec TW-7.1, TW-7.2, DA-7.3). True while the workspace
+    /// is attached under a <see cref="Window"/> TopLevel; in the browser the effective
+    /// representation degrades until the overlay task (TW-7.6, TW-7.7) and the floating menu
+    /// entries are hidden (TW-5.16).
+    /// </summary>
+    internal bool CanFloatWindows => _floating is not null;
+
+    /// <summary>
+    /// Current screen bounds of a hosted tool window's content — what the UI passes to
+    /// <see cref="LayoutOperations.SetMode"/> when a window enters Float/Window without saved
+    /// bounds (spec TW-5.6): the core never invents pixels (ADR-0002). Null for a detached
+    /// host.
+    /// </summary>
+    internal FloatingBounds? ScreenBoundsOf(string id)
+    {
+        if (!_hosts.TryGetValue(id, out var host)
+            || host.Parent is null
+            || !((ILogical)host).IsAttachedToLogicalTree)
+        {
+            return null;
+        }
+
+        var origin = host.PointToScreen(default);
+        return new FloatingBounds(origin.X, origin.Y, host.Bounds.Width, host.Bounds.Height);
+    }
+
+    /// <summary>
+    /// Default bounds of a new floating window when nothing better exists — the «Move to New
+    /// Window» menu item and a floating record without saved bounds: the main window's
+    /// rectangle inset on every side, no cascading (= the reference's programmatic
+    /// suggestChildFrameBounds path — tracing DA-E-C4; owner decision, 2026-07).
+    /// </summary>
+    internal FloatingBounds DefaultFloatingBounds() => TopLevel.GetTopLevel(this) is Window main
+        ? FloatingBoundsValidation.DefaultRelativeTo(main)
+        : new FloatingBounds(100, 100, 400, 300);
+
+    /// <summary>Registers a floating window's TopLevel with the shared focus and click wiring (TW-6.1, TW-6.2, DA-6.4).</summary>
+    internal void AttachFloatingTopLevel(TopLevel topLevel) => _autoHide?.Attach(topLevel);
+
+    /// <summary>Removes a closing floating window's TopLevel from the shared wiring.</summary>
+    internal void DetachFloatingTopLevel(TopLevel topLevel) => _autoHide?.Detach(topLevel);
+
+    /// <summary>
+    /// Activates the OS window hosting the visual, when it is a floating window of the
+    /// workspace (spec TW-6.6, DA-6.4): a focus target in another window activates that
+    /// window first. Inert in headless runs, where every window reports active.
+    /// </summary>
+    internal static void ActivateWindowOf(Visual target)
+    {
+        if (TopLevel.GetTopLevel(target) is Window window && !window.IsActive)
+        {
+            window.Activate();
+        }
+    }
 
     /// <summary>
     /// The focus transfer of spec TW-6.6: keyboard focus moves into the activated window's
     /// content — unless it is already inside (activation never re-arranges focus within the
-    /// window) or the window has no attached host (a floating-mode record before phase 6).
-    /// Only the command funnel transfers focus: direct <see cref="State"/> assignments by the
-    /// application do not pass here (TW-6.6).
+    /// window) or the window has no attached host (a floating-mode record on a platform
+    /// without real windows). A host living in a floating window activates its OS window
+    /// first. Only the command funnel transfers focus: direct <see cref="State"/> assignments
+    /// by the application do not pass here (TW-6.6).
     /// </summary>
     private void FocusActivated(string id)
     {
@@ -370,6 +450,7 @@ public sealed class BerthWorkspace : Decorator
             return;
         }
 
+        ActivateWindowOf(host);
         host.FocusContent();
     }
 
@@ -379,7 +460,18 @@ public sealed class BerthWorkspace : Decorator
         base.OnAttachedToVisualTree(e);
         if (TopLevel.GetTopLevel(this) is { } topLevel)
         {
-            _autoHide = new AutoHideController(this, topLevel);
+            _autoHide = new AutoHideController(this);
+            _autoHide.Attach(topLevel);
+            if (topLevel is Window owner)
+            {
+                // The floating layer exists only under a real Window (ADR-0006): elsewhere
+                // floating records stay unmaterialized and menus hide the modes (TW-7.6).
+                _floating = new FloatingWindowLayer(this, owner);
+            }
+
+            // Re-project: the floating layer materializes the current state's floating
+            // windows, and menus rebuilt before the attach did not offer the floating modes.
+            Sync();
         }
     }
 
@@ -387,16 +479,28 @@ public sealed class BerthWorkspace : Decorator
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _autoHide?.Detach();
+        // Teardown, not commands (TW-7.5, DA-7.6): the state keeps its floating windows open
+        // for the next session.
+        _floating?.Teardown();
+        _floating = null;
+        _autoHide?.DetachAll();
         _autoHide = null;
     }
 
     /// <summary>
     /// Detaches a host from its current parent — the step before a legitimate reattachment
-    /// (spec TW-9.13: another slot or layer).
+    /// (spec TW-9.13: another slot or layer). On a platform with real windows the old
+    /// window's layout queue is drained right here, while the control is detached: the
+    /// detach/attach transition itself leaves entries for the moving control in the old
+    /// root's LayoutManager, and a manager whose queue still names a control that meanwhile
+    /// joined another window crashes on it («wrong LayoutManager»; headless probes and the
+    /// owner's desktop runs, 2026-07) — a drained detached control is simply dropped from
+    /// the queue, in every move direction alike. Draining a clean root costs nothing; under
+    /// a non-Window TopLevel (the browser) there is a single root and nothing to protect.
     /// </summary>
     internal static void DetachFromParent(Control control)
     {
+        var oldRoot = TopLevel.GetTopLevel(control) as Window;
         switch (control.Parent)
         {
             case Panel panel:
@@ -406,6 +510,8 @@ public sealed class BerthWorkspace : Decorator
                 decorator.Child = null;
                 break;
         }
+
+        oldRoot?.UpdateLayout();
     }
 
     /// <inheritdoc/>
@@ -483,6 +589,10 @@ public sealed class BerthWorkspace : Decorator
                 state.ActiveToolWindowId, window.Id, StringComparison.Ordinal), state, registry);
         }
 
+        // The floating layer reconciles first: it adopts every host that moves across
+        // windows, so the in-window projections below only ever move hosts within their own
+        // root (task 6.0).
+        _floating?.Update(state, registry);
         _grid!.Update(state, slot => OpenDocked(state, slot) is { } window ? GetHost(window.Id) : null);
         _dockView!.Update(state, registry);
         _overlay!.Update(state, GetHost);
@@ -494,7 +604,8 @@ public sealed class BerthWorkspace : Decorator
         _drag?.OnProjectionUpdated(state);
     }
 
-    private ToolWindowDecorator GetHost(string id)
+    /// <summary>The cached persistent host of one tool window (spec TW-9.13), created on first need.</summary>
+    internal ToolWindowDecorator GetHost(string id)
     {
         if (!_hosts.TryGetValue(id, out var host))
         {
@@ -544,6 +655,14 @@ public sealed class BerthWorkspace : Decorator
 
     private void Reset()
     {
+        // Floating windows close first (no commands): their hosted content returns to the
+        // caches below; the layer itself survives for the next Sync while still attached.
+        _floating?.Teardown();
+        if (_floating is not null && TopLevel.GetTopLevel(this) is Window owner)
+        {
+            _floating = new FloatingWindowLayer(this, owner);
+        }
+
         foreach (var host in _hosts.Values)
         {
             DetachFromParent(host);

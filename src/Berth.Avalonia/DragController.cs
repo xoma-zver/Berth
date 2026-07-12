@@ -11,7 +11,7 @@ internal enum DragSourceKind
     /// <summary>A stripe icon (spec TW-1.4).</summary>
     StripeIcon,
 
-    /// <summary>The header bar of a tool window decorator (spec TW-7.8 in phase 6; slots until then).</summary>
+    /// <summary>The header bar of a tool window decorator (spec TW-7.8 with the inter-window drag task; slots until then).</summary>
     PanelHeader,
 
     /// <summary>A tab header of a materialized tree (spec DA-9.7).</summary>
@@ -101,11 +101,21 @@ internal sealed class DragController
     /// <summary>
     /// Arms a drag candidate — called by a source from its press handler, before the press
     /// bubbles here (spec TW-5.17). The gesture starts only if the pointer travels past the
-    /// threshold; otherwise the press stays an ordinary click.
+    /// threshold; otherwise the press stays an ordinary click. Sources living in other
+    /// windows of the workspace — floating panels, document windows — arm nothing until the
+    /// inter-window drag task (TW-7.8, DA-9.7): the pointer capture and the visualization
+    /// layer live in the main window, whose handlers never see events routed in another
+    /// window; the reset of the leftover click-consumption flag still applies there.
     /// </summary>
     public void Arm(DragSubject subject, PointerPressedEventArgs e)
     {
         GestureConsumedClick = false;
+        if (e.Source is Visual source
+            && !ReferenceEquals(TopLevel.GetTopLevel(source), TopLevel.GetTopLevel(_workspace)))
+        {
+            return;
+        }
+
         _subject = subject;
         _pressPoint = e.GetPosition(_workspace);
         _phase = Phase.Armed;

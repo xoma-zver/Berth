@@ -10,9 +10,9 @@ namespace Berth.Controls.Tests;
 /// <summary>
 /// Activity and focus wiring between the dock area and the tool windows (spec DA-6.4, TW-6.3,
 /// TW-6.5, DA-E21): focus gains in tab content reduce to ActivateTab, Esc inside a panel
-/// moves focus into the current tab of the effective active host — the main window until
-/// document windows materialize — and closing the focused panel returns focus to the
-/// document. Direct state assignments never move focus (DA-6.4).
+/// moves focus into the current tab of the effective active host — including a materialized
+/// document window (task 6.0) — and closing the focused panel returns focus to the document.
+/// Direct state assignments never move focus (DA-6.4).
 /// </summary>
 public class DockActivityTests
 {
@@ -235,10 +235,12 @@ public class DockActivityTests
     }
 
     [AvaloniaFact]
-    public void DA_6_4_effective_host_degrades_to_the_main_window()
+    public void DA_6_4_effective_host_follows_the_materialized_document_window()
     {
-        // ActiveDockHost восстановленной раскладки указывает на окно документов, которое до
-        // фазы 6 не материализуется: цели фокуса деградируют к главному окну, состояние цело.
+        // ActiveDockHost восстановленной раскладки указывает на окно документов; на платформе
+        // с настоящими окнами оно материализовано (задача 6.0), и Esc из панели ведёт в его
+        // текущую вкладку (TW-6.3, DA-6.4) — деградация к главному окну осталась платформам
+        // без окон.
         var (registry, lifecycle, state, boxes, panelBox) = Setup(ToolWindowMode.DockPinned);
         state = state with
         {
@@ -258,10 +260,8 @@ public class DockActivityTests
 
         PressEscape(window);
 
-        Assert.True(boxes["d1"].IsFocused); // цель фокуса деградировала к главному окну
-        // Дальше штатная проводка DA-6.4: фокус в d1 активировал её командой — активный хост
-        // сменился ядром, а не молчаливой правкой представления; окно документов цело.
-        Assert.Equal(DockHost.MainWindow, St(window).DockArea.ActiveDockHost);
+        Assert.True(boxes["d9"].IsFocused); // цель фокуса — текущая вкладка активного хоста-окна
+        Assert.Equal(DockHost.DocumentWindow(0), St(window).DockArea.ActiveDockHost);
         var docWindow = Assert.Single(St(window).DockArea.Windows);
         Assert.Equal("d9", docWindow.CurrentTabId);
     }

@@ -80,14 +80,14 @@ internal sealed class TabGroupView : DockPanel
             var host = _context.Workspace.TabHosts.GetHost(active);
             if (!ReferenceEquals(_content.Child, host))
             {
-                _content.Child = null;
+                DetachHost();
                 BerthWorkspace.DetachFromParent(host);
                 _content.Child = host;
             }
         }
         else
         {
-            _content.Child = null;
+            DetachHost();
         }
     }
 
@@ -110,8 +110,19 @@ internal sealed class TabGroupView : DockPanel
         }
     }
 
-    /// <summary>Returns the hosted tab to the projection cache — called before the view is discarded (DA-9.6).</summary>
-    public void DetachHost() => _content.Child = null;
+    /// <summary>
+    /// Returns the hosted tab to the projection cache (DA-9.6). Through the draining detach:
+    /// the displaced host may join another window of the workspace in the same pass, and the
+    /// old root's layout queue must not keep naming it (see
+    /// <see cref="BerthWorkspace.DetachFromParent"/>).
+    /// </summary>
+    public void DetachHost()
+    {
+        if (_content.Child is { } previous)
+        {
+            BerthWorkspace.DetachFromParent(previous);
+        }
+    }
 }
 
 /// <summary>

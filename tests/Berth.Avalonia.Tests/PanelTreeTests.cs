@@ -393,7 +393,7 @@ public class PanelTreeTests
             [
                 "Close",
                 "Split and Move Right", "Split and Move Down", "Split and Move Left", "Split and Move Up",
-                "Move to Document Area",
+                "Move to Document Area", "Move to New Window",
                 "View Mode", "Move to", "Remove from Sidebar", "Hide",
             ],
             headers); // вкладочная секция + хвост полного меню; Rotate нет у корневой группы (DA-5.9)

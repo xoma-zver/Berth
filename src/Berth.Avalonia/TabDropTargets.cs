@@ -394,7 +394,7 @@ internal static class TabDropTargets
         workspace.FocusTab(draggedId);
     }
 
-    /// <summary>Group of the tab in a materialized host: the main window's tree or a panel tree; document windows are not materialized (phase 6).</summary>
+    /// <summary>Group of the tab in a drag-hosting tree: the main window's tree or a panel tree; document windows offer no drag sources or targets until the inter-window drag task (TW-7.8).</summary>
     private static (string? PanelId, TabGroupNode Group)? FindGroup(LayoutState state, string tabId)
     {
         foreach (var group in DockTrees.Groups(state.DockArea.Root))

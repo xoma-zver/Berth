@@ -9,8 +9,9 @@ namespace Berth.Controls;
 /// hosts reattaches the same host with its built view; group and split views are matched by
 /// tab overlap — groups have no identity of their own (DA-1.3) — and carry no retained state.
 /// The sweep and the lazy materialization pass run at the workspace level, over every
-/// materialized tree at once. Document windows are not materialized until the floating-window
-/// phase (phase 6) — their tabs keep their cached hosts and built views while away (DA-9.6).
+/// materialized tree at once. Document windows are projected by the floating layer over the
+/// same cache (task 6.0); on a platform without real windows their tabs keep their cached
+/// hosts and built views while away (DA-9.6).
 /// </summary>
 internal sealed class DockAreaView : Decorator
 {

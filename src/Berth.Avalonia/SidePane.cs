@@ -83,7 +83,14 @@ internal sealed class SidePane : Decorator
             return;
         }
 
-        host.Child = null;
+        // The displaced occupant leaves through the draining detach: an evicted window may
+        // reappear in a floating window later, and the old root's layout queue must not keep
+        // naming it (see BerthWorkspace.DetachFromParent).
+        if (host.Child is { } previous)
+        {
+            BerthWorkspace.DetachFromParent(previous);
+        }
+
         if (decorator is not null)
         {
             BerthWorkspace.DetachFromParent(decorator);

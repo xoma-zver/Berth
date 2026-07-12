@@ -26,3 +26,5 @@ Berth.Controls.BerthWorkspace.TabTitleProvider.set -> void
 static readonly Berth.Controls.BerthWorkspace.TabTitleProviderProperty -> Avalonia.StyledProperty<System.Func<string!, string?>?>!
 Berth.Controls.DockTabHost
 Berth.Controls.DockTabHost.TabId.get -> string!
+Berth.Controls.FloatingBoundsValidation
+static Berth.Controls.FloatingBoundsValidation.CreateValidator(Avalonia.Controls.Window! mainWindow, double minVisibleFraction = 0.5) -> Berth.BoundsValidator!

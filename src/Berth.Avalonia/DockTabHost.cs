@@ -62,7 +62,7 @@ public sealed class DockTabHost : Decorator
         }
 
         _content = content;
-        Child = _placeholder;
+        ShowPlaceholder();
         BuildView();
     }
 
@@ -76,6 +76,22 @@ public sealed class DockTabHost : Decorator
     internal void ResetContent()
     {
         _content = null;
+        ShowPlaceholder();
+    }
+
+    /// <summary>
+    /// Swaps the child back to the placeholder through the draining detach: the displaced
+    /// view — or the placeholder itself, displaced by <see cref="BuildView"/> — travels with
+    /// the host across windows, and no old root's layout queue may keep naming it (see
+    /// <see cref="BerthWorkspace.DetachFromParent"/>).
+    /// </summary>
+    private void ShowPlaceholder()
+    {
+        if (Child is { } previous && !ReferenceEquals(previous, _placeholder))
+        {
+            BerthWorkspace.DetachFromParent(previous);
+        }
+
         Child = _placeholder;
     }
 
@@ -124,6 +140,7 @@ public sealed class DockTabHost : Decorator
 
         if (ContentViews.Build(this, _content) is { } view)
         {
+            BerthWorkspace.DetachFromParent(_placeholder);
             Child = view;
             // The focus upgrade of lazy materialization (TW-6.6, DA-6.4): activation focused
             // the placeholder host as the fallback before the content arrived — the just

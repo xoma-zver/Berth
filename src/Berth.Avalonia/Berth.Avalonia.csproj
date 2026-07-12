@@ -11,6 +11,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Headless tests observe floating OS windows through internal seams (task 6.0):
+         unlike the PART-named chrome, those windows are outside the main window's visual
+         tree and unreachable from the public surface in a headless run. -->
+    <InternalsVisibleTo Include="Berth.Avalonia.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Berth.Core/Berth.Core.csproj" />
   </ItemGroup>
 </Project>

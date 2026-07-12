@@ -251,7 +251,7 @@ public sealed class ToolWindowDecorator : Decorator
     private void UpdateTree(
         ToolWindowState window, ToolWindowDescriptor? descriptor, LayoutState state, ToolWindowRegistry registry)
     {
-        var hosted = BerthWorkspace.IsHosted(window);
+        var hosted = _workspace.IsHosted(window);
         if (hosted)
         {
             _context.ReconcileRoot(_content, window.ContentTree, state, registry);

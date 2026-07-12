@@ -9,7 +9,12 @@ namespace Berth.Controls;
 
 /// <summary>
 /// Focus and click wiring of auto-hiding tool windows (spec TW-6.1, TW-6.2, TW-6.6), attached
-/// to the workspace's TopLevel. Two complementary close paths: the focus path closes the
+/// to every TopLevel of the workspace — the main window plus each materialized floating
+/// window (a Float/Window tool window, a document window): keyboard focus is global across
+/// the application's windows, so a focus move between the workspace's own windows is an
+/// ordinary focus loss and closes the auto-hiding loser (TW-6.1); only deactivation of the
+/// whole application — focus leaving every attached TopLevel — raises no GotFocus here and
+/// keeps the windows open. Two complementary close paths: the focus path closes the
 /// DockUnpinned/Undock window that keyboard focus actually left — the focus loser, so an open
 /// window that never had focus survives foreign focus moves and a restored layout is not
 /// reaped by the initial focus placement (TW-6.1) — and the pointer path closes open
@@ -36,17 +41,22 @@ namespace Berth.Controls;
 internal sealed class AutoHideController
 {
     private readonly BerthWorkspace _workspace;
-    private readonly TopLevel _topLevel;
+    private readonly List<TopLevel> _attached = [];
     private IInputElement? _lastFocused;
     private HashSet<string>? _pressWithin;
     private HashSet<string>? _pressOpenAutoHide;
     private bool _pressSeen;
     private bool _pressOnSplitter;
 
-    public AutoHideController(BerthWorkspace workspace, TopLevel topLevel)
+    public AutoHideController(BerthWorkspace workspace) => _workspace = workspace;
+
+    /// <summary>
+    /// Subscribes one TopLevel of the workspace — the main window on attach, each floating
+    /// window when it materializes. All attached TopLevels share one state: keyboard focus and
+    /// pointer interactions are global across the application's windows.
+    /// </summary>
+    public void Attach(TopLevel topLevel)
     {
-        _workspace = workspace;
-        _topLevel = topLevel;
         topLevel.AddHandler(InputElement.GotFocusEvent, OnGotFocus, RoutingStrategies.Bubble, handledEventsToo: true);
         topLevel.AddHandler(
             InputElement.PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
@@ -54,15 +64,26 @@ internal sealed class AutoHideController
             InputElement.PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         // Not handledEventsToo: content that handles Esc itself — a popup, an editor — wins.
         topLevel.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Bubble);
+        _attached.Add(topLevel);
     }
 
-    /// <summary>Removes the TopLevel subscriptions — called when the workspace detaches from the visual tree.</summary>
-    public void Detach()
+    /// <summary>Removes the subscriptions of one TopLevel — a floating window being closed.</summary>
+    public void Detach(TopLevel topLevel)
     {
-        _topLevel.RemoveHandler(InputElement.GotFocusEvent, OnGotFocus);
-        _topLevel.RemoveHandler(InputElement.PointerPressedEvent, OnPointerPressed);
-        _topLevel.RemoveHandler(InputElement.PointerReleasedEvent, OnPointerReleased);
-        _topLevel.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
+        topLevel.RemoveHandler(InputElement.GotFocusEvent, OnGotFocus);
+        topLevel.RemoveHandler(InputElement.PointerPressedEvent, OnPointerPressed);
+        topLevel.RemoveHandler(InputElement.PointerReleasedEvent, OnPointerReleased);
+        topLevel.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
+        _attached.Remove(topLevel);
+    }
+
+    /// <summary>Removes every subscription — called when the workspace detaches from the visual tree.</summary>
+    public void DetachAll()
+    {
+        foreach (var topLevel in _attached.ToArray())
+        {
+            Detach(topLevel);
+        }
     }
 
     /// <summary>
@@ -137,7 +158,9 @@ internal sealed class AutoHideController
             return;
         }
 
-        var focused = _topLevel.FocusManager?.GetFocusedElement();
+        // The FocusManager of any TopLevel reflects the global keyboard focus (headless
+        // probe, 2026-07) — the sender's suffices.
+        var focused = (sender as TopLevel)?.FocusManager?.GetFocusedElement();
         if (focused is not Visual visual
             || visual.FindAncestorOfType<ToolWindowDecorator>(includeSelf: true) is null)
         {

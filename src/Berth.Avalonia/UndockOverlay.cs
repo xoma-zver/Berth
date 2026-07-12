@@ -38,7 +38,14 @@ internal sealed class UndockOverlay : Panel
             foreach (var id in stale)
             {
                 var entry = _entries[id];
-                entry.Child = null; // the host survives in the workspace cache (TW-9.13)
+                // The host survives in the workspace cache (TW-9.13) and may join another
+                // window of the workspace later — it leaves through the draining detach
+                // (see BerthWorkspace.DetachFromParent).
+                if (entry.Child is { } host)
+                {
+                    BerthWorkspace.DetachFromParent(host);
+                }
+
                 Children.Remove(entry);
                 _entries.Remove(id);
             }

@@ -183,8 +183,8 @@ public class InputTests
         var flyout = (MenuFlyout)menuButton.Flyout!;
         var viewMode = Item(flyout.Items, "View Mode");
 
-        // Float/Window скрыты: возможности платформы до фазы 6 — false (TW-7.6, TW-7.7).
-        Assert.Equal(3, viewMode.Items.Count);
+        // Under a Window TopLevel the platform hosts real windows: all five modes (TW-5.16, TW-7.6).
+        Assert.Equal(5, viewMode.Items.Count);
         var pinned = Item(viewMode.Items, "Dock Pinned");
         Assert.True(pinned.IsChecked);
         Assert.False(pinned.IsEnabled);

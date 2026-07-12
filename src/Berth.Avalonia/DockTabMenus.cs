@@ -13,8 +13,9 @@ namespace Berth.Controls;
 /// offers «Move to the owner» only when its single confirmed owner is a tool window (canHost,
 /// INV-D5); a conflicted claim confirms nothing (TW-9.11) and yields no item. A panel tab
 /// offers «Move to Document Area» and then the tail of the full window menu — the reference's
-/// tab menu includes the window menu (TW-5.16). «Move to New Window» is absent until document
-/// windows materialize (phase 6).
+/// tab menu includes the window menu (TW-5.16). On a platform with real windows any tab
+/// offers «Move to New Window» (DA-5.7), and a tab living in a document window offers «Move
+/// to Document Area» back — the command channel stays complete without DnD (ADR-0004).
 /// </summary>
 internal static class DockTabMenus
 {
@@ -52,10 +53,21 @@ internal static class DockTabMenus
                 var title = registry.TryGet(ownerId, out var descriptor) ? descriptor.Title : ownerId;
                 menu.Items.Add(MoveItem($"Move to {title}", s => MoveToOwner(s, tabId, ownerId, registry)));
             }
+
+            if (!DockTrees.ContainsTab(state.DockArea.Root, tabId))
+            {
+                // A tab living in a document window returns to the main window by menu — the
+                // command channel stays functionally complete without DnD (ADR-0004); the
+                // mirror of the panel-tab item (TW-5.16).
+                menu.Items.Add(MoveItem("Move to Document Area", s => MoveToMainWindow(s, tabId, registry)));
+            }
+
+            AddMoveToNewWindow();
         }
         else
         {
             menu.Items.Add(MoveItem("Move to Document Area", s => MoveToMainWindow(s, tabId, registry)));
+            AddMoveToNewWindow();
 
             // The tail of the full window menu (TW-5.16): the reference's tab menu includes
             // the window menu below the tab section.
@@ -68,6 +80,20 @@ internal static class DockTabMenus
         }
 
         return menu;
+
+        void AddMoveToNewWindow()
+        {
+            if (!workspace.CanFloatWindows)
+            {
+                return; // no real windows on this platform (TW-5.16, TW-7.6)
+            }
+
+            // Dock hosts accept every tab (INV-D5), so any tab may leave into a new document
+            // window (DA-5.7); the default bounds come from the main window with an inset —
+            // the UI supplies the pixels (ADR-0002), computed at click time.
+            menu.Items.Add(MoveItem("Move to New Window", s =>
+                s.MoveTabToNewWindow(tabId, workspace.DefaultFloatingBounds())));
+        }
 
         MenuItem SplitItem(string header, SplitDirection direction)
         {

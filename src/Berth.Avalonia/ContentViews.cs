@@ -30,10 +30,11 @@ internal static class ContentViews
         if (content is Control control)
         {
             // After a full reconfiguration (Registry/Lifecycle swap) the surviving instance
-            // may still sit in a discarded host — detach before adopting.
-            if (control.Parent is Decorator previous)
+            // may still sit in a discarded host — detach before adopting, through the
+            // draining detach (see BerthWorkspace.DetachFromParent).
+            if (control.Parent is not null)
             {
-                previous.Child = null;
+                BerthWorkspace.DetachFromParent(control);
             }
 
             return control;
