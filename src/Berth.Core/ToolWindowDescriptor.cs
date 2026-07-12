@@ -8,10 +8,12 @@ public sealed record ToolWindowDescriptor
     /// <param name="title">Human-readable title, used for quick access sorting (spec TW-8.2).</param>
     /// <param name="defaultSlot">Slot the window is placed into when no saved state exists (spec TW-10.3).</param>
     /// <exception cref="ArgumentException">The id or title is empty or whitespace.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A member of <paramref name="defaultSlot"/> is outside its enum domain (spec section 5).</exception>
     public ToolWindowDescriptor(string id, string title, ToolWindowSlot defaultSlot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        EnumDomain.Require(defaultSlot, nameof(defaultSlot));
         Id = id;
         Title = title;
         DefaultSlot = defaultSlot;

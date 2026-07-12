@@ -8,11 +8,12 @@ public sealed record ToolWindowState
     /// <param name="slot">Placement slot.</param>
     /// <param name="order">Position within the slot (and on the stripe); must be non-negative.</param>
     /// <exception cref="ArgumentException">The id is empty or whitespace.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The order is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The order is negative, or a member of <paramref name="slot"/> is outside its enum domain (spec section 5).</exception>
     public ToolWindowState(string id, ToolWindowSlot slot, int order)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentOutOfRangeException.ThrowIfNegative(order);
+        EnumDomain.Require(slot, nameof(slot));
         Id = id;
         Slot = slot;
         Order = order;

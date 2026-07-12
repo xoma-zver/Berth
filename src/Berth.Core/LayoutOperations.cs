@@ -4,7 +4,9 @@ namespace Berth;
 /// Core commands over <see cref="LayoutState"/> (spec section 5). Every command is a pure
 /// transition producing a new immutable state; the same command backs menu items, keyboard
 /// shortcuts and completed drag gestures (ADR-0004). A command applied to an id absent from the
-/// layout throws — sleeping states exist, but operations act on known tool windows.
+/// layout throws — sleeping states exist, but operations act on known tool windows. An
+/// out-of-domain enum value in a programmatic input is likewise a caller error
+/// (<see cref="ArgumentOutOfRangeException"/>, section 5).
 /// Resizes (TW-5.9) and snapshot/apply (TW-5.14) are separate tasks (backlog 1.3, 1.6).
 /// </summary>
 public static class LayoutOperations
@@ -73,11 +75,12 @@ public static class LayoutOperations
     /// with no saved bounds (spec TW-5.6). The core never invents pixels (ADR-0002).
     /// </param>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="screenBounds"/> is not a finite number (TW-5.9).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="mode"/> is outside its enum domain, or a component of <paramref name="screenBounds"/> is not a finite number (TW-5.9).</exception>
     public static LayoutState SetMode(
         this LayoutState state, string id, ToolWindowMode mode, FloatingBounds? screenBounds = null)
     {
         var target = state.Require(id);
+        EnumDomain.Require(mode, nameof(mode));
         screenBounds?.ThrowIfNotFinite(nameof(screenBounds));
 
         var updated = target with { Mode = mode };
@@ -106,9 +109,11 @@ public static class LayoutOperations
     /// <see cref="ToolWindowState.PairRatio"/> are untouched (TW-5.8).
     /// </summary>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A member of <paramref name="slot"/> is outside its enum domain (section 5).</exception>
     public static LayoutState Move(this LayoutState state, string id, ToolWindowSlot slot, int index)
     {
         var oldSlot = state.Require(id).Slot;
+        EnumDomain.Require(slot, nameof(slot));
 
         var destinationIds = state.ToolWindows
             .Where(w => w.Slot == slot && !string.Equals(w.Id, id, StringComparison.Ordinal))
@@ -192,9 +197,11 @@ public static class LayoutOperations
     }
 
     /// <summary>Moves the quick access «⋯» button to the given stripe (spec TW-5.15, TW-8.1).</summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="side"/> is outside its enum domain (section 5).</exception>
     public static LayoutState SetQuickAccessSide(this LayoutState state, QuickAccessSide side)
     {
         ArgumentNullException.ThrowIfNull(state);
+        EnumDomain.Require(side, nameof(side));
         return state.QuickAccessSide == side ? state : state with { QuickAccessSide = side };
     }
 
@@ -207,10 +214,11 @@ public static class LayoutOperations
     /// <param name="state">Current layout.</param>
     /// <param name="side">Side to resize.</param>
     /// <param name="weight">New side weight; must be in the open interval (0, 1).</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="weight"/> is not in (0, 1).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="side"/> is outside its enum domain, or <paramref name="weight"/> is not in (0, 1).</exception>
     public static LayoutState SetSideSize(this LayoutState state, ToolWindowSide side, double weight)
     {
         ArgumentNullException.ThrowIfNull(state);
+        EnumDomain.Require(side, nameof(side));
         ValidateFraction(weight, nameof(weight));
         return state.WithSide(side, state.GetSide(side) with { Weight = weight });
     }
@@ -227,10 +235,11 @@ public static class LayoutOperations
     /// <param name="state">Current layout.</param>
     /// <param name="side">Side whose pair was resized.</param>
     /// <param name="primaryShare">Share of the Primary content; must be in the open interval (0, 1).</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="primaryShare"/> is not in (0, 1).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="side"/> is outside its enum domain, or <paramref name="primaryShare"/> is not in (0, 1).</exception>
     public static LayoutState SetSideRatio(this LayoutState state, ToolWindowSide side, double primaryShare)
     {
         ArgumentNullException.ThrowIfNull(state);
+        EnumDomain.Require(side, nameof(side));
         ValidateFraction(primaryShare, nameof(primaryShare));
 
         var windows = state.ToolWindows.Select(w =>
