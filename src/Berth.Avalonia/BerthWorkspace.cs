@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -74,6 +75,10 @@ public sealed class BerthWorkspace : Decorator
     public static readonly StyledProperty<ContentLifecycle?> LifecycleProperty =
         AvaloniaProperty.Register<BerthWorkspace, ContentLifecycle?>(nameof(Lifecycle));
 
+    /// <summary>Defines the <see cref="Definition"/> property.</summary>
+    public static readonly StyledProperty<BerthLayoutDefinition?> DefinitionProperty =
+        AvaloniaProperty.Register<BerthWorkspace, BerthLayoutDefinition?>(nameof(Definition));
+
     /// <summary>Defines the <see cref="ShortcutHintProvider"/> property.</summary>
     public static readonly StyledProperty<Func<string, string?>?> ShortcutHintProviderProperty =
         AvaloniaProperty.Register<BerthWorkspace, Func<string, string?>?>(nameof(ShortcutHintProvider));
@@ -95,6 +100,7 @@ public sealed class BerthWorkspace : Decorator
     private DragController? _drag;
     private AutoHideController? _autoHide;
     private IFloatingLayer? _floating;
+    private bool _definitionApplied;
 
     /// <summary>
     /// The single tab-host cache of the workspace (spec DA-9.6): shared by the dock area and
@@ -160,6 +166,23 @@ public sealed class BerthWorkspace : Decorator
     {
         get => GetValue(LifecycleProperty);
         set => SetValue(LifecycleProperty, value);
+    }
+
+    /// <summary>
+    /// Optional markup-declared default composition (task 7.1): when set while
+    /// <see cref="Registry"/> and <see cref="Lifecycle"/> are unset, the workspace builds the
+    /// definition on its first attach and assigns the resulting composition to its own
+    /// <see cref="Registry"/>, <see cref="Lifecycle"/> and <see cref="State"/> — the zero-code
+    /// path of a markup-only application; <see cref="State"/> stays observable and bindable as
+    /// usual, so persistence wires on top unchanged. Explicit properties win: with a Registry
+    /// or Lifecycle already set the definition is ignored with a trace. The definition is
+    /// applied once; replacing it after application is likewise ignored — a full
+    /// reconfiguration is an explicit Registry/Lifecycle swap.
+    /// </summary>
+    public BerthLayoutDefinition? Definition
+    {
+        get => GetValue(DefinitionProperty);
+        set => SetValue(DefinitionProperty, value);
     }
 
     /// <summary>
@@ -606,6 +629,41 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <inheritdoc/>
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        // At attach every markup property is set — the safe moment to self-assemble from a
+        // declared Definition, whatever the XAML property order was.
+        ApplyDefinition();
+    }
+
+    /// <summary>
+    /// The one-shot self-assembly from <see cref="Definition"/>: builds the composition and
+    /// assigns the trio, unless explicit properties already won. State is assigned last, so
+    /// the projection first sees the complete configuration.
+    /// </summary>
+    private void ApplyDefinition()
+    {
+        if (_definitionApplied || Definition is not { } definition)
+        {
+            return;
+        }
+
+        _definitionApplied = true;
+        if (Registry is not null || Lifecycle is not null)
+        {
+            Trace.TraceWarning(
+                "Berth: the workspace already has an explicit Registry or Lifecycle; Definition is ignored — explicit properties win.");
+            return;
+        }
+
+        var composition = definition.Build();
+        Lifecycle = composition.Lifecycle;
+        Registry = composition.Registry;
+        State = composition.State;
+    }
+
+    /// <inheritdoc/>
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
@@ -691,6 +749,16 @@ public sealed class BerthWorkspace : Decorator
             // previous registry and coordinator.
             Reset();
             Sync();
+        }
+        else if (change.Property == DefinitionProperty)
+        {
+            // A definition assigned after the attach applies immediately; before it — at the
+            // attach, when every markup property is set. Once applied, a replacement is
+            // ignored (see Definition).
+            if (!_definitionApplied && ((ILogical)this).IsAttachedToLogicalTree)
+            {
+                ApplyDefinition();
+            }
         }
         else if (change.Property == ShortcutHintProviderProperty || change.Property == TabTitleProviderProperty)
         {

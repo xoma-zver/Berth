@@ -82,19 +82,24 @@ public sealed class PersistenceIntegrationTests
     }
 
     [AvaloniaFact]
-    public void Reset_layout_restores_placement_but_keeps_documents()
+    public void Reset_layout_restores_placement_and_default_openness_but_keeps_documents()
     {
         var vm = new MainViewModel();
         vm.OpenFileDocument("extra.md");
         Mutate(vm, s => s.Move("project", new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Secondary), 0));
+        Mutate(vm, s => s.Close("project"));
+        Mutate(vm, s => s.Open("properties"));
 
         vm.ResetLayout();
 
         var state = vm.State!;
-        // Placement is back at the descriptor defaults (Arrangement, TW-10.6)…
+        // Placement is back at the built default composition (Arrangement, TW-10.6, TW-5.14)…
         var project = state.ToolWindows.First(w => w.Id == "project");
         Assert.Equal(new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Primary), project.Slot);
-        Assert.All(state.ToolWindows, w => Assert.False(w.IsOpen)); // defaults are closed
+        // …including the default openness (task 7.1): project and terminal open, the rest closed…
+        Assert.True(project.IsOpen);
+        Assert.True(state.ToolWindows.First(w => w.Id == "terminal").IsOpen);
+        Assert.False(state.ToolWindows.First(w => w.Id == "properties").IsOpen);
         // …while the open documents and panel trees survive (E20).
         Assert.True(ContainsTab(state, "doc:extra.md"));
         Assert.True(ContainsTab(state, "doc:README.md"));

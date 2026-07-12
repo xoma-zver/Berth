@@ -419,3 +419,29 @@ Berth.SideState.Deconstruct(out double Weight) -> void
 Berth.SideState.SideState(double Weight = 0.33) -> void
 Berth.LayoutState.GetPairRatio(Berth.ToolWindowSide side) -> double?
 static Berth.ToolWindowModeExtensions.GetEffectiveMode(this Berth.ToolWindowMode mode, bool canFloat, bool canUseWindowed) -> Berth.ToolWindowMode
+Berth.LayoutComposition
+Berth.LayoutComposition.Lifecycle.get -> Berth.ContentLifecycle!
+Berth.LayoutComposition.Registry.get -> Berth.ToolWindowRegistry!
+Berth.LayoutComposition.State.get -> Berth.LayoutState!
+Berth.LayoutCompositionBuilder
+Berth.LayoutCompositionBuilder.AddDockContent(Berth.ITabContentFactory! factory) -> Berth.LayoutCompositionBuilder!
+Berth.LayoutCompositionBuilder.AddDockContent(System.Func<string!, bool>! ownsTab, System.Func<string!, object?>! createContent, System.Action<string!, object!>? releaseContent = null) -> Berth.LayoutCompositionBuilder!
+Berth.LayoutCompositionBuilder.AddToolWindow(Berth.ToolWindowDescriptor! descriptor) -> Berth.LayoutCompositionBuilder!
+Berth.LayoutCompositionBuilder.AddToolWindow(string! id, string! title, System.Action<Berth.ToolWindowBuilder!>! configure) -> Berth.LayoutCompositionBuilder!
+Berth.LayoutCompositionBuilder.Build() -> Berth.LayoutComposition!
+Berth.LayoutCompositionBuilder.LayoutCompositionBuilder() -> void
+Berth.LayoutCompositionBuilder.Open(string! toolWindowId) -> Berth.LayoutCompositionBuilder!
+Berth.LayoutCompositionBuilder.OpenDocument(string! tabId) -> Berth.LayoutCompositionBuilder!
+Berth.LayoutCompositionBuilder.OpenPanelTab(string! tabId) -> Berth.LayoutCompositionBuilder!
+Berth.ToolWindowBuilder
+Berth.ToolWindowBuilder.Content(Berth.IToolWindowContentFactory! factory) -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.Content(System.Func<string!, object!>! createContent, System.Action<string!, object!>? releaseContent = null) -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.DisposeOnClose() -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.Eager() -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.Icon(string! iconKey) -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.Mode(Berth.ToolWindowMode mode) -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.Order(int order) -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.PairRatio(double pairRatio) -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.Slot(Berth.ToolWindowSide side, Berth.ToolWindowGroup group) -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.Tabs(Berth.ITabContentFactory! factory) -> Berth.ToolWindowBuilder!
+Berth.ToolWindowBuilder.Tabs(System.Func<string!, bool>! ownsTab, System.Func<string!, object?>! createContent, System.Action<string!, object!>? releaseContent = null) -> Berth.ToolWindowBuilder!

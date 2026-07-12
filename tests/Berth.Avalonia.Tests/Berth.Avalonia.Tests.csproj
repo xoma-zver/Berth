@@ -10,6 +10,8 @@
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
+    <!-- Runtime XAML parsing of the markup-declared layout definitions (task 7.1) -->
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
 

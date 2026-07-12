@@ -10,12 +10,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace Berth.Demo.ViewModels;
 
 /// <summary>
-/// Composition root of the mini-IDE demo: registers demo tool windows exercising both content
+/// Composition root of the mini-IDE demo, assembled by the fluent
+/// <see cref="LayoutCompositionBuilder"/> (task 7.1): demo tool windows exercising both content
 /// paths (a view model resolved by the ViewLocator, and factory-built controls) and both
 /// lifecycle axes (Eager/OnFirstOpen creation, KeepWhileRegistered/DisposeOnClose retention),
-/// registers dock-area content claimed by the "doc:" prefix (spec TW-9.11), then builds the
-/// initial layout with two open documents. The workspace binds State two-way, so user gestures
-/// flow back into this property.
+/// dock-area content claimed by the "doc:" prefix (spec TW-9.11), and the initial openness —
+/// two open panels, two documents and two terminal tabs — expressed as build-time commands
+/// (spec E15: openness is not a descriptor field). The built state doubles as the default
+/// snapshot the «Reset Layout» command applies (spec TW-5.14). The workspace binds State
+/// two-way, so user gestures flow back into this property.
 ///
 /// The view model is also the reference sample of application-side persistence (task 7.0): the
 /// core supplies the bricks — <see cref="LayoutPersistence"/> for the format,
@@ -33,100 +36,83 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private LayoutState? _state;
 
+    private readonly LayoutState _defaultState;
     private ILayoutStore? _store;
     private DispatcherTimer? _autosave;
 
     public MainViewModel()
     {
-        Registry = new ToolWindowRegistry();
-        Lifecycle = new ContentLifecycle(Registry);
-
-        var state = Lifecycle.Register(LayoutState.Empty, new ToolWindowDescriptor(
-            "project", "Project", new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Primary))
-        {
-            IconKey = "ProjectIcon",
-            CreationPolicy = ContentCreationPolicy.Eager,
-            // The MVVM path: the factory returns a view model, the application's ViewLocator
-            // (App.axaml data templates) builds the view.
-            ContentFactory = new DelegateContentFactory(_ => new ProjectViewModel
-            {
-                OpenFile = OpenFileDocument,
-            }),
-        });
-        state = Lifecycle.Register(state, new ToolWindowDescriptor(
-            "structure", "Structure", new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Secondary))
-        {
-            ContentFactory = new DelegateContentFactory(_ => new TextBlock
-            {
-                Text = "Structure of the selected file would appear here.",
-                Margin = new Thickness(8),
-                TextWrapping = TextWrapping.Wrap,
-            }),
-        });
-        state = Lifecycle.Register(state, new ToolWindowDescriptor(
-            "terminal", "Terminal", new ToolWindowSlot(ToolWindowSide.Bottom, ToolWindowGroup.Primary))
-        {
-            RetentionPolicy = ContentRetentionPolicy.DisposeOnClose,
-            ContentFactory = new DelegateContentFactory(_ => new TextBox
-            {
-                Text = "$ echo DisposeOnClose — closing the panel forgets this text\n",
-                AcceptsReturn = true,
-                FontFamily = new FontFamily("monospace"),
-            }),
-            // Panel tabs claimed by prefix (TW-9.11): the terminal's own sessions living in
-            // its tree next to the body — the strip, splits and «Move to Document Area» demo.
-            TabFactory = new DelegateTabFactory(
-                id => id.StartsWith("term:", StringComparison.Ordinal),
-                id => new TextBox
+        var composition = new LayoutCompositionBuilder()
+            .AddToolWindow("project", "Project", w => w
+                .Slot(ToolWindowSide.Left, ToolWindowGroup.Primary)
+                .Icon("ProjectIcon")
+                .Eager()
+                // The MVVM path: the factory returns a view model, the application's
+                // ViewLocator (App.axaml data templates) builds the view.
+                .Content(_ => new ProjectViewModel { OpenFile = OpenFileDocument }))
+            .AddToolWindow("structure", "Structure", w => w
+                .Slot(ToolWindowSide.Left, ToolWindowGroup.Secondary)
+                .Content(_ => new TextBlock
                 {
-                    Text = $"$ {id[5..]} — a terminal session tab\n",
+                    Text = "Structure of the selected file would appear here.",
+                    Margin = new Thickness(8),
+                    TextWrapping = TextWrapping.Wrap,
+                }))
+            .AddToolWindow("terminal", "Terminal", w => w
+                .Slot(ToolWindowSide.Bottom, ToolWindowGroup.Primary)
+                .DisposeOnClose()
+                .Content(_ => new TextBox
+                {
+                    Text = "$ echo DisposeOnClose — closing the panel forgets this text\n",
                     AcceptsReturn = true,
                     FontFamily = new FontFamily("monospace"),
-                }),
-        });
-        state = Lifecycle.Register(state, new ToolWindowDescriptor(
-            "problems", "Problems", new ToolWindowSlot(ToolWindowSide.Bottom, ToolWindowGroup.Secondary))
-        {
-            // A diagnostics list driving the command channel from application code:
-            // double-clicking an entry opens (or activates) the offending document.
-            ContentFactory = new DelegateContentFactory(_ => BuildProblemsView()),
-        });
-        state = Lifecycle.Register(state, new ToolWindowDescriptor(
-            "properties", "Properties", new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Primary))
-        {
-            ContentFactory = new DelegateContentFactory(_ => new TextBox
-            {
-                Text = "KeepWhileRegistered — this text survives close and reopen\n",
-                AcceptsReturn = true,
-            }),
-        });
+                })
+                // Panel tabs claimed by prefix (TW-9.11): the terminal's own sessions living
+                // in its tree next to the body — the strip, splits and «Move to Document
+                // Area» demo.
+                .Tabs(
+                    id => id.StartsWith("term:", StringComparison.Ordinal),
+                    id => new TextBox
+                    {
+                        Text = $"$ {id[5..]} — a terminal session tab\n",
+                        AcceptsReturn = true,
+                        FontFamily = new FontFamily("monospace"),
+                    }))
+            .AddToolWindow("problems", "Problems", w => w
+                .Slot(ToolWindowSide.Bottom, ToolWindowGroup.Secondary)
+                // A diagnostics list driving the command channel from application code:
+                // double-clicking an entry opens (or activates) the offending document.
+                .Content(_ => BuildProblemsView()))
+            .AddToolWindow("properties", "Properties", w => w
+                .Slot(ToolWindowSide.Right, ToolWindowGroup.Primary)
+                .Content(_ => new TextBox
+                {
+                    Text = "KeepWhileRegistered — this text survives close and reopen\n",
+                    AcceptsReturn = true,
+                }))
+            // Dock-area documents: claimed by prefix (TW-9.11), materialized lazily by the
+            // workspace (DA-9.3); titles come from the TabTitleProvider wired in MainView.
+            .AddDockContent(
+                id => id.StartsWith("doc:", StringComparison.Ordinal),
+                id => new TextBox
+                {
+                    Text = $"// {id[4..]}\nOpen a second document, split and rotate via the tab menu.\n",
+                    AcceptsReturn = true,
+                    FontFamily = new FontFamily("monospace"),
+                })
+            // The initial openness: build-time commands, one transition report each (E15).
+            .Open("project")
+            .Open("terminal")
+            .OpenDocument("doc:README.md")
+            .OpenDocument("doc:tool-windows.md")
+            .OpenPanelTab("term:Local")
+            .OpenPanelTab("term:Local (2)")
+            .Build();
 
-        // Dock-area documents: claimed by prefix (TW-9.11), materialized lazily by the
-        // workspace (DA-9.3); titles come from the TabTitleProvider wired in MainView.
-        state = Lifecycle.RegisterDockContent(state, new DelegateTabFactory(
-            id => id.StartsWith("doc:", StringComparison.Ordinal),
-            id => new TextBox
-            {
-                Text = $"// {id[4..]}\nOpen a second document, split and rotate via the tab menu.\n",
-                AcceptsReturn = true,
-                FontFamily = new FontFamily("monospace"),
-            }));
-
-        // Application-performed transitions are the application's to report, one call per
-        // command (the NotifyTransition contract).
-        var opened = state.Open("project");
-        Lifecycle.NotifyTransition(state, opened);
-        var withTerminal = opened.Open("terminal");
-        Lifecycle.NotifyTransition(opened, withTerminal);
-        var withReadme = withTerminal.OpenDocument("doc:README.md", Registry);
-        Lifecycle.NotifyTransition(withTerminal, withReadme);
-        var withSpec = withReadme.OpenDocument("doc:tool-windows.md", Registry);
-        Lifecycle.NotifyTransition(withReadme, withSpec);
-        var withLocal = withSpec.OpenPanelTab("term:Local", Registry);
-        Lifecycle.NotifyTransition(withSpec, withLocal);
-        var withSecond = withLocal.OpenPanelTab("term:Local (2)", Registry);
-        Lifecycle.NotifyTransition(withLocal, withSecond);
-        State = withSecond;
+        Registry = composition.Registry;
+        Lifecycle = composition.Lifecycle;
+        _defaultState = composition.State;
+        State = composition.State;
     }
 
     public ToolWindowRegistry Registry { get; }
@@ -174,9 +160,10 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// The «Reset Layout» menu command: re-applies the descriptor defaults as an Arrangement —
-    /// panels return to their default slots and close, while open documents, tabs and content
-    /// trees stay untouched (TW-10.6, E20).
+    /// The «Reset Layout» menu command: re-applies the built default composition as an
+    /// Arrangement (TW-5.14) — panels return to their default slots and their default
+    /// openness (project and terminal open, the rest closed), while open documents, tabs and
+    /// content trees stay untouched (TW-10.6, E20).
     /// </summary>
     public void ResetLayout()
     {
@@ -185,7 +172,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        var result = state.Apply(LayoutApply.ResetToDefaults(Registry), ApplyScope.Arrangement, Registry);
+        var result = state.Apply(_defaultState, ApplyScope.Arrangement, Registry);
         Lifecycle.NotifyTransition(state, result.State);
         State = result.State;
     }
