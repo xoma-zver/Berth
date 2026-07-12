@@ -273,6 +273,50 @@ public sealed class ContentLifecycle
     }
 
     /// <summary>
+    /// Unregisters dock-area content in a live session — the symmetric counterpart of
+    /// <see cref="Unregister"/> (spec TW-9.4): the factory's claims disappear and its
+    /// documents living in the dock-area hosts are closed with their content released, in
+    /// traversal order (spec DA-9.2). This is the deliberate boundary of DA-9.4 — explicit
+    /// unregistration in a live session closes the owner's tabs irrevocably, unlike the
+    /// passive absence of a registration at restore, which sleeps them; an emptied document
+    /// window disappears (INV-D6), and re-registration does not restore the closed documents
+    /// (TW-9.10, DA-E42). Do not report this transition to <see cref="NotifyTransition"/>.
+    /// </summary>
+    /// <param name="state">Current layout.</param>
+    /// <param name="factory">A dock-area content factory previously registered.</param>
+    /// <exception cref="ArgumentException">The factory is not registered.</exception>
+    public LayoutState UnregisterDockContent(LayoutState state, ITabContentFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(factory);
+
+        // The claims disappear with the registration — collect the factory's dock-hosted
+        // documents first (a pure pass, safe before the throwing removal below).
+        List<string>? ownedTabs = null;
+        foreach (var tab in EnumerateDockTabs(state.DockArea))
+        {
+            if (factory.OwnsTab(tab))
+            {
+                (ownedTabs ??= []).Add(tab);
+            }
+        }
+
+        _registry.UnregisterDockContent(factory);
+
+        var result = state;
+        if (ownedTabs is not null)
+        {
+            foreach (var tab in ownedTabs)
+            {
+                result = result.CloseTab(tab);
+                ReleaseTabContent(tab);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Unregisters a tool window in a live session (spec TW-9.4): the window is closed, its body
     /// content is released under any retention policy, its state stays in the layout as sleeping
     /// (TW-10.2) — including its content tree, which is inert and sleeps with the record — and

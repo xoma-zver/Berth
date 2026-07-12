@@ -65,6 +65,23 @@ public sealed class ToolWindowRegistry
     }
 
     /// <summary>
+    /// Removes a dock-area content registration; the exact factory instance passed to
+    /// <see cref="RegisterDockContent"/> must be given. Low-level: in a live session use
+    /// <see cref="ContentLifecycle.UnregisterDockContent"/>, which also closes the factory's
+    /// documents in the dock-area hosts and releases their content (spec DA-9.4, TW-9.10).
+    /// </summary>
+    /// <param name="factory">A dock-area content factory previously registered.</param>
+    /// <exception cref="ArgumentException">The factory is not registered.</exception>
+    public void UnregisterDockContent(ITabContentFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        if (!_dockContent.Remove(factory))
+        {
+            throw new ArgumentException("The dock content factory is not registered.", nameof(factory));
+        }
+    }
+
+    /// <summary>
     /// Resolves the owner of a tab id over the current claims (spec TW-9.7, TW-9.11): the dock
     /// area, a tool window, or null when no live registration claims the id — the tab sleeps
     /// (spec DA-9.4). A tool window's registration with a body factory implicitly claims the

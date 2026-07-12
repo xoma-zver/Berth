@@ -396,6 +396,105 @@ public class ContentLifecycleTests
         Assert.Equal(1, tabFactory.Released);
     }
 
+    // ---- DA-9.4 dock content unregistration (symmetry with Unregister) ----
+
+    [Fact]
+    public void DA_9_4_unregister_dock_content_closes_documents_and_releases_content()
+    {
+        var registry = new ToolWindowRegistry();
+        var docs = new StubTabFactory("d");
+        var lifecycle = new ContentLifecycle(registry);
+        var state = lifecycle.RegisterDockContent(LayoutState.Empty, docs);
+        state = state.OpenDocument("d1", registry).OpenDocument("d2", registry);
+        lifecycle.MaterializeTab(state, "d1");
+        lifecycle.MaterializeTab(state, "d2");
+        Assert.Equal(2, docs.LiveCount);
+
+        var result = lifecycle.UnregisterDockContent(state, docs);
+
+        // Документы фабрики закрыты в хостах док-зоны, контент освобождён (DA-9.4, симметрия TW-9.4).
+        Assert.Empty(Assert.IsType<TabGroupNode>(result.DockArea.Root).Tabs);
+        Assert.Null(result.DockArea.CurrentTabId);
+        Assert.Equal(2, docs.Released);
+        Assert.Equal(0, docs.LiveCount);
+        // Заявка снята — id снова спит; повторная регистрация документы не восстанавливает.
+        Assert.Null(registry.ResolveTabOwner("d1"));
+        var reregistered = lifecycle.RegisterDockContent(result, new StubTabFactory("d"));
+        Assert.Empty(Assert.IsType<TabGroupNode>(reregistered.DockArea.Root).Tabs);
+        Assert.Empty(LayoutInvariants.Validate(reregistered, registry));
+    }
+
+    [Fact]
+    public void DA_E42_unregister_dock_content_dissolves_emptied_document_windows()
+    {
+        var registry = new ToolWindowRegistry();
+        var docs = new StubTabFactory("d");
+        var lifecycle = new ContentLifecycle(registry);
+        var state = lifecycle.RegisterDockContent(LayoutState.Empty, docs);
+        // d1 в главном окне, d2 — в отдельном окне документов (оба материализованы).
+        state = state.OpenDocument("d1", registry).OpenDocument("d2", registry).MoveTabToNewWindow("d2", Bounds);
+        lifecycle.MaterializeTab(state, "d1");
+        lifecycle.MaterializeTab(state, "d2");
+        Assert.Single(state.DockArea.Windows);
+
+        var result = lifecycle.UnregisterDockContent(state, docs);
+
+        Assert.Empty(Assert.IsType<TabGroupNode>(result.DockArea.Root).Tabs);
+        Assert.Empty(result.DockArea.Windows); // опустевшее окно исчезло (INV-D6)
+        Assert.Equal(DockHost.MainWindow, result.DockArea.ActiveDockHost);
+        Assert.Equal(2, docs.Released);
+        Assert.Empty(LayoutInvariants.Validate(result, registry));
+    }
+
+    [Fact]
+    public void DA_9_4_unregister_dock_content_closes_only_its_own_documents()
+    {
+        var registry = new ToolWindowRegistry();
+        var a = new StubTabFactory("a:");
+        var b = new StubTabFactory("b:");
+        var lifecycle = new ContentLifecycle(registry);
+        var state = lifecycle.RegisterDockContent(LayoutState.Empty, a);
+        state = lifecycle.RegisterDockContent(state, b);
+        state = state.OpenDocument("a:1", registry).OpenDocument("b:1", registry);
+        lifecycle.MaterializeTab(state, "a:1");
+        lifecycle.MaterializeTab(state, "b:1");
+
+        var result = lifecycle.UnregisterDockContent(state, a);
+
+        Assert.Equal(["b:1"], Assert.IsType<TabGroupNode>(result.DockArea.Root).Tabs);
+        Assert.Equal("b:1", result.DockArea.CurrentTabId);
+        Assert.Equal(1, a.Released);
+        Assert.Equal(0, b.Released); // чужие документы не тронуты
+        Assert.Equal(TabOwner.DockArea, registry.ResolveTabOwner("b:1")); // фабрика b жива
+        Assert.Empty(LayoutInvariants.Validate(result, registry));
+    }
+
+    [Fact]
+    public void DA_9_4_notify_after_unregister_dock_content_releases_nothing_more()
+    {
+        // Переход координатора не докладывается; ошибочный доклад — no-op, без двойного освобождения.
+        var registry = new ToolWindowRegistry();
+        var docs = new StubTabFactory("d");
+        var lifecycle = new ContentLifecycle(registry);
+        var state = lifecycle.RegisterDockContent(LayoutState.Empty, docs);
+        state = state.OpenDocument("d1", registry);
+        lifecycle.MaterializeTab(state, "d1");
+
+        var after = lifecycle.UnregisterDockContent(state, docs);
+        lifecycle.NotifyTransition(state, after);
+
+        Assert.Equal(1, docs.Released);
+    }
+
+    [Fact]
+    public void DA_9_4_unregister_of_an_unregistered_dock_factory_throws()
+    {
+        var lifecycle = new ContentLifecycle(new ToolWindowRegistry());
+
+        Assert.Throws<ArgumentException>(
+            () => lifecycle.UnregisterDockContent(LayoutState.Empty, new StubTabFactory("d")));
+    }
+
     // ---- DA-E11 / DA-E12: panel tabs in the dock area ----
 
     [Fact]

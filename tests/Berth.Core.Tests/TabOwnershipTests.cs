@@ -117,6 +117,42 @@ public class TabOwnershipTests
         Assert.Throws<ArgumentException>(() => new ToolWindowRegistry().Unregister("ghost"));
     }
 
+    [Fact]
+    public void TW_9_11_unregister_dock_content_removes_the_claim()
+    {
+        var registry = new ToolWindowRegistry();
+        var docs = new StubTabFactory("d:");
+        registry.RegisterDockContent(docs);
+        Assert.Equal(TabOwner.DockArea, registry.ResolveTabOwner("d:1"));
+
+        registry.UnregisterDockContent(docs);
+
+        Assert.Null(registry.ResolveTabOwner("d:1")); // заявка снята — id снова спит (DA-9.4)
+    }
+
+    [Fact]
+    public void TW_9_11_unregister_one_dock_registration_keeps_the_others()
+    {
+        var registry = new ToolWindowRegistry();
+        var a = new StubTabFactory("a:");
+        var b = new StubTabFactory("b:");
+        registry.RegisterDockContent(a);
+        registry.RegisterDockContent(b);
+
+        registry.UnregisterDockContent(a);
+
+        Assert.Null(registry.ResolveTabOwner("a:1"));
+        Assert.Equal(TabOwner.DockArea, registry.ResolveTabOwner("b:1"));
+    }
+
+    [Fact]
+    public void TW_9_11_unregister_of_an_unregistered_dock_factory_throws()
+    {
+        var registry = new ToolWindowRegistry();
+
+        Assert.Throws<ArgumentException>(() => registry.UnregisterDockContent(new StubTabFactory("d:")));
+    }
+
     // ---- implicit body claims (TW-9.5, задача 1.8) ----
 
     [Fact]
