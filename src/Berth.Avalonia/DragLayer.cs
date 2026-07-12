@@ -47,6 +47,9 @@ internal sealed class DragLayer : Canvas
         UpdateGhostSurface();
     }
 
+    /// <summary>Whether the ghost chip is currently shown.</summary>
+    public bool GhostVisible => _ghost.IsVisible;
+
     /// <summary>Shows the ghost chip with the dragged subject's title (spec TW-5.17).</summary>
     public void ShowGhost(string title)
     {

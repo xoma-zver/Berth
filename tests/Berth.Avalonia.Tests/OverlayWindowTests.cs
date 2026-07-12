@@ -551,10 +551,10 @@ public class OverlayWindowTests
         Assert.True(Panel(main, "f").IsOpen);
     }
 
-    // ---- TW-5.17, DA-9.7: drag sources and targets stay disabled in pseudo-windows ----
+    // ---- TW-5.17, DA-9.7: drag sources and targets in pseudo-windows (task 6.2) ----
 
     [AvaloniaFact]
-    public void TW_5_17_dragging_inside_a_pseudo_window_arms_no_slot_or_tab_gesture()
+    public void DA_9_7_tab_drags_between_a_document_pseudo_window_and_the_main_window()
     {
         var (registry, lifecycle, _, _) = DockSetup();
         var state = LayoutState.Empty with
@@ -571,27 +571,90 @@ public class OverlayWindowTests
         };
         var main = ShowOverlay(state, registry, lifecycle: lifecycle);
         var pseudo = DocumentPseudo(main, "d9");
-        var header = TabHeader(pseudo, "d8");
-        var start = Center(header, main);
+        var host = Workspace(main).TabHosts.GetHost("d8");
 
+        // Out of the pseudo-window: d8's header drops into the center zone of the main
+        // group, at a point clear of the pseudo-window itself (the top-window priority
+        // would otherwise send the drop elsewhere) and of the edge wedges.
+        var start = Center(TabHeader(pseudo, "d8"), main);
+        var mainGroup = (Control)TabHost(main, "d1").GetVisualParent()!.GetVisualParent()!;
+        var groupRect = BoundsIn(mainGroup, main);
+        var target = new Point(
+            groupRect.Right - (groupRect.Width * 0.3), groupRect.Bottom - (groupRect.Height * 0.3));
         main.MouseDown(start, MouseButton.Left);
-        main.MouseMove(new Point(start.X, start.Y + 120)); // far past the drag threshold
+        Dispatcher.UIThread.RunJobs();
+        main.MouseMove(target);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(Part(main, "PART_DragGhost").IsVisible); // the overlay ghost lives in the DragLayer
+        main.MouseUp(target, MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
 
-        // No gesture armed (DA-9.7: sources in other windows wait for the inter-window drag
-        // task): no ghost, and the pseudo-window itself did not move either.
-        Assert.False(Part(main, "PART_DragGhost").IsVisible);
-        Assert.Equal(new Rect(50, 60, 400, 300), RectOf(pseudo));
+        // The cross-host move landed in the main group with activation (DA-5.4, DA-9.7); the
+        // pseudo-window kept d9, the same cached host reattached (DA-9.6).
+        Assert.Equal(["d1", "d8"], Assert.IsType<TabGroupNode>(St(main).DockArea.Root).Tabs);
+        Assert.Equal("d8", St(main).DockArea.CurrentTabId);
+        Assert.True(St(main).DockArea.ActiveDockHost.IsMainWindow);
+        Assert.Equal(["d9"], Assert.IsType<TabGroupNode>(St(main).DockArea.Windows[0].Root).Tabs);
+        Assert.Same(host, Workspace(main).TabHosts.GetHost("d8"));
 
-        main.MouseUp(new Point(start.X, start.Y + 120), MouseButton.Left);
+        // Back in: d8's header drops into the pseudo-window group's strip end.
+        var back = BoundsIn(TabHeader(DocumentPseudo(main, "d9"), "d9"), main);
+        var backTarget = new Point(back.Right + 10, back.Center.Y);
+        main.MouseDown(Center(TabHeader(main, "d8"), main), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        main.MouseMove(backTarget);
+        Dispatcher.UIThread.RunJobs();
+        main.MouseUp(backTarget, MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
 
-        // The tree structure is intact — no MoveTab/SplitTab happened; the release ran the
-        // ordinary click semantics of the pressed header (activation), as in a real floating
-        // window whose sources arm nothing either.
         var group = Assert.IsType<TabGroupNode>(St(main).DockArea.Windows[0].Root);
-        Assert.Equal(["d8", "d9"], group.Tabs);
-        Assert.Single(St(main).DockArea.Windows);
+        Assert.Equal(["d9", "d8"], group.Tabs);
+        Assert.Equal("d8", St(main).DockArea.Windows[0].CurrentTabId);
+        Assert.Equal(DockHost.DocumentWindow(0), St(main).DockArea.ActiveDockHost); // ActivateTab followed
+        Assert.Same(host, Workspace(main).TabHosts.GetHost("d8")); // the same host both ways
+    }
+
+    [AvaloniaFact]
+    public void TW_5_17_zone_occluded_by_a_pseudo_window_does_not_fire()
+    {
+        // A float pseudo-window covers the middle of the main dock group: a tab dropped
+        // there must not hit the group's center zone underneath (the top-window priority of
+        // TW-5.17) — it lands in no zone at all, and the outside take-out of DA-9.7 moves it
+        // into a new document pseudo-window at the point.
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new CountingTabFactory("d"));
+        registry.Register(new ToolWindowDescriptor(
+            "f", "Floaty", new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Primary)));
+        var state = LayoutState.Empty with
+        {
+            DockArea = new DockAreaState { Root = Group("d1", "d1", "d2"), CurrentTabId = "d1" },
+            ToolWindows =
+            [
+                Win("f", ToolWindowSide.Right, ToolWindowGroup.Primary) with
+                {
+                    Mode = ToolWindowMode.Float,
+                    IsOpen = true,
+                    FloatingBounds = new FloatingBounds(300, 200, 250, 200),
+                },
+            ],
+        };
+        var main = ShowOverlay(state, registry, lifecycle: new ContentLifecycle(registry));
+        var pseudoRect = RectOf(PanelPseudo(main, "f"));
+        var covered = pseudoRect.Center; // over the dock group, but the pseudo-window is on top
+
+        main.MouseDown(Center(TabHeader(main, "d2"), main), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        main.MouseMove(covered);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(Part(main, "PART_DropMarker").IsVisible); // the occluded center offers nothing
+        main.MouseUp(covered, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        var docWindow = Assert.Single(St(main).DockArea.Windows);
+        Assert.Equal(["d2"], Assert.IsType<TabGroupNode>(docWindow.Root).Tabs);
+        Assert.Equal(covered.X, docWindow.Bounds.X); // the new pseudo-window sits at the point
+        Assert.Equal(covered.Y, docWindow.Bounds.Y);
+        Assert.Equal(["d1"], Assert.IsType<TabGroupNode>(St(main).DockArea.Root).Tabs);
     }
 
     // ---- TW-7.5, DA-7.6: teardown ----

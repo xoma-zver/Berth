@@ -7,22 +7,26 @@ namespace Berth.Controls;
 
 /// <summary>
 /// Catalog builder of the tab drop targets (spec DA-9.7): the strips, edge wedges and centers
-/// of every materialized tab group the dragged tab may enter. Priority is the list order
-/// (= the reference's processDropOver): strip insertion zones first, then the diagonal edge
-/// wedges limited to <see cref="BerthMetrics.SplitWedgeRatio"/> of the group's extent, then
-/// the group centers. canHost decides which trees offer zones at all (INV-D5, DA-8.2): the
-/// tree currently hosting the tab (moves within one host are always legal), the main window's
-/// dock area (dock hosts accept every tab), and the confirmed owner panel's tree; trees of
-/// foreign panels yield nothing, and a closed panel is simply not materialized. Commits are
-/// encoded by tab ids — an anchor tab of the receiving group plus the insertion predecessor —
-/// and re-resolved against the live state at drop time with guards, so they survive external
-/// state changes between the catalog build and the release (TW-5.17); an identity drop does
-/// nothing at all (DA-E40). Completed drops follow the 4.1 menu items: the command sequence,
-/// then activation for a cross-host move, then the focus transfer (DA-5.4, DA-6.4).
+/// of every materialized tab group the dragged tab may enter — in every window of the
+/// workspace (task 6.2): the main window, floating panels, document windows and
+/// pseudo-windows. Priority is the list order (= the reference's processDropOver): strip
+/// insertion zones first, then the diagonal edge wedges limited to
+/// <see cref="BerthMetrics.SplitWedgeRatio"/> of the group's extent, then the group centers.
+/// canHost decides which trees offer zones at all (INV-D5, DA-8.2): the tree currently
+/// hosting the tab (moves within one host are always legal), the dock-area hosts — the main
+/// window and every materialized document window (dock hosts accept every tab) — and the
+/// confirmed owner panel's tree; trees of foreign panels yield nothing, and a closed panel is
+/// simply not materialized. Commits are encoded by tab ids — an anchor tab of the receiving
+/// group plus the insertion predecessor — and re-resolved against the live state at drop time
+/// with guards, so they survive external state changes between the catalog build and the
+/// release (TW-5.17); an identity drop does nothing at all (DA-E40). Completed drops follow
+/// the 4.1 menu items: the command sequence, then activation for a cross-host move, then the
+/// focus transfer (DA-5.4, DA-6.4).
 /// </summary>
 internal static class TabDropTargets
 {
-    public static List<DropTarget> Build(BerthWorkspace workspace, LayoutState state, string draggedId)
+    public static List<DropTarget> Build(
+        BerthWorkspace workspace, LayoutState state, string draggedId, DropZoneSpace space)
     {
         var targets = new List<DropTarget>();
         if (FindGroup(state, draggedId) is not { } source)
@@ -36,40 +40,48 @@ internal static class TabDropTargets
             || string.Equals(panelId, source.PanelId, StringComparison.Ordinal)
             || string.Equals(panelId, ownerPanel, StringComparison.Ordinal);
 
-        AddStripZones(targets, workspace, draggedId, Allowed);
+        AddStripZones(targets, workspace, draggedId, space, Allowed);
 
         var wedges = new List<DropTarget>();
         var centers = new List<DropTarget>();
-        foreach (var view in workspace.GetVisualDescendants().OfType<TabGroupView>())
+        foreach (var root in space.Roots)
         {
-            if (!view.IsEffectivelyVisible
-                || !Allowed(view.Context.PanelId)
-                || IsInPseudoWindow(view)
-                || StripeDropTargets.BoundsIn(view, workspace) is not { } rect
-                || rect.Width <= 0
-                || rect.Height <= 0)
+            foreach (var view in root.GetVisualDescendants().OfType<TabGroupView>())
             {
-                continue;
-            }
+                if (!view.IsEffectivelyVisible
+                    || !Allowed(view.Context.PanelId)
+                    || space.RectOf(view) is not { } rect
+                    || rect.Width <= 0
+                    || rect.Height <= 0)
+                {
+                    continue;
+                }
 
-            if (view.Tabs.Count == 0)
-            {
-                // The empty root group (DA-2.3) offers only its center; there is nothing to
-                // split (DA-9.7).
-                centers.Add(new DropTarget(rect, rect, RootCommit(draggedId, view.Context.PanelId))
+                var key = space.KeyOf(view);
+                if (view.Tabs.Count == 0)
+                {
+                    // The empty root group (DA-2.3) offers only its center; there is nothing
+                    // to split (DA-9.7).
+                    centers.Add(new DropTarget(rect, rect, RootCommit(draggedId, view.Context.PanelId))
+                    {
+                        AreaMarker = true,
+                        WindowKey = key,
+                    });
+                    continue;
+                }
+
+                var anchor = view.Tabs.FirstOrDefault(
+                    t => !string.Equals(t, draggedId, StringComparison.Ordinal)) ?? draggedId;
+                wedges.Add(Wedge(rect, SplitDirection.Left, draggedId, anchor, key));
+                wedges.Add(Wedge(rect, SplitDirection.Right, draggedId, anchor, key));
+                wedges.Add(Wedge(rect, SplitDirection.Up, draggedId, anchor, key));
+                wedges.Add(Wedge(rect, SplitDirection.Down, draggedId, anchor, key));
+                centers.Add(new DropTarget(rect, rect, CenterCommit(draggedId, anchor))
                 {
                     AreaMarker = true,
+                    WindowKey = key,
                 });
-                continue;
             }
-
-            var anchor = view.Tabs.FirstOrDefault(
-                t => !string.Equals(t, draggedId, StringComparison.Ordinal)) ?? draggedId;
-            wedges.Add(Wedge(rect, SplitDirection.Left, draggedId, anchor));
-            wedges.Add(Wedge(rect, SplitDirection.Right, draggedId, anchor));
-            wedges.Add(Wedge(rect, SplitDirection.Up, draggedId, anchor));
-            wedges.Add(Wedge(rect, SplitDirection.Down, draggedId, anchor));
-            centers.Add(new DropTarget(rect, rect, CenterCommit(draggedId, anchor)) { AreaMarker = true });
         }
 
         targets.AddRange(wedges);
@@ -80,43 +92,50 @@ internal static class TabDropTargets
     // ---- strip insertion zones ----
 
     /// <summary>
-    /// Insertion zones of every allowed strip — the group bars and the decorator header row
-    /// hosting a panel root group's strip (TW-9.5). Zone boundaries are the midpoints of the
-    /// headers (= IDEA); the first and last zones extend to the strip band's edges. Positions
-    /// are encoded as the predecessor header's tab id (null — the group front) and mapped at
-    /// commit time (DA-5.4).
+    /// Insertion zones of every allowed strip — the group bars and the decorator header rows
+    /// hosting a panel root group's strip (TW-9.5) — across every root of the gesture space.
+    /// Zone boundaries are the midpoints of the headers (= IDEA); the first and last zones
+    /// extend to the strip band's edges. Positions are encoded as the predecessor header's tab
+    /// id (null — the group front) and mapped at commit time (DA-5.4).
     /// </summary>
     private static void AddStripZones(
-        List<DropTarget> targets, BerthWorkspace workspace, string draggedId, Func<string?, bool> allowed)
+        List<DropTarget> targets,
+        BerthWorkspace workspace,
+        string draggedId,
+        DropZoneSpace space,
+        Func<string?, bool> allowed)
     {
         var strips = new Dictionary<Control, List<(DockTabHeader Header, Rect Rect)>>();
-        foreach (var header in workspace.GetVisualDescendants().OfType<DockTabHeader>())
+        foreach (var root in space.Roots)
         {
-            if (!header.IsEffectivelyVisible
-                || !allowed(header.Context.PanelId)
-                || IsInPseudoWindow(header)
-                || StripeDropTargets.BoundsIn(header, workspace) is not { } rect
-                || StripBandOf(header) is not { } band)
+            foreach (var header in root.GetVisualDescendants().OfType<DockTabHeader>())
             {
-                continue;
-            }
+                if (!header.IsEffectivelyVisible
+                    || !allowed(header.Context.PanelId)
+                    || space.RectOf(header) is not { } rect
+                    || StripBandOf(header) is not { } band)
+                {
+                    continue;
+                }
 
-            if (!strips.TryGetValue(band, out var entries))
-            {
-                entries = [];
-                strips[band] = entries;
-            }
+                if (!strips.TryGetValue(band, out var entries))
+                {
+                    entries = [];
+                    strips[band] = entries;
+                }
 
-            entries.Add((header, rect));
+                entries.Add((header, rect));
+            }
         }
 
         foreach (var (band, headers) in strips)
         {
-            if (StripeDropTargets.BoundsIn(band, workspace) is not { } bandRect || bandRect.Width <= 0)
+            if (space.RectOf(band) is not { } bandRect || bandRect.Width <= 0)
             {
                 continue;
             }
 
+            var key = space.KeyOf(band);
             headers.Sort((a, b) => a.Rect.X.CompareTo(b.Rect.X));
             var anchor = headers.FirstOrDefault(
                     h => !string.Equals(h.Header.TabId, draggedId, StringComparison.Ordinal)).Header?.TabId
@@ -130,12 +149,12 @@ internal static class TabDropTargets
                     ? headers[0].Rect.Left
                     : (headers[i - 1].Rect.Right + headers[i].Rect.Left) / 2;
                 AddZone(targets, bandRect, previous, mid, markerX,
-                    draggedId, anchor, i == 0 ? null : headers[i - 1].Header.TabId);
+                    draggedId, anchor, i == 0 ? null : headers[i - 1].Header.TabId, key);
                 previous = mid;
             }
 
             AddZone(targets, bandRect, previous, bandRect.Right, headers[^1].Rect.Right,
-                draggedId, anchor, headers[^1].Header.TabId);
+                draggedId, anchor, headers[^1].Header.TabId, key);
         }
     }
 
@@ -147,7 +166,8 @@ internal static class TabDropTargets
         double markerAnchor,
         string draggedId,
         string anchor,
-        string? predecessorId)
+        string? predecessorId,
+        object? windowKey)
     {
         if (zoneEnd - zoneStart <= 0)
         {
@@ -158,7 +178,10 @@ internal static class TabDropTargets
         targets.Add(new DropTarget(
             new Rect(zoneStart, bandRect.Y, zoneEnd - zoneStart, bandRect.Height),
             new Rect(markerX, bandRect.Y + 2, BerthMetrics.DropMarkerThickness, bandRect.Height - 4),
-            StripCommit(draggedId, anchor, predecessorId)));
+            StripCommit(draggedId, anchor, predecessorId))
+        {
+            WindowKey = windowKey,
+        });
     }
 
     /// <summary>The band a strip's headers live in: the group's bar or the decorator header row.</summary>
@@ -184,7 +207,8 @@ internal static class TabDropTargets
     /// one (= the reference's getDropSideFor). The marker previews the result: the half of
     /// the group on the direction side (= the reference's drop preview; owner decision).
     /// </summary>
-    private static DropTarget Wedge(Rect rect, SplitDirection direction, string draggedId, string anchor)
+    private static DropTarget Wedge(
+        Rect rect, SplitDirection direction, string draggedId, string anchor, object? windowKey)
     {
         var depth = BerthMetrics.SplitWedgeRatio;
         var hit = direction switch
@@ -216,6 +240,7 @@ internal static class TabDropTargets
         })
         {
             AreaMarker = true,
+            WindowKey = windowKey,
         };
     }
 
@@ -307,7 +332,8 @@ internal static class TabDropTargets
 
             var target = panelId is null ? DockGroupRef.HostRoot(DockHost.MainWindow) : DockGroupRef.PanelRoot(panelId);
             workspace.Execute(s => s.MoveTab(draggedId, target, int.MaxValue, registry));
-            FollowUp(workspace, new DropSite(source, (panelId, rootGroup), SameGroup: false), draggedId);
+            var receiver = new TabSite(panelId, panelId is null ? -1 : PanelDockIndex, rootGroup);
+            FollowUp(workspace, new DropSite(source, receiver, SameGroup: false), draggedId);
         };
 
     /// <summary>
@@ -338,12 +364,21 @@ internal static class TabDropTargets
 
     // ---- shared resolution and follow-ups ----
 
-    private sealed record DropSite(
-        (string? PanelId, TabGroupNode Group) Source,
-        (string? PanelId, TabGroupNode Group) Receiver,
-        bool SameGroup)
+    /// <summary>Sentinel dock index of a panel site: hosts are compared as (PanelId, DockIndex) pairs.</summary>
+    private const int PanelDockIndex = -2;
+
+    /// <summary>
+    /// Site of a tab: the hosting tree — a panel (by id) or a dock host (the main window is
+    /// index −1, a document window its list index) — and the containing group. The dock index
+    /// makes moves between dock hosts recognizably cross-host (DA-5.4, task 6.2).
+    /// </summary>
+    private readonly record struct TabSite(string? PanelId, int DockIndex, TabGroupNode Group);
+
+    private sealed record DropSite(TabSite Source, TabSite Receiver, bool SameGroup)
     {
-        public bool CrossHost => !string.Equals(Source.PanelId, Receiver.PanelId, StringComparison.Ordinal);
+        public bool CrossHost =>
+            !string.Equals(Source.PanelId, Receiver.PanelId, StringComparison.Ordinal)
+            || Source.DockIndex != Receiver.DockIndex;
     }
 
     /// <summary>
@@ -382,36 +417,40 @@ internal static class TabDropTargets
 
     /// <summary>
     /// The follow-ups of a completed drop, mirroring the 4.1 menu items (DA-9.7): a cross-host
-    /// move is activated with ActivateTab (DA-5.4 — activity follows the move), and keyboard
-    /// focus transfers into the dropped tab's content (DA-6.4); within one host the command
-    /// already made the tab active and only the focus follows.
+    /// move — between a panel and a dock host, or between dock hosts (task 6.2) — is activated
+    /// with ActivateTab (DA-5.4 — activity follows the move), and keyboard focus transfers
+    /// into the dropped tab's content (DA-6.4); within one host the command already made the
+    /// tab active and only the focus follows.
     /// </summary>
     private static void FollowUp(BerthWorkspace workspace, DropSite drop, string draggedId)
     {
         if (drop.CrossHost)
         {
-            workspace.Execute(s => s.ActivateTab(draggedId));
+            workspace.Execute(s => DockTrees.LayoutContainsTab(s, draggedId) ? s.ActivateTab(draggedId) : s);
         }
 
         workspace.FocusTab(draggedId);
     }
 
-    /// <summary>
-    /// Whether the visual lives inside a pseudo-window of the overlay platform (TW-7.7,
-    /// DA-7.5): trees hosted there — floating panels, document pseudo-windows — offer no drop
-    /// zones until the inter-window drag task, mirroring real floating windows (DA-9.7).
-    /// </summary>
-    private static bool IsInPseudoWindow(Visual visual) =>
-        visual.FindAncestorOfType<PseudoWindow>(includeSelf: true) is not null;
-
-    /// <summary>Group of the tab in a drag-hosting tree: the main window's tree or a panel tree; document windows offer no drag sources or targets until the inter-window drag task (TW-7.8).</summary>
-    private static (string? PanelId, TabGroupNode Group)? FindGroup(LayoutState state, string tabId)
+    /// <summary>Site of the tab in any materialized tree: the main window, a document window or a panel tree.</summary>
+    private static TabSite? FindGroup(LayoutState state, string tabId)
     {
         foreach (var group in DockTrees.Groups(state.DockArea.Root))
         {
             if (group.Tabs.Contains(tabId, StringComparer.Ordinal))
             {
-                return (null, group);
+                return new TabSite(PanelId: null, DockIndex: -1, group);
+            }
+        }
+
+        for (var i = 0; i < state.DockArea.Windows.Length; i++)
+        {
+            foreach (var group in DockTrees.Groups(state.DockArea.Windows[i].Root))
+            {
+                if (group.Tabs.Contains(tabId, StringComparer.Ordinal))
+                {
+                    return new TabSite(PanelId: null, DockIndex: i, group);
+                }
             }
         }
 
@@ -421,7 +460,7 @@ internal static class TabDropTargets
             {
                 if (group.Tabs.Contains(tabId, StringComparer.Ordinal))
                 {
-                    return (panel.Id, group);
+                    return new TabSite(panel.Id, PanelDockIndex, group);
                 }
             }
         }

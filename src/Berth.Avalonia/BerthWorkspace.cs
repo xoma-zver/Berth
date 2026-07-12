@@ -83,6 +83,7 @@ public sealed class BerthWorkspace : Decorator
         AvaloniaProperty.Register<BerthWorkspace, Func<string, string?>?>(nameof(TabTitleProvider));
 
     private readonly Dictionary<string, ToolWindowDecorator> _hosts = new(StringComparer.Ordinal);
+    private readonly List<TopLevel> _windowZOrder = [];
     private TabHostCache? _tabHosts;
     private ToolWindowStripe? _leftStripe;
     private ToolWindowStripe? _rightStripe;
@@ -103,6 +104,31 @@ public sealed class BerthWorkspace : Decorator
 
     /// <summary>The drag gesture controller (spec TW-5.17); null until the skeleton is built.</summary>
     internal DragController? Drag => _drag;
+
+    /// <summary>
+    /// TopLevels of the workspace in approximate z-order, topmost first (spec TW-5.17, task
+    /// 6.2): floating windows above the main window, ordered among themselves by their last
+    /// activations, a newly shown one on top — the approximation of the OS z-order, which
+    /// the platform does not expose (a v1 assumption). The drag hit-test resolves the top
+    /// window at a point over this order.
+    /// </summary>
+    internal IReadOnlyList<TopLevel> WindowsTopMostFirst => _windowZOrder;
+
+    /// <summary>Floating TopLevels of the workspace — every registered window except the main one.</summary>
+    internal IEnumerable<TopLevel> FloatingRoots
+    {
+        get
+        {
+            var main = TopLevel.GetTopLevel(this);
+            foreach (var topLevel in _windowZOrder)
+            {
+                if (!ReferenceEquals(topLevel, main))
+                {
+                    yield return topLevel;
+                }
+            }
+        }
+    }
 
     /// <summary>The layout to materialize; null renders nothing.</summary>
     public LayoutState? State
@@ -347,6 +373,15 @@ public sealed class BerthWorkspace : Decorator
     internal void FocusTab(string id) => _tabHosts?.TryFocusTab(id);
 
     /// <summary>
+    /// The focus transfer of a completed float take-out (spec TW-7.8): the same rules as
+    /// command activation (TW-6.6) — a no-op when the focus is already inside the window or
+    /// the host is not attached. Needed explicitly because the activating Open of an already
+    /// active window does not change the stored active id, so the command funnel alone would
+    /// not transfer focus.
+    /// </summary>
+    internal void FocusToolWindow(string id) => FocusActivated(id);
+
+    /// <summary>
     /// Whether the command factually reattached the window's host: open before and after with
     /// the slot or the layer changed — the reattachment whitelist of spec TW-9.13
     /// (DockPinned ↔ DockUnpinned changes neither and never touches the host).
@@ -455,11 +490,73 @@ public sealed class BerthWorkspace : Decorator
         return new FloatingBounds(100, 100, 400, 300);
     }
 
-    /// <summary>Registers a floating window's TopLevel with the shared focus and click wiring (TW-6.1, TW-6.2, DA-6.4).</summary>
-    internal void AttachFloatingTopLevel(TopLevel topLevel) => _autoHide?.Attach(topLevel);
+    /// <summary>
+    /// Registers a floating window's TopLevel with the shared wiring: focus and clicks
+    /// (TW-6.1, TW-6.2, DA-6.4), drag sources and the z-order registry (TW-5.17, task 6.2) —
+    /// a newly shown window enters the MRU order on top.
+    /// </summary>
+    internal void AttachFloatingTopLevel(TopLevel topLevel)
+    {
+        _autoHide?.Attach(topLevel);
+        _drag?.AttachWindow(topLevel);
+        RegisterTopLevel(topLevel, onTop: true);
+    }
 
     /// <summary>Removes a closing floating window's TopLevel from the shared wiring.</summary>
-    internal void DetachFloatingTopLevel(TopLevel topLevel) => _autoHide?.Detach(topLevel);
+    internal void DetachFloatingTopLevel(TopLevel topLevel)
+    {
+        _autoHide?.Detach(topLevel);
+        _drag?.DetachWindow(topLevel);
+        UnregisterTopLevel(topLevel);
+    }
+
+    private void RegisterTopLevel(TopLevel topLevel, bool onTop)
+    {
+        if (_windowZOrder.Contains(topLevel))
+        {
+            return;
+        }
+
+        if (onTop)
+        {
+            _windowZOrder.Insert(0, topLevel);
+        }
+        else
+        {
+            _windowZOrder.Add(topLevel);
+        }
+
+        if (topLevel is Window window)
+        {
+            window.Activated += OnWorkspaceWindowActivated;
+        }
+    }
+
+    private void UnregisterTopLevel(TopLevel topLevel)
+    {
+        _windowZOrder.Remove(topLevel);
+        if (topLevel is Window window)
+        {
+            window.Activated -= OnWorkspaceWindowActivated;
+        }
+    }
+
+    /// <summary>
+    /// The MRU update of the z-order approximation: an activated floating window moves on
+    /// top. The main window stays at the back: owned Float windows are always above it on
+    /// the OS, and a window shown without activation (a new document window) sits above the
+    /// still-active main window too — activation events alone cannot tell those apart
+    /// (the v1 assumption of TW-5.17).
+    /// </summary>
+    private void OnWorkspaceWindowActivated(object? sender, EventArgs e)
+    {
+        if (sender is TopLevel topLevel
+            && !ReferenceEquals(topLevel, TopLevel.GetTopLevel(this))
+            && _windowZOrder.Remove(topLevel))
+        {
+            _windowZOrder.Insert(0, topLevel);
+        }
+    }
 
     /// <summary>
     /// Activates the window hosting the visual, when it is a floating window of the workspace
@@ -516,6 +613,7 @@ public sealed class BerthWorkspace : Decorator
         {
             _autoHide = new AutoHideController(this);
             _autoHide.Attach(topLevel);
+            RegisterTopLevel(topLevel, onTop: false); // the main window starts at the back
             _floating = CreateFloatingLayer(topLevel);
 
             // Re-project: the floating layer materializes the current state's floating
@@ -544,6 +642,12 @@ public sealed class BerthWorkspace : Decorator
         _floating = null;
         _autoHide?.DetachAll();
         _autoHide = null;
+        // The floating windows unregistered themselves in the teardown; whatever remains —
+        // the main TopLevel — leaves with the workspace.
+        foreach (var topLevel in _windowZOrder.ToArray())
+        {
+            UnregisterTopLevel(topLevel);
+        }
     }
 
     /// <summary>

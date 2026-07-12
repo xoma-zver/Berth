@@ -289,15 +289,18 @@ public class TabDragTests
         var before = St(window);
         var panelContent = BoundsIn(Part(Decorator(window, "p"), "PART_GroupContent"), window).Center;
 
-        // A document has no zones in a panel tree — the release there is a cancellation.
+        // A document has no zones in a panel tree (a release there would be the outside
+        // take-out of task 6.2 — cancelled here to keep the state comparable).
         DragTo(window, Center(TabHeader(window, "d1"), window), panelContent);
         Assert.False(Part(window, "PART_DropMarker").IsVisible); // the panel offers no zone
+        PressEscape(window);
         Release(window, panelContent);
         Assert.Same(before, St(window));
 
         // An unclaimed (sleeping) tab has none either: its owner is not confirmed (INV-D5).
         DragTo(window, Center(TabHeader(window, "s1"), window), panelContent);
         Assert.False(Part(window, "PART_DropMarker").IsVisible);
+        PressEscape(window);
         Release(window, panelContent);
         Assert.Same(before, St(window));
     }
@@ -369,14 +372,15 @@ public class TabDragTests
         var start = Center(TabHeader(window, "d2"), window);
         var rect = BoundsIn(GroupViewOf(window, "d1"), window);
         DragTo(window, start, new Point(rect.Center.X, rect.Bottom - 4)); // over a valid wedge
-        Assert.True(Part(window, "PART_DragGhost").IsVisible);
+        var drag = Workspace(window).Drag!;
+        Assert.True(drag.GhostVisible); // the windowed ghost is an OS window (task 6.2)
 
         PressEscape(window);
         Release(window, new Point(rect.Center.X, rect.Bottom - 4));
 
         Assert.Same(before, St(window)); // zero commands: d1 stays active and current
         Assert.Equal("d1", St(window).DockArea.CurrentTabId);
-        Assert.False(Part(window, "PART_DragGhost").IsVisible);
+        Assert.False(drag.GhostVisible);
     }
 
     // ---- the deferred press-focus of tab headers (DA-9.7) ----
@@ -467,15 +471,16 @@ public class TabDragTests
             ],
         };
         var window = Show(state, registry);
-        var before = St(window);
 
         // A document drag released over the unpinned panel: no zones there (canHost), so the
-        // gesture cancels — and the release must not close the panel by the pointer path.
+        // outside take-out moves the tab into a new document window (task 6.2) — and the
+        // release must not close the panel by the pointer path (TW-6.2).
         var target = Center(Decorator(window, "u"), window);
         DragTo(window, Center(TabHeader(window, "d2"), window), target);
         Release(window, target);
 
-        Assert.Same(before, St(window));
-        Assert.True(St(window).ToolWindows[0].IsOpen);
+        Assert.True(St(window).ToolWindows[0].IsOpen); // the drag release is not a click
+        var docWindow = Assert.Single(St(window).DockArea.Windows);
+        Assert.Equal(["d2"], Assert.IsType<TabGroupNode>(docWindow.Root).Tabs);
     }
 }

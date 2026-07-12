@@ -330,7 +330,10 @@ internal sealed class PseudoWindow : Border
         Padding = new Thickness(ResizeBand - 1);
         ActualThemeVariantChanged += (_, _) => UpdateSurface();
         UpdateSurface();
-        AddHandler(PointerPressedEvent, OnPreviewPressed, RoutingStrategies.Tunnel);
+        // handledEventsToo: the workspace drag controller marks bare tab-header presses
+        // handled earlier on the same tunnel (the press-focus deferral of DA-9.7), and such a
+        // press must still raise the pseudo-window (TW-6.6, task 6.2).
+        AddHandler(PointerPressedEvent, OnPreviewPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(GotFocusEvent, (_, _) => BringToFront(), RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
@@ -496,9 +499,9 @@ internal sealed class PseudoWindow : Border
     private void OnPreviewPressed(object? sender, PointerPressedEventArgs e)
     {
         BringToFront();
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || _gestureActive)
+        if (e.Handled || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || _gestureActive)
         {
-            return;
+            return; // a handled press — a deferred tab-header press — only raises the window
         }
 
         var position = e.GetPosition(this);

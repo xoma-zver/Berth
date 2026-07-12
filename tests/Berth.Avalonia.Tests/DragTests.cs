@@ -61,18 +61,24 @@ public class DragTests
     }
 
     [AvaloniaFact]
-    public void TW_5_17_drag_consumes_the_click_and_release_outside_targets_cancels()
+    public void TW_7_8_icon_release_outside_targets_floats_at_the_point()
     {
         var state = LayoutState.Empty with { ToolWindows = [Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary)] };
         var window = Show(state, Registry("a"));
-        var before = St(window);
 
         var start = Center(Button(window, "a"), window);
-        var dockCenter = new Point(400, 300); // the dock area — no drop target there in 5.0
+        var dockCenter = new Point(400, 300); // the dock area — no drop target there
         DragTo(window, start, dockCenter);
         Release(window, dockCenter);
 
-        Assert.Same(before, St(window)); // no toggle, no command — no trace at all
+        // The take-out of TW-7.8: the closed panel opens floating at the release point with
+        // the platform default size, activated — not the TW-5.4 toggle of a click.
+        var a = Get(window, "a");
+        Assert.Equal(ToolWindowMode.Float, a.Mode);
+        Assert.True(a.IsOpen);
+        Assert.Equal(new FloatingBounds(400, 300, 600, 400), a.FloatingBounds);
+        Assert.Equal("a", St(window).ActiveToolWindowId);
+        Assert.Equal(ToolWindowMode.DockPinned, a.LastInternalMode); // the way back (E27)
     }
 
     // ---- stripe drop zones (TW-5.17, TW-1.5) ----
@@ -258,10 +264,12 @@ public class DragTests
         var window = Show(state, Registry("a", "b"));
         var before = St(window);
 
-        // Dropping a into the zone before itself is its current position.
+        // Dropping a into the zone before itself is its current position. The point sits
+        // just inside the stripe top — above it lies no zone at all (the outside take-out
+        // of TW-7.8 since task 6.2).
         var first = BoundsIn(Button(window, "a"), window);
         var start = first.Center;
-        var target = new Point(first.Center.X, first.Top - 2);
+        var target = new Point(first.Center.X, first.Top + 1);
         DragTo(window, start, target);
         Release(window, target);
 
@@ -314,11 +322,11 @@ public class DragTests
         var below = BoundsIn(Button(window, "b"), window);
         var target = new Point(below.Center.X, below.Bottom + 4); // a valid drop zone
         DragTo(window, start, target);
-        var ghost = Part(window, "PART_DragGhost");
-        Assert.True(ghost.IsVisible);
+        var drag = Workspace(window).Drag!;
+        Assert.True(drag.GhostVisible); // the windowed ghost is an OS window (task 6.2)
 
         PressEscape(window);
-        Assert.False(ghost.IsVisible); // the visuals are gone with the cancellation
+        Assert.False(drag.GhostVisible); // the visuals are gone with the cancellation
 
         Release(window, target); // over the once-valid target
         Assert.Same(before, St(window)); // no command, no toggle — no trace
@@ -336,25 +344,26 @@ public class DragTests
             ],
         };
         var window = Show(state, Registry("a", "b"));
-        var ghost = Part(window, "PART_DragGhost");
+        var drag = Workspace(window).Drag!;
         var marker = Part(window, "PART_DropMarker");
-        Assert.False(ghost.IsVisible);
+        Assert.False(drag.GhostVisible);
         Assert.False(marker.IsVisible);
 
         var start = Center(Button(window, "a"), window);
         var below = BoundsIn(Button(window, "b"), window);
         var overZone = new Point(below.Center.X, below.Bottom + 4);
         DragTo(window, start, overZone);
-        Assert.True(ghost.IsVisible);
+        Assert.True(drag.GhostVisible); // the windowed ghost is an OS window (task 6.2)
         Assert.True(marker.IsVisible);
 
         window.MouseMove(new Point(400, 300)); // off every target
         Dispatcher.UIThread.RunJobs();
-        Assert.True(ghost.IsVisible);
+        Assert.True(drag.GhostVisible);
         Assert.False(marker.IsVisible);
 
+        PressEscape(window); // cancel: the visuals-only test must not take the panel out
         Release(window, new Point(400, 300));
-        Assert.False(ghost.IsVisible);
+        Assert.False(drag.GhostVisible);
     }
 
     // ---- the deferred header activation (TW-6.6) ----
@@ -386,6 +395,7 @@ public class DragTests
         var start = new Point(BoundsIn(header, window).X + 40, BoundsIn(header, window).Center.Y);
         var outside = new Point(400, 300);
         DragTo(window, start, outside);
+        PressEscape(window); // cancellation: Esc or a lost capture (TW-5.17, task 6.2)
         Release(window, outside);
 
         Assert.Same(before, St(window));
@@ -528,9 +538,11 @@ public class DragTests
         var start = new Point(BoundsIn(header, window).X + 40, BoundsIn(header, window).Center.Y);
         var outside = new Point(400, 300);
         DragTo(window, start, outside);
+        PressEscape(window);
         Release(window, outside); // the cancelled gesture is not an outside click
 
         Assert.True(Get(window, "u").IsOpen);
+        Assert.Equal(ToolWindowMode.DockUnpinned, Get(window, "u").Mode); // cancelled: no take-out
     }
 }
 

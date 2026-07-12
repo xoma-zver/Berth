@@ -465,8 +465,20 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
         /// <summary>Last bounds applied or committed; an equal state value is not re-applied.</summary>
         public FloatingBounds? AppliedBounds { get; set; }
 
+        /// <summary>Drop marker overlay of this window (spec TW-5.17, task 6.2): permanent chrome above the content.</summary>
+        public MarkerOverlay Markers { get; } = new();
+
         /// <summary>Returns the hosted content to the workspace caches before the window closes.</summary>
         public abstract void ReleaseContent();
+
+        /// <summary>Stacks the content slot under the drop marker overlay of the window.</summary>
+        protected Panel WithMarkers(Control slot)
+        {
+            var root = new Panel();
+            root.Children.Add(slot);
+            root.Children.Add(Markers);
+            return root;
+        }
     }
 
     /// <summary>OS window of one Float/Window tool window (TW-7.1, TW-7.2), hosting its cached decorator.</summary>
@@ -476,7 +488,7 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
         {
             ToolWindowId = toolWindowId;
             IsIndependent = independent;
-            Content = HostSlot;
+            Content = WithMarkers(HostSlot);
         }
 
         public string ToolWindowId { get; }
@@ -505,7 +517,7 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
         public DocumentWindow(TabTreeContext context)
         {
             Context = context;
-            Content = TreeSlot;
+            Content = WithMarkers(TreeSlot);
         }
 
         public TabTreeContext Context { get; }

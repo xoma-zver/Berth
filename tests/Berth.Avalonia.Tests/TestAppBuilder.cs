@@ -14,6 +14,12 @@ public sealed class TestApp : Application
 
 public static class TestAppBuilder
 {
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<TestApp>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        // The headless platform ignores Window.Position in PointToScreen/PointToClient
+        // (probe, task 6.2): the gesture-space fallback composes positions manually, so
+        // multi-window drag tests keep meaningful screen geometry.
+        Berth.Controls.GestureSpace.UseWindowPositionFallback = true;
+        return AppBuilder.Configure<TestApp>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
+    }
 }
