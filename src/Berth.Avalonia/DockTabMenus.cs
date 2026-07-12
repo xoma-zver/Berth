@@ -83,14 +83,15 @@ internal static class DockTabMenus
 
         void AddMoveToNewWindow()
         {
-            if (!workspace.CanFloatWindows)
+            if (!workspace.CanFloat)
             {
-                return; // no real windows on this platform (TW-5.16, TW-7.6)
+                return; // document windows do not materialize on this platform (TW-5.16, DA-7.5)
             }
 
             // Dock hosts accept every tab (INV-D5), so any tab may leave into a new document
-            // window (DA-5.7); the default bounds come from the main window with an inset —
-            // the UI supplies the pixels (ADR-0002), computed at click time.
+            // window — real or pseudo (DA-5.7, DA-7.5); the default bounds come from the main
+            // window (the workspace on the overlay platform) with an inset — the UI supplies
+            // the pixels (ADR-0002), computed at click time.
             menu.Items.Add(MoveItem("Move to New Window", s =>
                 s.MoveTabToNewWindow(tabId, workspace.DefaultFloatingBounds())));
         }

@@ -418,3 +418,4 @@ static Berth.QuickAccess.List(Berth.LayoutState! state, Berth.ToolWindowRegistry
 Berth.SideState.Deconstruct(out double Weight) -> void
 Berth.SideState.SideState(double Weight = 0.33) -> void
 Berth.LayoutState.GetPairRatio(Berth.ToolWindowSide side) -> double?
+static Berth.ToolWindowModeExtensions.GetEffectiveMode(this Berth.ToolWindowMode mode, bool canFloat, bool canUseWindowed) -> Berth.ToolWindowMode

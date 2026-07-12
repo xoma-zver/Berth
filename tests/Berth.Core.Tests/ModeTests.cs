@@ -26,4 +26,34 @@ public class ModeTests
     {
         Assert.Equal(layer, mode.GetLayer());
     }
+
+    // Full degradation table of TW-7.6: Window → Float without windowed hosting, further →
+    // Undock without floating; internal modes never degrade, a full platform changes nothing.
+    [Theory]
+    // full platform: identity for every mode
+    [InlineData(ToolWindowMode.DockPinned, true, true, ToolWindowMode.DockPinned)]
+    [InlineData(ToolWindowMode.DockUnpinned, true, true, ToolWindowMode.DockUnpinned)]
+    [InlineData(ToolWindowMode.Undock, true, true, ToolWindowMode.Undock)]
+    [InlineData(ToolWindowMode.Float, true, true, ToolWindowMode.Float)]
+    [InlineData(ToolWindowMode.Window, true, true, ToolWindowMode.Window)]
+    // browser: no windowed hosting, floating via overlay pseudo-windows (TW-7.7)
+    [InlineData(ToolWindowMode.DockPinned, true, false, ToolWindowMode.DockPinned)]
+    [InlineData(ToolWindowMode.DockUnpinned, true, false, ToolWindowMode.DockUnpinned)]
+    [InlineData(ToolWindowMode.Undock, true, false, ToolWindowMode.Undock)]
+    [InlineData(ToolWindowMode.Float, true, false, ToolWindowMode.Float)]
+    [InlineData(ToolWindowMode.Window, true, false, ToolWindowMode.Float)]
+    // no floating at all: both floating modes collapse into the overlay layer
+    [InlineData(ToolWindowMode.DockPinned, false, false, ToolWindowMode.DockPinned)]
+    [InlineData(ToolWindowMode.DockUnpinned, false, false, ToolWindowMode.DockUnpinned)]
+    [InlineData(ToolWindowMode.Undock, false, false, ToolWindowMode.Undock)]
+    [InlineData(ToolWindowMode.Float, false, false, ToolWindowMode.Undock)]
+    [InlineData(ToolWindowMode.Window, false, false, ToolWindowMode.Undock)]
+    // degenerate capability set (windowed without floating): Window survives, Float degrades
+    [InlineData(ToolWindowMode.Float, false, true, ToolWindowMode.Undock)]
+    [InlineData(ToolWindowMode.Window, false, true, ToolWindowMode.Window)]
+    public void TW_7_6_effective_mode_degrades_by_capabilities(
+        ToolWindowMode stored, bool canFloat, bool canUseWindowed, ToolWindowMode effective)
+    {
+        Assert.Equal(effective, stored.GetEffectiveMode(canFloat, canUseWindowed));
+    }
 }

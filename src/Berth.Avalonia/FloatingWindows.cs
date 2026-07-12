@@ -23,7 +23,7 @@ namespace Berth.Controls;
 /// registers with the workspace's <see cref="AutoHideController"/>, so focus and click wiring
 /// spans every window of the workspace (TW-6.1, TW-6.2, DA-6.4).
 /// </summary>
-internal sealed class FloatingWindowLayer
+internal sealed class FloatingWindowLayer : IFloatingLayer
 {
     private readonly BerthWorkspace _workspace;
     private readonly Window _owner;
@@ -41,6 +41,9 @@ internal sealed class FloatingWindowLayer
         // the owned windows before this handler runs (headless probe, 2026-07).
         _owner.Closing += OnOwnerClosing;
     }
+
+    /// <inheritdoc/>
+    public bool IsWindowed => true;
 
     /// <summary>The reconciliation pass, run from the workspace projection (spec TW-9.13, DA-9.6).</summary>
     public void Update(LayoutState state, ToolWindowRegistry registry)

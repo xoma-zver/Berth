@@ -28,3 +28,6 @@ Berth.Controls.DockTabHost
 Berth.Controls.DockTabHost.TabId.get -> string!
 Berth.Controls.FloatingBoundsValidation
 static Berth.Controls.FloatingBoundsValidation.CreateValidator(Avalonia.Controls.Window! mainWindow, double minVisibleFraction = 0.5) -> Berth.BoundsValidator!
+Berth.Controls.BerthWorkspace.CanFloat.get -> bool
+Berth.Controls.BerthWorkspace.CanUseWindowed.get -> bool
+static Berth.Controls.FloatingBoundsValidation.CreateOverlayValidator(Avalonia.Controls.Control! workspaceArea, double minVisibleFraction = 0.5) -> Berth.BoundsValidator!

@@ -7,11 +7,11 @@ namespace Berth.Controls;
 /// TW-5.15). Every item invokes a core command through <see cref="BerthWorkspace.Execute"/>
 /// (ADR-0004). Menus are built when the projection is rebuilt, so they always reflect the
 /// state they were built from, and the rebuild after each command replaces them wholesale.
-/// On a platform with real windows View Mode offers all five modes; elsewhere Float and
-/// Window are hidden — the platform capabilities of TW-7.6/7.7 are both false — and a window
-/// already stored in a floating mode gets the single «Dock» item returning it to its last
-/// internal mode (TW-5.6) on both menu levels, because there the stripe icon is such a
-/// window's only handle.
+/// View Mode is built from the platform capabilities (TW-7.6, TW-5.16): a platform with real
+/// windows offers all five modes, the browser hides only Window — Float materializes as a
+/// pseudo-window (TW-7.7) — and supplements a stored-Window record with «Dock», the return to
+/// its last internal mode (TW-5.6); a detached workspace, where nothing floats yet, falls
+/// back to the internal modes or the bare «Dock» item.
 /// </summary>
 internal static class ToolWindowMenus
 {
@@ -103,14 +103,25 @@ internal static class ToolWindowMenus
     private static MenuItem ViewModeItem(ToolWindowState window, BerthWorkspace workspace)
     {
         var root = new MenuItem { Header = "View Mode" };
-        if (workspace.CanFloatWindows)
+        if (workspace.CanFloat)
         {
-            // A platform with real windows offers all five modes (TW-5.16, TW-7.6).
+            // Items of unavailable modes are hidden (TW-5.16, TW-7.6): a platform with real
+            // windows offers all five, the browser offers four — Float is a pseudo-window
+            // there (TW-7.7) and only Window stays hidden.
             root.Items.Add(ModeItem("Dock Pinned", ToolWindowMode.DockPinned));
             root.Items.Add(ModeItem("Dock Unpinned", ToolWindowMode.DockUnpinned));
             root.Items.Add(ModeItem("Undock", ToolWindowMode.Undock));
             root.Items.Add(ModeItem("Float", ToolWindowMode.Float));
-            root.Items.Add(ModeItem("Window", ToolWindowMode.Window));
+            if (workspace.CanUseWindowed)
+            {
+                root.Items.Add(ModeItem("Window", ToolWindowMode.Window));
+            }
+            else if (window.Mode == ToolWindowMode.Window)
+            {
+                // The stored mode's own item is hidden: «Dock» supplements the section as
+                // the way back (TW-5.16) — the record presents as an effective Float (TW-7.6).
+                root.Items.Add(DockItem(window, workspace));
+            }
         }
         else if (window.Mode.IsInternal())
         {
@@ -120,9 +131,8 @@ internal static class ToolWindowMenus
         }
         else
         {
-            // A floating record offers only the return: Float/Window are hidden while the
-            // platform cannot materialize them (TW-7.6, TW-7.7); the same DockItem is live
-            // and tested in the icon menu.
+            // A floating record on a detached workspace offers only the return; the same
+            // DockItem is live and tested in the icon menu.
             root.Items.Add(DockItem(window, workspace));
         }
 

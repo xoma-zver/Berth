@@ -44,6 +44,7 @@ internal static class TabDropTargets
         {
             if (!view.IsEffectivelyVisible
                 || !Allowed(view.Context.PanelId)
+                || IsInPseudoWindow(view)
                 || StripeDropTargets.BoundsIn(view, workspace) is not { } rect
                 || rect.Width <= 0
                 || rect.Height <= 0)
@@ -93,6 +94,7 @@ internal static class TabDropTargets
         {
             if (!header.IsEffectivelyVisible
                 || !allowed(header.Context.PanelId)
+                || IsInPseudoWindow(header)
                 || StripeDropTargets.BoundsIn(header, workspace) is not { } rect
                 || StripBandOf(header) is not { } band)
             {
@@ -393,6 +395,14 @@ internal static class TabDropTargets
 
         workspace.FocusTab(draggedId);
     }
+
+    /// <summary>
+    /// Whether the visual lives inside a pseudo-window of the overlay platform (TW-7.7,
+    /// DA-7.5): trees hosted there — floating panels, document pseudo-windows — offer no drop
+    /// zones until the inter-window drag task, mirroring real floating windows (DA-9.7).
+    /// </summary>
+    private static bool IsInPseudoWindow(Visual visual) =>
+        visual.FindAncestorOfType<PseudoWindow>(includeSelf: true) is not null;
 
     /// <summary>Group of the tab in a drag-hosting tree: the main window's tree or a panel tree; document windows offer no drag sources or targets until the inter-window drag task (TW-7.8).</summary>
     private static (string? PanelId, TabGroupNode Group)? FindGroup(LayoutState state, string tabId)

@@ -34,4 +34,32 @@ public static class ToolWindowModeExtensions
         ToolWindowMode.Undock => ToolWindowLayer.Overlay,
         _ => ToolWindowLayer.Floating,
     };
+
+    /// <summary>
+    /// Effective presentation mode under the platform capabilities (spec TW-7.6): the stored
+    /// mode degrades <see cref="ToolWindowMode.Window"/> → <see cref="ToolWindowMode.Float"/>
+    /// when windowed hosting is unavailable, and further → <see cref="ToolWindowMode.Undock"/>
+    /// when floating is unavailable too; internal modes never degrade. A pure function — the
+    /// core knows nothing about platforms (ADR-0002, ADR-0006): the UI layer supplies the
+    /// capabilities and the stored mode is never changed, so a layout carried back to a fuller
+    /// platform restores the original behaviour. The degraded mode governs presentation only;
+    /// behaviour such as auto-hiding follows the stored mode (TW-7.6).
+    /// </summary>
+    /// <param name="mode">Stored presentation mode.</param>
+    /// <param name="canFloat">Whether the platform hosts Float — a real owned window or an overlay pseudo-window (TW-7.7).</param>
+    /// <param name="canUseWindowed">Whether the platform hosts Window — an independent top-level window.</param>
+    public static ToolWindowMode GetEffectiveMode(this ToolWindowMode mode, bool canFloat, bool canUseWindowed)
+    {
+        if (mode == ToolWindowMode.Window && !canUseWindowed)
+        {
+            mode = ToolWindowMode.Float;
+        }
+
+        if (mode == ToolWindowMode.Float && !canFloat)
+        {
+            mode = ToolWindowMode.Undock;
+        }
+
+        return mode;
+    }
 }

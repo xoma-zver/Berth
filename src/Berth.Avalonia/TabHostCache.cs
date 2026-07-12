@@ -195,10 +195,10 @@ internal sealed class TabHostCache
 
     /// <summary>
     /// Next visible tab lacking content: active tabs of the main window's groups, of the
-    /// materialized document windows (DA-9.6, task 6.0), then of the trees of open, hosted
-    /// panels — a closed panel's tabs never materialize (TW-9.3, DA-9.6), keeping the
-    /// OnFirstOpen creation moment of the body (TW-9.2). Document windows on a platform
-    /// without real windows stay unmaterialized.
+    /// materialized document windows — real or pseudo (DA-9.6, tasks 6.0/6.1) — then of the
+    /// trees of open, hosted panels — a closed panel's tabs never materialize (TW-9.3,
+    /// DA-9.6), keeping the OnFirstOpen creation moment of the body (TW-9.2). Document
+    /// windows on a platform where they never materialize stay unmaterialized.
     /// </summary>
     private string? NextPendingTab(LayoutState state)
     {
@@ -210,7 +210,7 @@ internal sealed class TabHostCache
             }
         }
 
-        if (_workspace.CanFloatWindows)
+        if (_workspace.CanFloat)
         {
             foreach (var window in state.DockArea.Windows)
             {
