@@ -5,7 +5,7 @@
       "name": "berth-wasm-demo",
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "samples/Berth.Demo.Browser"],
-      "port": 5240
+      "port": 5235
     }
   ]
 }

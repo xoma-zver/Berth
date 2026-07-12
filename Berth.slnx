@@ -6,6 +6,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Berth.Avalonia.Tests/Berth.Avalonia.Tests.csproj" />
     <Project Path="tests/Berth.Core.Tests/Berth.Core.Tests.csproj" />
+    <Project Path="tests/Berth.Demo.Tests/Berth.Demo.Tests.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Berth.Demo/Berth.Demo.csproj" />

@@ -3,5 +3,5 @@
              xmlns:vm="using:Berth.Demo.ViewModels"
              x:Class="Berth.Demo.Views.ProjectView"
              x:DataType="vm:ProjectViewModel">
-    <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}"/>
+    <ListBox x:Name="Files" ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}"/>
 </UserControl>

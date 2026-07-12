@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -11,6 +12,12 @@ public partial class ProjectViewModel : ViewModelBase
 {
     [ObservableProperty]
     private string? _selectedFile;
+
+    /// <summary>
+    /// Application callback opening the selected file as a document (spec DA-5.1); the
+    /// composition root wires it to the command channel, the view invokes it on double-tap.
+    /// </summary>
+    public Action<string>? OpenFile { get; set; }
 
     public ObservableCollection<string> Files { get; } =
     [

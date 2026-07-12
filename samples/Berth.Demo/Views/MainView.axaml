@@ -14,11 +14,20 @@ to set the actual DataContext for runtime, set the DataContext property in code 
     </Design.DataContext>
 
     <!-- State is two-way: workspace gestures assign the command result back and the view
-         model observes it (persistence hooks onto this property in a real application).
+         model observes it (the persistence autosave hooks onto this property).
          The demo keymap (Alt+1..Alt+4 -> ActivateToolWindow) and the shortcut hint
          provider are wired in code-behind: shortcuts live in the application (TW-5.5). -->
-    <berth:BerthWorkspace x:Name="Workspace"
-                          State="{Binding State, Mode=TwoWay}"
-                          Registry="{Binding Registry}"
-                          Lifecycle="{Binding Lifecycle}"/>
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="View">
+                <!-- The ResetToDefaults recipe over the Arrangement scope (TW-10.6): panels
+                     return to their defaults, open documents and content trees stay. -->
+                <MenuItem Header="Reset Layout" Click="OnResetLayout"/>
+            </MenuItem>
+        </Menu>
+        <berth:BerthWorkspace x:Name="Workspace"
+                              State="{Binding State, Mode=TwoWay}"
+                              Registry="{Binding Registry}"
+                              Lifecycle="{Binding Lifecycle}"/>
+    </DockPanel>
 </UserControl>

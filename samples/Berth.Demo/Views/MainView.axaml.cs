@@ -54,4 +54,7 @@ public partial class MainView : UserControl
             }
         }
     }
+
+    private void OnResetLayout(object? sender, RoutedEventArgs e) =>
+        (DataContext as ViewModels.MainViewModel)?.ResetLayout();
 }

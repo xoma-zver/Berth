@@ -16,6 +16,8 @@ sealed class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            // The desktop layout store: ApplicationData/Berth.Demo/layout.json (task 7.0).
+            .AfterSetup(builder => ((App)builder.Instance!).LayoutStore = FileLayoutStore.CreateDefault())
 #if DEBUG
             .WithDeveloperTools()
 #endif

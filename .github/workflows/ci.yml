@@ -19,5 +19,7 @@ jobs:
         run: dotnet test tests/Berth.Core.Tests -c Release
       - name: Avalonia headless tests
         run: dotnet test tests/Berth.Avalonia.Tests -c Release
+      - name: Mini-IDE integration tests
+        run: dotnet test tests/Berth.Demo.Tests -c Release
       - name: Demo build (walking skeleton)
         run: dotnet build samples/Berth.Demo.Desktop -c Release

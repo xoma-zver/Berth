@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Berth.Demo.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Integration tests drive the mini-IDE demo composition itself (task 7.0): the demo is
+         the reference sample of application-side persistence, and these tests pin its
+         behaviour end to end — restore, autosave contract, error fallbacks. -->
+    <ProjectReference Include="../../samples/Berth.Demo/Berth.Demo.csproj" />
+  </ItemGroup>
+</Project>

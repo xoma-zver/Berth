@@ -13,6 +13,7 @@ dotnet build src/Berth.Core && dotnet build src/Berth.Avalonia
 dotnet build samples/Berth.Demo.Desktop  # демо (walking skeleton) — собирается всегда, в т.ч. в CI
 dotnet test tests/Berth.Core.Tests
 dotnet test tests/Berth.Avalonia.Tests   # headless UI-тесты
+dotnet test tests/Berth.Demo.Tests       # интеграционные тесты мини-IDE демо
 ```
 
 Полное решение (`Berth.slnx`) включает остальные демо-хосты (Browser, мобильные) и требует workloads — они вне регулярной сборки; для задач библиотеки достаточно `src/`, `tests/` и десктопного демо-хоста.
