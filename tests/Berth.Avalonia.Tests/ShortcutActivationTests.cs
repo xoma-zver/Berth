@@ -1,9 +1,7 @@
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using Berth;
 using Xunit;
 using static Berth.Controls.Tests.WorkspaceTestSupport;
 

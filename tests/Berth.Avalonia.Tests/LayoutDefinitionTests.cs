@@ -3,7 +3,6 @@ using Avalonia.Controls.Templates;
 using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using Berth;
 using Xunit;
 
 namespace Berth.Controls.Tests;

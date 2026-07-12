@@ -143,7 +143,8 @@ public class ApplyTests
     {
         var snapshot = Layout(
                 Window("a", LeftPrimary, 0) with { PairRatio = double.NaN })
-            with { Left = new SideState(Weight: 0.0) };
+            with
+        { Left = new SideState(Weight: 0.0) };
 
         var result = LayoutState.Empty.Apply(snapshot, ApplyScope.Full, new ToolWindowRegistry());
 
@@ -174,7 +175,8 @@ public class ApplyTests
         // и отдельной записи не порождает (TW-10.4).
         var snapshot = Layout(
             Window("a", LeftPrimary, 1) with { IsOpen = true },
-            Window("b", LeftPrimary, 0) with { IsOpen = true }) with { ActiveToolWindowId = "a" };
+            Window("b", LeftPrimary, 0) with { IsOpen = true }) with
+        { ActiveToolWindowId = "a" };
 
         var result = LayoutState.Empty.Apply(snapshot, ApplyScope.Full, new ToolWindowRegistry());
 
@@ -393,7 +395,8 @@ public class ApplyTests
     public void TW_10_7_active_tool_window_resets_without_a_fix()
     {
         var current = Layout(Window("a", LeftPrimary, 0) with { IsOpen = true })
-            with { ActiveToolWindowId = "a" };
+            with
+        { ActiveToolWindowId = "a" };
         var macro = Layout(Window("a", LeftPrimary, 0) with { IsOpen = true });
 
         var result = current.Apply(macro, ApplyScope.Arrangement, new ToolWindowRegistry());
@@ -481,7 +484,8 @@ public class ApplyTests
         // Рецепт «сбросить размещение, не закрывая документы» (XML-doc ResetToDefaults).
         var registry = Registry(new ToolWindowDescriptor("a", "A", LeftPrimary));
         var current = (Layout(Window("a", RightPrimary, 0) with { IsOpen = true })
-                with { QuickAccessSide = QuickAccessSide.Right })
+                with
+        { QuickAccessSide = QuickAccessSide.Right })
             .OpenDocument("doc", EmptyRegistry);
 
         var result = current.Apply(LayoutApply.ResetToDefaults(registry), ApplyScope.Arrangement, registry);

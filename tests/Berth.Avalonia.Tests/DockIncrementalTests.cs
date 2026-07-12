@@ -3,7 +3,6 @@ using Avalonia.Controls.Templates;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Berth;
 using Xunit;
 using static Berth.Controls.Tests.WorkspaceTestSupport;
 

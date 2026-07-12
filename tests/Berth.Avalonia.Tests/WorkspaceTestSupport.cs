@@ -4,7 +4,6 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Berth;
 
 namespace Berth.Controls.Tests;
 
