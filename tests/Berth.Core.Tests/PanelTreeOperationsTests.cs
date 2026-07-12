@@ -279,7 +279,8 @@ public class PanelTreeOperationsTests
         var state = BaseState(
             pTree: GroupActive("p:t1", "p:t1", "p:t2"),
             dockArea: new DockAreaState { Root = GroupActive("m", "m"), CurrentTabId = "m" })
-            with { ActiveToolWindowId = null };
+            with
+        { ActiveToolWindowId = null };
         state = state with
         {
             ToolWindows = state.ToolWindows.SetItem(0, Panel(state, "p") with { IsOpen = true }),

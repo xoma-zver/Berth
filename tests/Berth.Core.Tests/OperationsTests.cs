@@ -70,7 +70,8 @@ public class OperationsTests
     {
         var layout = Layout(
             Window("a", LeftPrimary, 0) with { IsOpen = true },
-            Window("b", LeftPrimary, 1)) with { ActiveToolWindowId = "a" };
+            Window("b", LeftPrimary, 1)) with
+        { ActiveToolWindowId = "a" };
 
         var result = layout.Open("b", activate: false);
 
@@ -115,7 +116,8 @@ public class OperationsTests
             Mode = ToolWindowMode.DockUnpinned,
             LastInternalMode = ToolWindowMode.DockUnpinned,
             PairRatio = 0.8,
-        }) with { ActiveToolWindowId = "a" };
+        }) with
+        { ActiveToolWindowId = "a" };
 
         var result = layout.Close("a");
 
@@ -133,7 +135,8 @@ public class OperationsTests
     {
         var layout = Layout(
             Window("a", LeftPrimary, 0) with { IsOpen = true },
-            Window("b", RightPrimary, 0) with { IsOpen = true }) with { ActiveToolWindowId = "a" };
+            Window("b", RightPrimary, 0) with { IsOpen = true }) with
+        { ActiveToolWindowId = "a" };
 
         var result = layout.Close("b");
 
@@ -355,7 +358,8 @@ public class OperationsTests
     {
         var layout = Layout(
             Window("a", LeftPrimary, 0),
-            Window("a2", LeftPrimary, 1) with { IsOpen = true }) with { ActiveToolWindowId = "a2" };
+            Window("a2", LeftPrimary, 1) with { IsOpen = true }) with
+        { ActiveToolWindowId = "a2" };
 
         var result = layout.SetIconVisible("a2", false);
 
@@ -405,7 +409,8 @@ public class OperationsTests
             Window("a", LeftPrimary, 0) with { IsOpen = true },
             Window("b", LeftSecondary, 0) with { IsOpen = true, Mode = ToolWindowMode.Undock, LastInternalMode = ToolWindowMode.Undock },
             Window("c", RightPrimary, 0) with { IsOpen = true, Mode = ToolWindowMode.Float },
-            Window("d", RightPrimary, 1) with { IsOpen = true, Mode = ToolWindowMode.Window }) with { ActiveToolWindowId = "a" };
+            Window("d", RightPrimary, 1) with { IsOpen = true, Mode = ToolWindowMode.Window }) with
+        { ActiveToolWindowId = "a" };
 
         var result = layout.HideAll();
 
@@ -421,7 +426,8 @@ public class OperationsTests
     {
         var layout = Layout(
             Window("a", LeftPrimary, 0) with { IsOpen = true },
-            Window("c", RightPrimary, 0) with { IsOpen = true, Mode = ToolWindowMode.Float }) with { ActiveToolWindowId = "c" };
+            Window("c", RightPrimary, 0) with { IsOpen = true, Mode = ToolWindowMode.Float }) with
+        { ActiveToolWindowId = "c" };
 
         var result = layout.HideAll();
 

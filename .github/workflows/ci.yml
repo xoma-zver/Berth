@@ -15,6 +15,17 @@ jobs:
           dotnet-version: 10.0.x
       # Библиотечные проекты, тесты и десктопный демо-хост; Browser и мобильные хосты демо
       # сознательно вне CI (нужны workloads)
+      # Форматирование по .editorconfig; тот же scope, что и сборка (без Browser/мобильных)
+      - name: Format check
+        run: |
+          for p in \
+            src/Berth.Core src/Berth.Avalonia \
+            samples/Berth.Demo samples/Berth.Demo.Desktop \
+            tests/Berth.Core.Tests tests/Berth.Avalonia.Tests tests/Berth.Demo.Tests; do
+            echo "::group::dotnet format $p"
+            dotnet format "$p" --verify-no-changes
+            echo "::endgroup::"
+          done
       - name: Core tests
         run: dotnet test tests/Berth.Core.Tests -c Release
       - name: Avalonia headless tests
