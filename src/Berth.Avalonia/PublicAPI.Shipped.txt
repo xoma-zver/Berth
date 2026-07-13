@@ -1,1 +1,87 @@
 #nullable enable
+Berth.Controls.BerthWorkspace
+Berth.Controls.BerthWorkspace.BerthWorkspace() -> void
+Berth.Controls.BerthWorkspace.Lifecycle.get -> Berth.ContentLifecycle?
+Berth.Controls.BerthWorkspace.Lifecycle.set -> void
+Berth.Controls.BerthWorkspace.Registry.get -> Berth.ToolWindowRegistry?
+Berth.Controls.BerthWorkspace.Registry.set -> void
+Berth.Controls.BerthWorkspace.State.get -> Berth.LayoutState?
+Berth.Controls.BerthWorkspace.State.set -> void
+Berth.Controls.StripeButton
+Berth.Controls.StripeButton.IsOpen.get -> bool
+Berth.Controls.StripeButton.ToolWindowId.get -> string!
+Berth.Controls.ToolWindowDecorator
+Berth.Controls.ToolWindowDecorator.Title.get -> string!
+Berth.Controls.ToolWindowDecorator.ToolWindowId.get -> string!
+static readonly Berth.Controls.BerthWorkspace.LifecycleProperty -> Avalonia.StyledProperty<Berth.ContentLifecycle?>!
+static readonly Berth.Controls.BerthWorkspace.RegistryProperty -> Avalonia.StyledProperty<Berth.ToolWindowRegistry?>!
+static readonly Berth.Controls.BerthWorkspace.StateProperty -> Avalonia.StyledProperty<Berth.LayoutState?>!
+Berth.Controls.BerthWorkspace.Refresh() -> void
+Berth.Controls.BerthWorkspace.ActivateToolWindow(string! id) -> void
+Berth.Controls.BerthWorkspace.ShortcutHintProvider.get -> System.Func<string!, string?>?
+Berth.Controls.BerthWorkspace.ShortcutHintProvider.set -> void
+static readonly Berth.Controls.BerthWorkspace.ShortcutHintProviderProperty -> Avalonia.StyledProperty<System.Func<string!, string?>?>!
+Berth.Controls.BerthWorkspace.TabTitleProvider.get -> System.Func<string!, string?>?
+Berth.Controls.BerthWorkspace.TabTitleProvider.set -> void
+static readonly Berth.Controls.BerthWorkspace.TabTitleProviderProperty -> Avalonia.StyledProperty<System.Func<string!, string?>?>!
+Berth.Controls.DockTabHost
+Berth.Controls.DockTabHost.TabId.get -> string!
+Berth.Controls.FloatingBoundsValidation
+static Berth.Controls.FloatingBoundsValidation.CreateValidator(Avalonia.Controls.Window! mainWindow, double minVisibleFraction = 0.5) -> Berth.BoundsValidator!
+Berth.Controls.BerthWorkspace.CanFloat.get -> bool
+Berth.Controls.BerthWorkspace.CanUseWindowed.get -> bool
+static Berth.Controls.FloatingBoundsValidation.CreateOverlayValidator(Avalonia.Controls.Control! workspaceArea, double minVisibleFraction = 0.5) -> Berth.BoundsValidator!
+Berth.Controls.BerthLayoutDefinition
+Berth.Controls.BerthLayoutDefinition.BerthLayoutDefinition() -> void
+Berth.Controls.BerthLayoutDefinition.Build() -> Berth.LayoutComposition!
+Berth.Controls.BerthLayoutDefinition.Items.get -> System.Collections.Generic.IList<Berth.Controls.LayoutDefinitionItem!>!
+Berth.Controls.BerthWorkspace.Definition.get -> Berth.Controls.BerthLayoutDefinition?
+Berth.Controls.BerthWorkspace.Definition.set -> void
+Berth.Controls.DockContentDefinition
+Berth.Controls.DockContentDefinition.ContentTemplate.get -> Avalonia.Controls.Templates.IDataTemplate?
+Berth.Controls.DockContentDefinition.ContentTemplate.set -> void
+Berth.Controls.DockContentDefinition.DockContentDefinition() -> void
+Berth.Controls.DockContentDefinition.TabIdPrefix.get -> string?
+Berth.Controls.DockContentDefinition.TabIdPrefix.set -> void
+Berth.Controls.DocumentDefinition
+Berth.Controls.DocumentDefinition.DocumentDefinition() -> void
+Berth.Controls.DocumentDefinition.Id.get -> string?
+Berth.Controls.DocumentDefinition.Id.set -> void
+Berth.Controls.LayoutDefinitionItem
+Berth.Controls.PanelTabDefinition
+Berth.Controls.PanelTabDefinition.Id.get -> string?
+Berth.Controls.PanelTabDefinition.Id.set -> void
+Berth.Controls.PanelTabDefinition.PanelTabDefinition() -> void
+Berth.Controls.ToolWindowDefinition
+Berth.Controls.ToolWindowDefinition.Content.get -> object?
+Berth.Controls.ToolWindowDefinition.Content.set -> void
+Berth.Controls.ToolWindowDefinition.ContentTemplate.get -> Avalonia.Controls.Templates.IDataTemplate?
+Berth.Controls.ToolWindowDefinition.ContentTemplate.set -> void
+Berth.Controls.ToolWindowDefinition.CreationPolicy.get -> Berth.ContentCreationPolicy
+Berth.Controls.ToolWindowDefinition.CreationPolicy.set -> void
+Berth.Controls.ToolWindowDefinition.Group.get -> Berth.ToolWindowGroup
+Berth.Controls.ToolWindowDefinition.Group.set -> void
+Berth.Controls.ToolWindowDefinition.IconKey.get -> string?
+Berth.Controls.ToolWindowDefinition.IconKey.set -> void
+Berth.Controls.ToolWindowDefinition.Id.get -> string?
+Berth.Controls.ToolWindowDefinition.Id.set -> void
+Berth.Controls.ToolWindowDefinition.IsOpen.get -> bool
+Berth.Controls.ToolWindowDefinition.IsOpen.set -> void
+Berth.Controls.ToolWindowDefinition.Mode.get -> Berth.ToolWindowMode
+Berth.Controls.ToolWindowDefinition.Mode.set -> void
+Berth.Controls.ToolWindowDefinition.Order.get -> int?
+Berth.Controls.ToolWindowDefinition.Order.set -> void
+Berth.Controls.ToolWindowDefinition.PairRatio.get -> double
+Berth.Controls.ToolWindowDefinition.PairRatio.set -> void
+Berth.Controls.ToolWindowDefinition.RetentionPolicy.get -> Berth.ContentRetentionPolicy
+Berth.Controls.ToolWindowDefinition.RetentionPolicy.set -> void
+Berth.Controls.ToolWindowDefinition.Side.get -> Berth.ToolWindowSide
+Berth.Controls.ToolWindowDefinition.Side.set -> void
+Berth.Controls.ToolWindowDefinition.TabIdPrefix.get -> string?
+Berth.Controls.ToolWindowDefinition.TabIdPrefix.set -> void
+Berth.Controls.ToolWindowDefinition.TabTemplate.get -> Avalonia.Controls.Templates.IDataTemplate?
+Berth.Controls.ToolWindowDefinition.TabTemplate.set -> void
+Berth.Controls.ToolWindowDefinition.Title.get -> string?
+Berth.Controls.ToolWindowDefinition.Title.set -> void
+Berth.Controls.ToolWindowDefinition.ToolWindowDefinition() -> void
+static readonly Berth.Controls.BerthWorkspace.DefinitionProperty -> Avalonia.StyledProperty<Berth.Controls.BerthLayoutDefinition?>!
