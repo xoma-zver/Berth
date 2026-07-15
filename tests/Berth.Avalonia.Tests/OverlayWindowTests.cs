@@ -325,6 +325,66 @@ public class OverlayWindowTests
         Assert.Equal(before.ToolWindows[0].FloatingBounds, Panel(main, "a").FloatingBounds); // no move
     }
 
+    // ---- TW-7.7 extension: docking a pseudo-window by dragging its header ----
+
+    [AvaloniaFact]
+    public void TW_7_7_dragging_the_header_onto_a_stripe_docks_the_panel()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowOverlay(state, registry, lifecycle: lifecycle);
+        var header = Part(PanelPseudo(main, "a"), "PART_Header");
+        var start = Center(header, main);
+        // The panel's own stripe icon sits on Left.Primary (its stored slot) — a robust point
+        // inside a stripe drop zone.
+        var stripeTarget = Center(Button(main, "a"), main);
+
+        main.MouseDown(start, MouseButton.Left);
+        main.MouseMove(stripeTarget);
+        Dispatcher.UIThread.RunJobs();
+
+        // The move lit the stripe zone under the pointer (TW-7.7 ext): the same insertion
+        // marker as the slot gesture, before any command.
+        Assert.True(Part(main, "PART_DropMarker").IsVisible);
+        Assert.Equal(ToolWindowMode.Float, Panel(main, "a").Mode); // still pure visualization
+
+        main.MouseUp(stripeTarget, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        // The release over the stripe docked the panel — the reverse of TW-7.8: Move +
+        // SetMode(LastInternalMode); the pseudo-window is gone, the marker hidden.
+        Assert.Equal(ToolWindowMode.DockPinned, Panel(main, "a").Mode);
+        Assert.Empty(PseudoWindows(main));
+        Assert.False(Part(main, "PART_DropMarker").IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void TW_7_7_ctrl_at_release_suppresses_docking_and_parks_the_panel()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowOverlay(state, registry, lifecycle: lifecycle);
+        var changes = new StateChangeCounter(main);
+        var header = Part(PanelPseudo(main, "a"), "PART_Header");
+        var start = Center(header, main);
+        var stripeTarget = Center(Button(main, "a"), main);
+
+        main.MouseDown(start, MouseButton.Left);
+        main.MouseMove(stripeTarget, RawInputModifiers.Control);
+        Dispatcher.UIThread.RunJobs();
+
+        // Ctrl parks the window: the stripe zones stay glued shut, no marker (TW-7.7 ext).
+        Assert.False(Part(main, "PART_DropMarker").IsVisible);
+
+        main.MouseUp(stripeTarget, MouseButton.Left, RawInputModifiers.Control);
+        Dispatcher.UIThread.RunJobs();
+
+        // The panel moved, it did not dock: still a Float pseudo-window, one SetFloatingBounds.
+        Assert.Equal(ToolWindowMode.Float, Panel(main, "a").Mode);
+        Assert.NotNull(PanelPseudo(main, "a"));
+        Assert.Equal(1, changes.Count);
+    }
+
     // ---- TW-6.6: z-order ----
 
     [AvaloniaFact]

@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace Berth.Controls;
@@ -320,6 +321,7 @@ internal sealed class PseudoWindow : Border
     private int _resizeX; // -1 left edge, 0 none, 1 right edge
     private int _resizeY; // -1 top edge, 0 none, 1 bottom edge
     private TopLevel? _gestureTopLevel;
+    private PanelDockGuide? _dockGuide; // stripe dock targets of a panel header move (TW-7.7 ext)
 
     private PseudoWindow(BerthWorkspace workspace)
     {
@@ -560,6 +562,15 @@ internal sealed class PseudoWindow : Border
         }
 
         SetVisualRect(ClampToCanvas(rect)); // pure visualization until the release (TW-7.7)
+
+        if (_gestureIsHeaderClickCandidate)
+        {
+            // A panel header move offers docking (TW-7.7 ext): light the stripe zones under
+            // the pointer, unless Ctrl parks the window at the edge. The guide is built on the
+            // first real movement, so a mere header click pays nothing.
+            _dockGuide ??= _workspace.BeginPanelDockGuide(_panelId!);
+            _dockGuide?.Update(PointerInCanvas(e), suppressed: e.KeyModifiers.HasFlag(KeyModifiers.Control));
+        }
     }
 
     /// <inheritdoc/>
@@ -573,9 +584,22 @@ internal sealed class PseudoWindow : Border
 
         var moved = _gestureMoved && !_gestureCancelled;
         var headerClick = _gestureIsHeaderClickCandidate && !_gestureMoved && !_gestureCancelled;
+        // A release over a stripe zone docks the panel instead of moving it (TW-7.7 ext),
+        // unless Ctrl parks it at the edge; resolved before EndGesture drops the guide.
+        var dockTarget = moved && !e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            ? _dockGuide?.Resolve(PointerInCanvas(e))
+            : null;
         EndGesture();
         e.Pointer.Capture(null);
-        if (moved)
+        if (dockTarget is { } target)
+        {
+            // The same Move + SetMode(LastInternalMode) command as the reverse icon/header
+            // drop (TW-7.8), through the workspace funnel. Deferred: the docking re-projection
+            // removes this pseudo-window, and that removal must not run inside its own pointer
+            // event (the non-reentrant close precedent of the floating layer).
+            Dispatcher.UIThread.Post(() => target.Commit(_workspace));
+        }
+        else if (moved)
         {
             var rect = CurrentRect();
             // One command per completed gesture (TW-5.9, DA-5.8); a click without movement
@@ -615,12 +639,15 @@ internal sealed class PseudoWindow : Border
     private void CancelGesture()
     {
         _gestureCancelled = true;
+        _dockGuide?.Hide();
         SetVisualRect(_gestureStartRect);
     }
 
     private void EndGesture()
     {
         _gestureActive = false;
+        _dockGuide?.Hide();
+        _dockGuide = null;
         _gestureTopLevel?.RemoveHandler(KeyDownEvent, OnGestureKeyDown);
         _gestureTopLevel = null;
     }

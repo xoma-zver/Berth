@@ -514,6 +514,28 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
+    /// Builds the dock assist of a panel pseudo-window's live move gesture (spec TW-7.7
+    /// extension): the stripe drop targets the panel may dock into, over the workspace («screen»)
+    /// coordinate space of the overlay platform. Null when there is nothing to dock onto — no
+    /// drag layer or no state. Called by a <see cref="PseudoWindow"/> on the first movement of a
+    /// header drag; pseudo-windows exist only on the overlay platform (TW-7.7), so the gesture
+    /// space is always the workspace itself and the catalog is built with <c>windowed: false</c>.
+    /// </summary>
+    internal PanelDockGuide? BeginPanelDockGuide(string panelId)
+    {
+        if (_dragLayer is not { } layer || State is not { } state)
+        {
+            return null;
+        }
+
+        // Zone geometry reads rendered stripe bounds: settle the layout first, as the drag
+        // controller does before building its own catalog.
+        UpdateLayout();
+        var space = new DropZoneSpace(this, windowed: false);
+        return new PanelDockGuide(layer, StripeDropTargets.Build(this, state, panelId, space));
+    }
+
+    /// <summary>
     /// Registers a floating window's TopLevel with the shared wiring: focus and clicks
     /// (TW-6.1, TW-6.2, DA-6.4), drag sources and the z-order registry (TW-5.17, task 6.2) —
     /// a newly shown window enters the MRU order on top.
