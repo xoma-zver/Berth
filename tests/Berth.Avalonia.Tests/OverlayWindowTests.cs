@@ -385,6 +385,35 @@ public class OverlayWindowTests
         Assert.Equal(1, changes.Count);
     }
 
+    [AvaloniaFact]
+    public void TW_7_7_escape_over_a_stripe_hides_the_marker_and_docks_nothing()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowOverlay(state, registry, lifecycle: lifecycle);
+        var before = St(main);
+        var header = Part(PanelPseudo(main, "a"), "PART_Header");
+        var start = Center(header, main);
+        var stripeTarget = Center(Button(main, "a"), main);
+
+        main.MouseDown(start, MouseButton.Left);
+        main.MouseMove(stripeTarget);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(Part(main, "PART_DropMarker").IsVisible); // the dock guide lit the zone
+
+        // Esc cancels the whole move (TW-7.7): the guide marker goes with it, and the release
+        // over the stripe commits nothing — no dock, no SetFloatingBounds.
+        PressEscape(main);
+        Assert.False(Part(main, "PART_DropMarker").IsVisible);
+
+        main.MouseUp(stripeTarget, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Same(before, St(main)); // no command, no trace
+        Assert.Equal(ToolWindowMode.Float, Panel(main, "a").Mode);
+        Assert.NotNull(PanelPseudo(main, "a"));
+    }
+
     // ---- TW-6.6: z-order ----
 
     [AvaloniaFact]
