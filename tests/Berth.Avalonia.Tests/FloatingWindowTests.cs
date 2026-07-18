@@ -811,6 +811,47 @@ public class FloatingWindowTests
     }
 
     [AvaloniaFact]
+    public void TW_7_1_escape_from_the_focused_main_window_cancels_the_header_move()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+        var floating = FloatingWindowOf(main, "a")!;
+        var headerLocal = Center(Part(floating, "PART_Header"), floating);
+        var before = St(main);
+
+        floating.MouseDown(headerLocal, MouseButton.Left);
+        floating.MouseMove(new Point(headerLocal.X + 80, headerLocal.Y));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(new PixelPoint(280, 200), floating.Position);
+
+        // The header press never takes keyboard focus (TW-6.6), so the key may arrive at
+        // the main window instead of the moved one — the gesture must hear it there too.
+        PressEscape(main);
+        Assert.Equal(new PixelPoint(200, 200), floating.Position);
+
+        floating.MouseUp(new Point(headerLocal.X + 80, headerLocal.Y), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Same(before, St(main)); // no command, no trace
+    }
+
+    [AvaloniaFact]
+    public void TW_5_17_frameless_marker_overlay_sits_at_the_window_origin()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+        var floating = FloatingWindowOf(main, "a")!;
+
+        // Cross-window drags address the marker overlay in window-local coordinates
+        // (WindowedDragVisual, task 6.2): the frame band must not inset it, or every
+        // marker inside the frameless window would shift by the band.
+        var markers = ((FloatingWindowLayer.FloatingWindowBase)floating).Markers;
+        Assert.Equal(new Point(0, 0), markers.TranslatePoint(default, floating));
+    }
+
+    [AvaloniaFact]
     public void TW_6_6_frameless_header_click_activates_without_moving()
     {
         var (registry, lifecycle, state, body, _) = Setup(

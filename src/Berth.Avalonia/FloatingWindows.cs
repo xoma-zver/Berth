@@ -544,6 +544,7 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
         private Point _movePointerStart; // gesture (screen) coordinates
         private PixelPoint _movePositionStart;
         private PanelDockGuide? _dockGuide;
+        private TopLevel? _moveKeyRoot;
 
         public PanelWindow(BerthWorkspace workspace, string toolWindowId, bool independent, bool frameless)
         {
@@ -554,14 +555,17 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
             if (frameless)
             {
                 WindowDecorations = WindowDecorations.None;
-                Content = new Border
+                // The frame band sits inside the marker stack: the marker overlay must stay
+                // at the window origin — WindowedDragVisual addresses it in window-local
+                // coordinates, and a band-inset overlay would shift every marker by the band.
+                Content = WithMarkers(new Border
                 {
                     BorderBrush = BerthBrushes.Separator,
                     BorderThickness = new Thickness(1),
                     Padding = new Thickness(ResizeBand - 1),
                     Background = Brushes.Transparent, // the band must stay hit-testable
-                    Child = WithMarkers(HostSlot),
-                };
+                    Child = HostSlot,
+                });
                 AddHandler(PointerPressedEvent, OnFramelessPressed, RoutingStrategies.Tunnel);
             }
             else
@@ -611,7 +615,14 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
             _movePointerStart = GestureSpace.FromTopLevel(this, e.GetPosition(this));
             _movePositionStart = Position;
             e.Pointer.Capture(this);
+            // Esc must reach the gesture wherever the keyboard focus sits: on Windows the
+            // press activates this window and the key tunnels from its own root, but the
+            // press itself never takes focus (deferred activation, TW-6.6) — a focus left
+            // in the main window routes the key there instead, so the handler goes on both
+            // (the pseudo-window precedent attaches to its focused TopLevel likewise).
             AddHandler(KeyDownEvent, OnMoveKeyDown, RoutingStrategies.Tunnel);
+            _moveKeyRoot = TopLevel.GetTopLevel(_workspace);
+            _moveKeyRoot?.AddHandler(KeyDownEvent, OnMoveKeyDown, RoutingStrategies.Tunnel);
         }
 
         /// <summary>The frameless edge band starts the system resize (TW-7.1); the resulting events commit through the ordinary deferred path (TW-5.9).</summary>
@@ -744,6 +755,8 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
             _dockGuide?.Hide();
             _dockGuide = null;
             RemoveHandler(KeyDownEvent, OnMoveKeyDown);
+            _moveKeyRoot?.RemoveHandler(KeyDownEvent, OnMoveKeyDown);
+            _moveKeyRoot = null;
         }
 
         private static WindowEdge EdgeOf(int x, int y) => (x, y) switch
