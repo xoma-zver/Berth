@@ -498,4 +498,54 @@ public class CrossWindowDragTests
         Dispatcher.UIThread.RunJobs();
         Assert.Same(before, St(main));
     }
+
+    [AvaloniaFact]
+    public void DA_9_7_strip_to_strip_hover_across_windows_leaves_no_stale_placeholder()
+    {
+        var registry = DockRegistry();
+        var lifecycle = new ContentLifecycle(registry);
+        var state = LayoutState.Empty with
+        {
+            DockArea = new DockAreaState
+            {
+                Root = Group("d1", "d1", "d2"),
+                CurrentTabId = "d1",
+                Windows =
+                [
+                    new DocumentWindowState(new FloatingBounds(900, 50, 400, 300), Group("d8", "d8"), "d8"),
+                    new DocumentWindowState(new FloatingBounds(900, 500, 400, 300), Group("d9", "d9"), "d9"),
+                ],
+            },
+        };
+        var main = Show(state, registry, lifecycle: lifecycle);
+        var windowA = DocumentWindowOf(main, "d8")!;
+        var windowB = DocumentWindowOf(main, "d9")!;
+
+        var d2 = BoundsIn(TabHeader(main, "d2"), main);
+        var d8 = BoundsIn(TabHeader(windowA, "d8"), windowA);
+        var d9 = BoundsIn(TabHeader(windowB, "d9"), windowB);
+        var overA = Gesture(windowA, new Point(d8.Right + 4, d8.Center.Y));
+        var overB = Gesture(windowB, new Point(d9.Right + 4, d9.Center.Y));
+        main.MouseDown(d2.Center, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        main.MouseMove(Local(main, overA));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(Part(windowA, "PART_StripPlaceholder").IsVisible);
+
+        // Straight from window A's strip onto window B's, with no non-strip frame in
+        // between: the previous window's placeholder hides with the move — the full-hide
+        // rule the marker path already follows (DA-9.7 v0.18).
+        main.MouseMove(Local(main, overB));
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(Part(windowA, "PART_StripPlaceholder").IsVisible);
+        Assert.True(Part(windowB, "PART_StripPlaceholder").IsVisible);
+
+        // The cancelled gesture leaves nothing behind in any window (DA-E22).
+        main.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(Part(windowA, "PART_StripPlaceholder").IsVisible);
+        Assert.False(Part(windowB, "PART_StripPlaceholder").IsVisible);
+        main.MouseUp(Local(main, overB), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+    }
 }

@@ -220,7 +220,10 @@ internal sealed class DragController
     /// without waiting for the next pointer move. A posted job rebuilds the catalog over
     /// settled layout and re-resolves the target at the last gesture point; the pointer-move
     /// path stays the primary rebuild trigger — the job coalesces and yields when a move (or
-    /// the gesture's end) got there first.
+    /// the gesture's end) got there first. The flag mirrors the queued job exactly: every
+    /// job resets it first thing and reads the live phase and dirtiness, so a job outliving
+    /// its gesture still serves the next one — resetting the flag at gesture end would only
+    /// break the pairing and spawn duplicate jobs.
     /// </summary>
     private void ScheduleReapply()
     {

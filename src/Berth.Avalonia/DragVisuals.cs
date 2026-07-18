@@ -151,6 +151,21 @@ internal static class GhostChrome
         BorderThickness = new Thickness(1),
     };
 
+    /// <summary>
+    /// Sizes and positions one canvas-hosted gesture visual over the given rectangle and
+    /// shows it — the placement shared by the workspace <see cref="DragLayer"/> and the
+    /// per-window <see cref="MarkerOverlay"/>, whose markers and placeholders otherwise
+    /// duplicate it surface by surface.
+    /// </summary>
+    public static void PlaceOnCanvas(Control visual, Rect rect)
+    {
+        visual.Width = rect.Width;
+        visual.Height = rect.Height;
+        Canvas.SetLeft(visual, rect.X);
+        Canvas.SetTop(visual, rect.Y);
+        visual.IsVisible = true;
+    }
+
     /// <summary>The framed miniature view of the ghost outside every target (spec TW-5.17 v0.26).</summary>
     public static Control MiniatureView(IImage image, Size size) => new Border
     {
@@ -419,7 +434,11 @@ internal sealed class WindowedDragVisual : IDragVisual
         switch (windowKey)
         {
             case FloatingWindowLayer.FloatingWindowBase floating:
-                _mainLayer.HideStripPlaceholder();
+                // The full hide first (= the marker path): the previous overlay may belong
+                // to another floating window — a strip-to-strip hover across windows must
+                // not leave its placeholder behind, and HideAll only reaches the tracked
+                // overlay.
+                HideStripPlaceholder();
                 floating.Markers.ShowStripPlaceholder(GestureSpace.ToTopLevel(floating, gestureRect));
                 _stripOverlay = floating.Markers;
                 break;
@@ -613,25 +632,14 @@ internal sealed class MarkerOverlay : Canvas
     public void Show(Rect rect, bool isArea)
     {
         _marker.Background = isArea ? BerthBrushes.DropAreaPreview : BerthBrushes.DropMarker;
-        _marker.Width = rect.Width;
-        _marker.Height = rect.Height;
-        SetLeft(_marker, rect.X);
-        SetTop(_marker, rect.Y);
-        _marker.IsVisible = true;
+        GhostChrome.PlaceOnCanvas(_marker, rect);
     }
 
     /// <summary>Hides the marker.</summary>
     public void Hide() => _marker.IsVisible = false;
 
     /// <summary>Shows the strip reorder preview's insertion placeholder, in the window's local coordinates (spec DA-9.7 v0.18).</summary>
-    public void ShowStripPlaceholder(Rect rect)
-    {
-        _stripPlaceholder.Width = rect.Width;
-        _stripPlaceholder.Height = rect.Height;
-        SetLeft(_stripPlaceholder, rect.X);
-        SetTop(_stripPlaceholder, rect.Y);
-        _stripPlaceholder.IsVisible = true;
-    }
+    public void ShowStripPlaceholder(Rect rect) => GhostChrome.PlaceOnCanvas(_stripPlaceholder, rect);
 
     /// <summary>Hides the insertion placeholder.</summary>
     public void HideStripPlaceholder() => _stripPlaceholder.IsVisible = false;

@@ -123,12 +123,8 @@ internal sealed class DragLayer : Canvas
     public void ShowMarker(Rect rect, bool isArea = false)
     {
         _marker.Background = isArea ? BerthBrushes.DropAreaPreview : BerthBrushes.DropMarker;
-        _marker.Width = rect.Width;
-        _marker.Height = rect.Height;
-        SetLeft(_marker, rect.X);
-        SetTop(_marker, rect.Y);
+        GhostChrome.PlaceOnCanvas(_marker, rect);
         _markerRect = rect;
-        _marker.IsVisible = true;
         PlaceHint();
     }
 
@@ -136,14 +132,7 @@ internal sealed class DragLayer : Canvas
     public void HideMarker() => _marker.IsVisible = false;
 
     /// <summary>Shows the translucent post-drop zone preview, in workspace coordinates (spec TW-5.17 v0.26).</summary>
-    public void ShowZone(Rect rect)
-    {
-        _zone.Width = rect.Width;
-        _zone.Height = rect.Height;
-        SetLeft(_zone, rect.X);
-        SetTop(_zone, rect.Y);
-        _zone.IsVisible = true;
-    }
+    public void ShowZone(Rect rect) => GhostChrome.PlaceOnCanvas(_zone, rect);
 
     /// <summary>Hides the zone preview.</summary>
     public void HideZone() => _zone.IsVisible = false;
@@ -154,14 +143,7 @@ internal sealed class DragLayer : Canvas
     /// opened — the place the tab takes on release — already clipped into the band by the
     /// override engine.
     /// </summary>
-    public void ShowStripPlaceholder(Rect rect)
-    {
-        _stripPlaceholder.Width = rect.Width;
-        _stripPlaceholder.Height = rect.Height;
-        SetLeft(_stripPlaceholder, rect.X);
-        SetTop(_stripPlaceholder, rect.Y);
-        _stripPlaceholder.IsVisible = true;
-    }
+    public void ShowStripPlaceholder(Rect rect) => GhostChrome.PlaceOnCanvas(_stripPlaceholder, rect);
 
     /// <summary>Hides the insertion placeholder — the pointer left the strip.</summary>
     public void HideStripPlaceholder() => _stripPlaceholder.IsVisible = false;
