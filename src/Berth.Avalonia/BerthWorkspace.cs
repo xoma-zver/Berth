@@ -539,6 +539,24 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
+    /// The docked center area — the workspace between the stripes, holding the side panes,
+    /// the dock area and the Undock overlay — in workspace coordinates; the geometry base of
+    /// the post-drop zone preview (spec TW-5.17 v0.26, <see cref="DockZonePreview"/>). Null
+    /// until the skeleton is built and laid out.
+    /// </summary>
+    internal Rect? DockedAreaRect()
+    {
+        if (_grid is null || _grid.Bounds.Width <= 0 || _grid.Bounds.Height <= 0)
+        {
+            return null;
+        }
+
+        return _grid.TranslatePoint(default, this) is { } origin
+            ? new Rect(origin, _grid.Bounds.Size)
+            : null;
+    }
+
+    /// <summary>
     /// Builds the dock assist of a panel window's live move gesture (spec TW-7.7 extension,
     /// TW-7.1): the stripe drop targets the panel may dock into, over the gesture space of the
     /// current floating layer — the workspace for a <see cref="PseudoWindow"/> header move on

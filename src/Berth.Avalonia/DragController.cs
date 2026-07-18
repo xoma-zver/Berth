@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 
 namespace Berth.Controls;
@@ -86,6 +89,7 @@ internal sealed class DragController
     private DropTarget? _current;
     private bool _catalogDirty;
     private IDragVisual? _visual;
+    private GhostPassport? _passport;
     private Interactive? _captureTarget;
     private TopLevel? _topLevel;
 
@@ -99,6 +103,15 @@ internal sealed class DragController
     public DragLayer? Layer { get; set; }
 
     /// <summary>
+    /// Renderer of the ghost content miniature (spec TW-5.17 v0.26), invoked once at the
+    /// gesture start for a subject whose view is built and attached. The default renders the
+    /// hosted control into a bitmap; null means no miniature — the ghost keeps its light
+    /// face. Replaceable as the test seam: the headless platform cannot render offscreen, so
+    /// the mode-switching logic is exercised with a stub image.
+    /// </summary>
+    public Func<Control, IImage?> MiniatureRenderer { get; set; } = RenderMiniature;
+
+    /// <summary>
     /// Whether the current press gesture became a drag: its release performs no click action —
     /// neither the source's (toggle, activation) nor the auto-hide pointer close (spec TW-5.17,
     /// TW-6.2). Reset when the next press arms or passes by.
@@ -107,6 +120,12 @@ internal sealed class DragController
 
     /// <summary>Whether the gesture ghost is currently shown — the test observation point (the windowed ghost is an OS window outside the main visual tree).</summary>
     public bool GhostVisible => _visual?.GhostVisible == true;
+
+    /// <summary>The target hint currently shown, or null — the test observation point (spec TW-5.17 v0.26).</summary>
+    public string? HintText => _visual?.HintText;
+
+    /// <summary>Whether the ghost currently shows the content miniature — the test observation point (spec TW-5.17 v0.26).</summary>
+    public bool GhostShowsMiniature => _visual?.GhostShowsMiniature == true;
 
     /// <summary>Subscribes a floating TopLevel of the workspace (task 6.2): its sources arm and drive the same state machine.</summary>
     public void AttachWindow(TopLevel topLevel) => AttachRoot(topLevel);
@@ -345,7 +364,8 @@ internal sealed class DragController
             return;
         }
 
-        _visual.ShowGhost(_subject.Title);
+        _passport = BuildPassport();
+        _visual.ShowGhost(_passport);
         UpdateVisuals(GesturePoint(e));
     }
 
@@ -400,13 +420,88 @@ internal sealed class DragController
             }
         }
 
-        if (_current is { } current)
+        // One call updates the whole target visual set (v0.26): the marker, the post-drop
+        // zone preview and the hint over a target; the miniature ghost outside every target.
+        _visual?.UpdateTarget(_current);
+    }
+
+    /// <summary>
+    /// Assembles the ghost passport at the gesture start (spec TW-5.17 v0.26, DA-9.7 v0.17):
+    /// the light face — the stripe icon face of a panel (the shared face of
+    /// <see cref="StripeButton"/>), the title chip of a tab — plus the content miniature of a
+    /// subject whose view is built and attached right now: the decorator of a hosted open
+    /// panel (the herald of the TW-7.8 take-out), the host of an active tab of a visible
+    /// group (DA-9.6). Captured once; never re-captured mid-gesture.
+    /// </summary>
+    private GhostPassport BuildPassport()
+    {
+        if (_subject.Kind == DragSourceKind.TreeTab)
         {
-            _visual?.ShowMarker(current);
+            var host = _workspace.TabHosts.TryPeek(_subject.SubjectId);
+            var (image, size) = CaptureMiniature(
+                host is { HasContent: true } && ((ILogical)host).IsAttachedToLogicalTree ? host : null);
+            return new GhostPassport(GhostChrome.TitleChip(_subject.Title), image, size);
         }
-        else
+
+        ToolWindowDescriptor? descriptor = null;
+        _ = _workspace.Registry?.TryGet(_subject.SubjectId, out descriptor);
+        Control? source = null;
+        var window = _workspace.State?.ToolWindows.FirstOrDefault(
+            w => string.Equals(w.Id, _subject.SubjectId, StringComparison.Ordinal));
+        if (window is not null && _workspace.IsHosted(window))
         {
-            _visual?.HideMarker();
+            var decorator = _workspace.GetHost(_subject.SubjectId);
+            if (((ILogical)decorator).IsAttachedToLogicalTree)
+            {
+                source = decorator;
+            }
+        }
+
+        var (miniature, displaySize) = CaptureMiniature(source);
+        return new GhostPassport(
+            GhostChrome.IconChip(descriptor?.IconKey, descriptor?.Title ?? _subject.Title),
+            miniature,
+            displaySize);
+    }
+
+    /// <summary>Captures the miniature of one hosted control, scaled into the display cap; (null, default) without a source or a render.</summary>
+    private (IImage? Image, Size Size) CaptureMiniature(Control? source)
+    {
+        if (source is null || source.Bounds.Width < 1 || source.Bounds.Height < 1)
+        {
+            return (null, default);
+        }
+
+        if (MiniatureRenderer(source) is not { } image)
+        {
+            return (null, default);
+        }
+
+        var scale = Math.Min(
+            1, BerthMetrics.GhostMiniatureMaxSize / Math.Max(source.Bounds.Width, source.Bounds.Height));
+        return (image, new Size(source.Bounds.Width * scale, source.Bounds.Height * scale));
+    }
+
+    /// <summary>
+    /// The default miniature renderer: the hosted control into an offscreen bitmap. Offscreen
+    /// rendering is platform-dependent (headless has none), and the miniature is a visual
+    /// nicety, never state — any failure downgrades to no miniature and the ghost keeps its
+    /// light face.
+    /// </summary>
+    private static IImage? RenderMiniature(Control control)
+    {
+        try
+        {
+            var size = new PixelSize(
+                Math.Max(1, (int)Math.Ceiling(control.Bounds.Width)),
+                Math.Max(1, (int)Math.Ceiling(control.Bounds.Height)));
+            var bitmap = new RenderTargetBitmap(size);
+            bitmap.Render(control);
+            return bitmap;
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 
@@ -576,6 +671,9 @@ internal sealed class DragController
     {
         _visual?.HideAll();
         _visual = null;
+        // The captured miniature bitmap dies with the gesture (v0.26: captured once at start).
+        (_passport?.Miniature as IDisposable)?.Dispose();
+        _passport = null;
         _captureTarget?.RemoveHandler(InputElement.PointerCaptureLostEvent, OnCaptureLost);
         _captureTarget = null;
         _topLevel?.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);

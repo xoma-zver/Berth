@@ -38,6 +38,12 @@ internal static class BerthMetrics
     public const double DropMarkerThickness = 2;
 
     /// <summary>
+    /// Largest edge of the content miniature shown by the ghost outside every target (spec
+    /// TW-5.17, DA-9.7) — the reference's drag thumbnail cap.
+    /// </summary>
+    public const double GhostMiniatureMaxSize = 220;
+
+    /// <summary>
     /// Depth of an edge wedge of a tab group as a fraction of the group's extent (spec DA-9.7);
     /// = the reference's dragToSplitRatio 0.2.
     /// </summary>

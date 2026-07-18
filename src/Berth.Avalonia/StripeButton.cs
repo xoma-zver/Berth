@@ -17,12 +17,12 @@ namespace Berth.Controls;
 /// <see cref="BerthWorkspace.ShortcutHintProvider"/> (spec TW-5.5, TW-6.4). An open window is
 /// highlighted and carries the <c>:open</c> pseudo-class (spec TW-6.4). A left click toggles
 /// openness regardless of activity (spec TW-5.4); the right-click context menu is the compact
-/// menu of TW-5.16 — both reduce to core commands (ADR-0004).
+/// menu of TW-5.16 — both reduce to core commands (ADR-0004). The icon face itself is a
+/// <see cref="StripeIconFace"/>, shared with the drag ghost of the slot gesture (spec TW-5.17:
+/// the user drags what they grabbed).
 /// </summary>
 public sealed class StripeButton : Decorator
 {
-    private readonly Border _face;
-    private readonly string? _iconKey;
     private readonly string _title;
     private readonly BerthWorkspace _workspace;
     private bool _pressed;
@@ -31,25 +31,13 @@ public sealed class StripeButton : Decorator
     {
         ToolWindowId = window.Id;
         IsOpen = window.IsOpen;
-        _iconKey = descriptor.IconKey;
         _title = descriptor.Title;
         _workspace = workspace;
-        _face = new Border
+        Child = new StripeIconFace(descriptor.IconKey, descriptor.Title)
         {
-            Width = BerthMetrics.StripeButtonSize,
-            Height = BerthMetrics.StripeButtonSize,
             Margin = new Thickness(4, 4, 4, 0),
-            CornerRadius = new CornerRadius(4),
             Background = window.IsOpen ? BerthBrushes.OpenIcon : Brushes.Transparent,
-            Child = new TextBlock
-            {
-                Text = Initials(descriptor.Title),
-                FontSize = 11,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            },
         };
-        Child = _face;
         var hint = workspace.ShortcutHintProvider?.Invoke(window.Id);
         ToolTip.SetTip(this, string.IsNullOrEmpty(hint) ? descriptor.Title : $"{descriptor.Title}  {hint}");
         PseudoClasses.Set(":open", window.IsOpen);
@@ -97,6 +85,32 @@ public sealed class StripeButton : Decorator
 
     private static bool IsOpenIn(LayoutState state, string id) =>
         state.ToolWindows.Any(w => string.Equals(w.Id, id, StringComparison.Ordinal) && w.IsOpen);
+}
+
+/// <summary>
+/// The face of a stripe icon (spec TW-1.4): the application-supplied icon resource when the
+/// icon key resolves to an <see cref="IImage"/>, otherwise the initials of the title. Shared
+/// between <see cref="StripeButton"/> and the drag ghost of the slot gesture (spec TW-5.17,
+/// v0.26): the ghost shows the same face the user grabbed.
+/// </summary>
+internal sealed class StripeIconFace : Border
+{
+    private readonly string? _iconKey;
+
+    public StripeIconFace(string? iconKey, string title)
+    {
+        _iconKey = iconKey;
+        Width = BerthMetrics.StripeButtonSize;
+        Height = BerthMetrics.StripeButtonSize;
+        CornerRadius = new CornerRadius(4);
+        Child = new TextBlock
+        {
+            Text = Initials(title),
+            FontSize = 11,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+    }
 
     /// <inheritdoc/>
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
@@ -110,7 +124,7 @@ public sealed class StripeButton : Decorator
             && this.TryFindResource(_iconKey, ActualThemeVariant, out var resource)
             && resource is IImage image)
         {
-            _face.Child = new Image { Source = image, Stretch = Stretch.Uniform, Margin = new Thickness(5) };
+            Child = new Image { Source = image, Stretch = Stretch.Uniform, Margin = new Thickness(5) };
         }
     }
 

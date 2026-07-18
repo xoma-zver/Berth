@@ -12,14 +12,18 @@ namespace Berth.Controls;
 /// against the live state — the catalog may predate an external state change that arrived
 /// without a pointer move in between — and does nothing when the drop is an identity or its
 /// precondition vanished (TW-5.17, DA-E40). <see cref="HitTest"/> optionally refines the
-/// rectangular zone — the diagonal wedges of DA-9.7 are not expressible as rectangles.
+/// rectangular zone — the diagonal wedges of DA-9.7 are not expressible as rectangles. The
+/// v0.26 visual language rides on the target: the optional post-drop zone preview
+/// (<see cref="ZoneRect"/>, computed off the drop's command sequence run in memory) and the
+/// hint label (<see cref="Hint"/>), shown exactly while the target is active.
 /// </summary>
 internal sealed record DropTarget(
     Rect HitRect, Rect MarkerRect, Action<BerthWorkspace> Commit, Func<Point, bool>? HitTest = null)
 {
     /// <summary>
-    /// Whether the marker is a translucent area preview — the half-group and whole-group
-    /// previews of DA-9.7 — rather than the opaque insertion line.
+    /// Whether the marker is a translucent area fill — the stripe position fill of TW-5.17
+    /// v0.26 and the half-group and whole-group previews of DA-9.7 — rather than the opaque
+    /// insertion line of a tab strip.
     /// </summary>
     public bool AreaMarker { get; init; }
 
@@ -30,6 +34,19 @@ internal sealed record DropTarget(
     /// window at the pointer — the zone of an occluded window never fires.
     /// </summary>
     public object? WindowKey { get; init; }
+
+    /// <summary>
+    /// Translucent preview of the zone the panel occupies after the drop, in gesture
+    /// coordinates (spec TW-5.17 v0.26): read off the drop's command sequence run on the
+    /// current state in memory — never assigned — so the preview agrees with the actual
+    /// outcome by construction, the derived R1 pair share included. Null — no zone: the drop
+    /// leaves the panel closed, or the target is a tab target (stage 1 previews slot drops
+    /// only).
+    /// </summary>
+    public Rect? ZoneRect { get; init; }
+
+    /// <summary>The «Move to {slot}» hint of a stripe target (spec TW-5.17 v0.26); null — no hint (tab targets, v2).</summary>
+    public string? Hint { get; init; }
 
     /// <summary>Whether the pointer position lies in the target's zone.</summary>
     public bool Contains(Point position) => HitRect.Contains(position) && HitTest?.Invoke(position) != false;
@@ -93,6 +110,23 @@ internal sealed class DropZoneSpace
         var local = control.TranslatePoint(default, _workspace);
         return local is null ? null : new Rect(local.Value, control.Bounds.Size);
     }
+
+    /// <summary>A workspace-local rectangle in gesture coordinates, or null while the workspace is detached.</summary>
+    public Rect? FromWorkspaceRect(Rect rect)
+    {
+        if (!_windowed)
+        {
+            return rect; // the overlay gesture space is the workspace itself
+        }
+
+        if (TopLevel.GetTopLevel(_workspace) is not { } root
+            || _workspace.TranslatePoint(rect.TopLeft, root) is not { } origin)
+        {
+            return null;
+        }
+
+        return GestureSpace.FromTopLevel(root, new Rect(origin, rect.Size));
+    }
 }
 
 /// <summary>
@@ -107,7 +141,9 @@ internal sealed class DropZoneSpace
 /// drag, unlike the reference. Positions are encoded as the visible predecessor's id and
 /// mapped into the dense order at commit time (TW-1.5), so the mapping survives state changes
 /// between the catalog build and the drop. Bottom segments grow upward (TW-1.4) — their zones
-/// are mirrored accordingly.
+/// are mirrored accordingly. Each target carries the v0.26 visual language: the marker is the
+/// position fill (= the reference), the hint names the slot, and the zone preview is read off
+/// the drop's command sequence run on the current state in memory.
 /// </summary>
 internal static class StripeDropTargets
 {
@@ -115,15 +151,14 @@ internal static class StripeDropTargets
         BerthWorkspace workspace, LayoutState state, string draggedId, DropZoneSpace space)
     {
         var targets = new List<DropTarget>();
+        var context = new BuildContext(state, space, draggedId, workspace.DockedAreaRect());
         foreach (var stripe in workspace.GetVisualDescendants().OfType<ToolWindowStripe>())
         {
             var isLeft = string.Equals(stripe.Name, "PART_LeftStripe", StringComparison.Ordinal);
             AddStripe(
                 targets,
-                workspace,
                 state,
-                draggedId,
-                space,
+                context,
                 stripe,
                 isLeft ? ToolWindowSide.Left : ToolWindowSide.Right,
                 new ToolWindowSlot(ToolWindowSide.Bottom, isLeft ? ToolWindowGroup.Primary : ToolWindowGroup.Secondary));
@@ -132,17 +167,19 @@ internal static class StripeDropTargets
         return targets;
     }
 
+    /// <summary>Shared inputs of one catalog build: the state the previews run on and the docked center area.</summary>
+    private sealed record BuildContext(
+        LayoutState State, DropZoneSpace Space, string DraggedId, Rect? CenterRect);
+
     private static void AddStripe(
         List<DropTarget> targets,
-        BerthWorkspace workspace,
         LayoutState state,
-        string draggedId,
-        DropZoneSpace space,
+        BuildContext context,
         ToolWindowStripe stripe,
         ToolWindowSide side,
         ToolWindowSlot bottomSlot)
     {
-        if (space.RectOf(stripe) is not { } rect || rect.Height <= 0)
+        if (context.Space.RectOf(stripe) is not { } rect || rect.Height <= 0)
         {
             return;
         }
@@ -158,7 +195,7 @@ internal static class StripeDropTargets
             {
                 var window = state.ToolWindows.FirstOrDefault(
                     w => string.Equals(w.Id, button.ToolWindowId, StringComparison.Ordinal));
-                if (window is null || space.RectOf(button) is not { } bounds)
+                if (window is null || context.Space.RectOf(button) is not { } bounds)
                 {
                     continue;
                 }
@@ -181,7 +218,7 @@ internal static class StripeDropTargets
             else if (visual is Control control
                 && control.Name is "PART_StripeSeparator" or "PART_QuickAccess"
                 && control.IsEffectivelyVisible
-                && space.RectOf(control) is { } chromeBounds)
+                && context.Space.RectOf(control) is { } chromeBounds)
             {
                 if (control.Name is "PART_StripeSeparator")
                 {
@@ -226,18 +263,18 @@ internal static class StripeDropTargets
             boundary = (rect.Top + topEnd) / 2;
         }
 
-        var key = space.MainWindowKey; // stripes live in the main window only (TW-1.1)
-        AddSegmentZones(targets, draggedId, key, rect, rect.Top, boundary,
+        var key = context.Space.MainWindowKey; // stripes live in the main window only (TW-1.1)
+        AddSegmentZones(targets, context, key, rect, rect.Top, boundary,
             primary, new ToolWindowSlot(side, ToolWindowGroup.Primary));
-        AddSegmentZones(targets, draggedId, key, rect, boundary, topEnd,
+        AddSegmentZones(targets, context, key, rect, boundary, topEnd,
             secondary, new ToolWindowSlot(side, ToolWindowGroup.Secondary));
-        AddBottomZones(targets, draggedId, key, rect, freeMid, bottom, bottomSlot);
+        AddBottomZones(targets, context, key, rect, freeMid, bottom, bottomSlot);
     }
 
     /// <summary>Insertion zones of a top-down segment: gaps at the midpoints of the icons (spec TW-5.17).</summary>
     private static void AddSegmentZones(
         List<DropTarget> targets,
-        string draggedId,
+        BuildContext context,
         object? windowKey,
         Rect stripeRect,
         double zoneStart,
@@ -247,9 +284,9 @@ internal static class StripeDropTargets
     {
         if (buttons.Count == 0)
         {
-            Add(targets, stripeRect, zoneStart, zoneEnd,
-                Math.Min(zoneStart + BerthMetrics.StripeButtonSize / 2, (zoneStart + zoneEnd) / 2),
-                draggedId, windowKey, slot, predecessorId: null);
+            Add(targets, context, stripeRect, zoneStart, zoneEnd,
+                Math.Min(zoneStart + (BerthMetrics.StripeButtonSize / 2), (zoneStart + zoneEnd) / 2),
+                windowKey, slot, predecessorId: null);
             return;
         }
 
@@ -258,16 +295,16 @@ internal static class StripeDropTargets
         {
             var mid = buttons[i].Rect.Center.Y;
             var anchor = i == 0
-                ? buttons[0].Rect.Top - BerthMetrics.DropMarkerThickness
+                ? buttons[0].Rect.Top
                 : (buttons[i - 1].Rect.Bottom + buttons[i].Rect.Top) / 2;
-            Add(targets, stripeRect, previous, mid, anchor,
-                draggedId, windowKey, slot, i == 0 ? null : buttons[i - 1].Id);
+            Add(targets, context, stripeRect, previous, mid, anchor,
+                windowKey, slot, i == 0 ? null : buttons[i - 1].Id);
             previous = mid;
         }
 
-        Add(targets, stripeRect, previous, zoneEnd,
-            buttons[^1].Rect.Bottom + BerthMetrics.DropMarkerThickness,
-            draggedId, windowKey, slot, buttons[^1].Id);
+        Add(targets, context, stripeRect, previous, zoneEnd,
+            buttons[^1].Rect.Bottom,
+            windowKey, slot, buttons[^1].Id);
     }
 
     /// <summary>
@@ -277,7 +314,7 @@ internal static class StripeDropTargets
     /// </summary>
     private static void AddBottomZones(
         List<DropTarget> targets,
-        string draggedId,
+        BuildContext context,
         object? windowKey,
         Rect stripeRect,
         double zoneStart,
@@ -287,9 +324,9 @@ internal static class StripeDropTargets
         var zoneEnd = stripeRect.Bottom;
         if (buttons.Count == 0)
         {
-            Add(targets, stripeRect, zoneStart, zoneEnd,
-                Math.Max(zoneEnd - BerthMetrics.StripeButtonSize / 2, (zoneStart + zoneEnd) / 2),
-                draggedId, windowKey, slot, predecessorId: null);
+            Add(targets, context, stripeRect, zoneStart, zoneEnd,
+                Math.Max(zoneEnd - (BerthMetrics.StripeButtonSize / 2), (zoneStart + zoneEnd) / 2),
+                windowKey, slot, predecessorId: null);
             return;
         }
 
@@ -298,25 +335,25 @@ internal static class StripeDropTargets
         {
             var mid = buttons[i].Rect.Center.Y;
             var anchor = i == 0
-                ? buttons[0].Rect.Top - BerthMetrics.DropMarkerThickness
+                ? buttons[0].Rect.Top
                 : (buttons[i - 1].Rect.Bottom + buttons[i].Rect.Top) / 2;
-            Add(targets, stripeRect, previous, mid, anchor,
-                draggedId, windowKey, slot, buttons[i].Id);
+            Add(targets, context, stripeRect, previous, mid, anchor,
+                windowKey, slot, buttons[i].Id);
             previous = mid;
         }
 
-        Add(targets, stripeRect, previous, zoneEnd,
-            buttons[^1].Rect.Bottom + BerthMetrics.DropMarkerThickness,
-            draggedId, windowKey, slot, predecessorId: null);
+        Add(targets, context, stripeRect, previous, zoneEnd,
+            buttons[^1].Rect.Bottom,
+            windowKey, slot, predecessorId: null);
     }
 
     private static void Add(
         List<DropTarget> targets,
+        BuildContext context,
         Rect stripeRect,
         double zoneStart,
         double zoneEnd,
         double markerAnchor,
-        string draggedId,
         object? windowKey,
         ToolWindowSlot slot,
         string? predecessorId)
@@ -326,11 +363,16 @@ internal static class StripeDropTargets
             return; // a degenerate zone of a crowded stripe — the neighbours cover the space
         }
 
-        var markerY = Math.Clamp(markerAnchor, zoneStart, zoneEnd - BerthMetrics.DropMarkerThickness);
+        // The marker fills the position rectangle (= the reference; v0.26): a button-sized
+        // fill centered on the insertion gap, clamped into the stripe.
+        var markerSize = BerthMetrics.StripeButtonSize;
+        var markerY = Math.Clamp(
+            markerAnchor - (markerSize / 2), stripeRect.Top, Math.Max(stripeRect.Top, stripeRect.Bottom - markerSize));
+        var draggedId = context.DraggedId;
         var move = MoveCommit(draggedId, slot, predecessorId);
         targets.Add(new DropTarget(
             new Rect(stripeRect.X, zoneStart, stripeRect.Width, zoneEnd - zoneStart),
-            new Rect(stripeRect.X + 2, markerY, stripeRect.Width - 4, BerthMetrics.DropMarkerThickness),
+            new Rect(stripeRect.X + 2, markerY, stripeRect.Width - 4, markerSize),
             ws =>
             {
                 // One Move per stripe drop of an internal-mode window (TW-5.17); an identity
@@ -339,18 +381,44 @@ internal static class StripeDropTargets
                 // A floating-mode window docks after the move (TW-7.8, = the reference): the
                 // stripe drop is a docking gesture, so the internal-mode identity above does
                 // not exempt it. Each funnel call is one command with one report (ADR-0004).
-                ws.Execute(s =>
-                {
-                    var window = s.ToolWindows.FirstOrDefault(
-                        w => string.Equals(w.Id, draggedId, StringComparison.Ordinal));
-                    return window is not null && window.Mode.GetLayer() == ToolWindowLayer.Floating
-                        ? s.SetMode(draggedId, window.LastInternalMode)
-                        : s;
-                });
+                ws.Execute(s => DockIfFloating(s, draggedId));
             })
         {
+            AreaMarker = true,
             WindowKey = windowKey,
+            ZoneRect = PreviewZone(context, move),
+            Hint = $"Move to {ToolWindowMenus.SlotHeader(slot)}",
         });
+    }
+
+    /// <summary>
+    /// The post-drop zone preview of one stripe target (spec TW-5.17 v0.26): the drop's
+    /// command sequence — the move plus the docking SetMode of a floating-mode window — runs
+    /// on the current state in memory, never assigned, and the zone is read off the result:
+    /// the preview agrees with the actual outcome by construction, pair formation and the
+    /// derived R1 share included. Null — the result hosts no zone (the panel stays closed).
+    /// </summary>
+    private static Rect? PreviewZone(BuildContext context, Func<LayoutState, LayoutState> move)
+    {
+        if (context.CenterRect is not { } center)
+        {
+            return null;
+        }
+
+        var result = DockIfFloating(move(context.State), context.DraggedId);
+        return DockZonePreview.ZoneOf(result, context.DraggedId, center) is { } zone
+            ? context.Space.FromWorkspaceRect(zone)
+            : null;
+    }
+
+    /// <summary>The docking step of a floating-mode drop (TW-7.8): SetMode to the last internal mode; a no-op otherwise.</summary>
+    private static LayoutState DockIfFloating(LayoutState state, string id)
+    {
+        var window = state.ToolWindows.FirstOrDefault(
+            w => string.Equals(w.Id, id, StringComparison.Ordinal));
+        return window is not null && window.Mode.GetLayer() == ToolWindowLayer.Floating
+            ? state.SetMode(id, window.LastInternalMode)
+            : state;
     }
 
     /// <summary>
@@ -407,14 +475,15 @@ internal static class StripeDropTargets
 /// drop targets of TW-5.17 light up so a release over a stripe docks the panel instead of
 /// merely moving it. The window keeps moving live under the pointer — the pseudo-window and
 /// the frameless OS window own their visuals, unlike the ghost of the slot gesture — so this
-/// guide only hit-tests the stripe zones under the pointer, drives the insertion marker
-/// through the gesture visual, and hands the resolved target back to the release. The commit
-/// itself is the target's own — the docking <c>Move</c> + <c>SetMode(LastInternalMode)</c>
-/// sequence that already backs the reverse icon/header drop of TW-7.8. Points arrive in the
-/// gesture space the targets were built in (workspace coordinates on the overlay platform,
-/// screen coordinates on the windowed one — see
-/// <see cref="BerthWorkspace.BeginPanelDockGuide"/>); the hit-test is direct and geometric —
-/// occlusion is irrelevant: the stripes are the only targets (TW-7.7).
+/// guide only hit-tests the stripe zones under the pointer, drives the target visuals —
+/// the position-fill marker, the post-drop zone preview and the «Move to {slot}» hint, the
+/// shared visual language of the stripe catalog (v0.26) — through the gesture visual, and
+/// hands the resolved target back to the release. The commit itself is the target's own — the
+/// docking <c>Move</c> + <c>SetMode(LastInternalMode)</c> sequence that already backs the
+/// reverse icon/header drop of TW-7.8. Points arrive in the gesture space the targets were
+/// built in (workspace coordinates on the overlay platform, screen coordinates on the
+/// windowed one — see <see cref="BerthWorkspace.BeginPanelDockGuide"/>); the hit-test is
+/// direct and geometric — occlusion is irrelevant: the stripes are the only targets (TW-7.7).
 /// </summary>
 internal sealed class PanelDockGuide
 {
@@ -442,22 +511,14 @@ internal sealed class PanelDockGuide
     }
 
     /// <summary>
-    /// Live marker while the panel moves: the stripe insertion line under the pointer, or
-    /// nothing while suppressed (the <c>Ctrl</c> parking of TW-7.7) or off every stripe.
+    /// Live target visuals while the panel moves: the marker, zone preview and hint of the
+    /// stripe zone under the pointer, or nothing while suppressed (the <c>Ctrl</c> parking of
+    /// TW-7.7) or off every stripe. The guide never shows a ghost — the window itself is the
+    /// moving visual — so the hint anchors at the marker (v0.26).
     /// </summary>
-    public void Update(Point gesturePoint, bool suppressed)
-    {
-        var target = suppressed ? null : Resolve(gesturePoint);
-        if (target is { } hit)
-        {
-            _visual.ShowMarker(hit);
-        }
-        else
-        {
-            _visual.HideMarker();
-        }
-    }
+    public void Update(Point gesturePoint, bool suppressed) =>
+        _visual.UpdateTarget(suppressed ? null : Resolve(gesturePoint));
 
-    /// <summary>Hides the insertion marker — the gesture ended, cancelled or moved off the stripes.</summary>
-    public void Hide() => _visual.HideMarker();
+    /// <summary>Hides the target visuals — the gesture ended, cancelled or moved off the stripes.</summary>
+    public void Hide() => _visual.UpdateTarget(null);
 }

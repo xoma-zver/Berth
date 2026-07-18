@@ -758,6 +758,41 @@ public class FloatingWindowTests
     }
 
     [AvaloniaFact]
+    public void TW_7_1_frameless_dock_guide_shows_the_zone_preview_and_the_slot_hint()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+        var floating = FloatingWindowOf(main, "a")!;
+        var headerLocal = Center(Part(floating, "PART_Header"), floating);
+        var stripeGesture = Center(Button(main, "a"), main);
+
+        floating.MouseDown(headerLocal, MouseButton.Left);
+        floating.MouseMove(new Point(
+            stripeGesture.X - floating.Position.X, stripeGesture.Y - floating.Position.Y));
+        Dispatcher.UIThread.RunJobs();
+
+        // The shared visual language of the stripe catalog (TW-5.17 v0.26) on the windowed
+        // guide: the zone preview reads off the docking command sequence run in memory, and
+        // the hint falls back to the workspace layer at the marker — the guide has no ghost.
+        var zone = Part(main, "PART_DropZonePreview");
+        Assert.True(zone.IsVisible);
+        var center = Workspace(main).DockedAreaRect()!.Value;
+        Assert.Equal(center.Width * St(main).Left.Weight, zone.Width, 6); // the set value: rendered bounds add layout rounding
+        var layer = main.GetVisualDescendants().OfType<DragLayer>().Single();
+        Assert.Equal("Move to Left Top", layer.HintText);
+
+        PressEscape(floating); // the cancelled move takes every guide visual with it (TW-7.1)
+        Assert.False(zone.IsVisible);
+        Assert.Null(layer.HintText);
+
+        floating.MouseUp(new Point(
+            stripeGesture.X - floating.Position.X, stripeGesture.Y - floating.Position.Y), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(ToolWindowMode.Float, Panel(main, "a").Mode);
+    }
+
+    [AvaloniaFact]
     public void TW_7_1_ctrl_at_release_parks_the_frameless_float_without_docking()
     {
         var (registry, lifecycle, state, _, _) = Setup(

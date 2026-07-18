@@ -19,6 +19,9 @@ internal static class ToolWindowMenus
     private static readonly string[] SlotHeaders =
         ["Left Top", "Left Bottom", "Right Top", "Right Bottom", "Bottom Left", "Bottom Right"];
 
+    /// <summary>Display name of one slot — shared with the «Move to {slot}» drag hint (spec TW-5.17 v0.26).</summary>
+    public static string SlotHeader(ToolWindowSlot slot) => SlotHeaders[ToolWindowSlot.All.IndexOf(slot)];
+
     /// <summary>The compact stripe-icon context menu: Hide — icon hiding (TW-5.10) — then «Dock» for a floating record, then Move to (spec TW-5.16).</summary>
     public static MenuFlyout BuildIconMenu(ToolWindowState window, BerthWorkspace workspace)
     {

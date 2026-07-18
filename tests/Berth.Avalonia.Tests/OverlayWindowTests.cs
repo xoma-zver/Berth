@@ -386,6 +386,41 @@ public class OverlayWindowTests
     }
 
     [AvaloniaFact]
+    public void TW_7_7_dock_guide_shows_the_zone_preview_and_the_slot_hint()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowOverlay(state, registry, lifecycle: lifecycle);
+        var header = Part(PanelPseudo(main, "a"), "PART_Header");
+        var start = Center(header, main);
+        var stripeTarget = Center(Button(main, "a"), main);
+
+        main.MouseDown(start, MouseButton.Left);
+        main.MouseMove(stripeTarget);
+        Dispatcher.UIThread.RunJobs();
+
+        // The shared visual language of the stripe catalog (TW-5.17 v0.26): the post-drop
+        // zone preview reads off the docking Move + SetMode sequence run in memory — the
+        // panel would dock open into Left.Primary at the side's weight — and the slot hint
+        // anchors at the marker: the guide has no ghost to carry it.
+        var zone = Part(main, "PART_DropZonePreview");
+        Assert.True(zone.IsVisible);
+        var center = Workspace(main).DockedAreaRect()!.Value;
+        Assert.Equal(center.Width * St(main).Left.Weight, zone.Width, 6); // the set value: rendered bounds add layout rounding
+        var layer = main.GetVisualDescendants().OfType<DragLayer>().Single();
+        Assert.Equal("Move to Left Top", layer.HintText);
+
+        // Esc cancels the move: every guide visual goes with it (TW-7.7).
+        PressEscape(main);
+        Assert.False(zone.IsVisible);
+        Assert.Null(layer.HintText);
+
+        main.MouseUp(stripeTarget, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(ToolWindowMode.Float, Panel(main, "a").Mode);
+    }
+
+    [AvaloniaFact]
     public void TW_7_7_escape_over_a_stripe_hides_the_marker_and_docks_nothing()
     {
         var (registry, lifecycle, state, _, _) = Setup(

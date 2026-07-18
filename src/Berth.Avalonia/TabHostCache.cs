@@ -41,6 +41,9 @@ internal sealed class TabHostCache
         return host;
     }
 
+    /// <summary>The cached host of a tab, or null — never creates one (the ghost passport peek of spec TW-5.17 v0.26).</summary>
+    public DockTabHost? TryPeek(string id) => _hosts.TryGetValue(id, out var host) ? host : null;
+
     /// <summary>
     /// The tab title fallback chain of spec DA-9.6: the application's
     /// <see cref="BerthWorkspace.TabTitleProvider"/>, then — for a body tab, whose id names
