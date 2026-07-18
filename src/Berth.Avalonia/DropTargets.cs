@@ -49,10 +49,11 @@ internal sealed record DropTarget(
     public string? Hint { get; init; }
 
     /// <summary>
-    /// The live reorder-preview payload of a strip insertion zone (spec DA-9.7 v0.17): over
-    /// such a target the gesture visual replaces the marker and the pointer ghost with the
-    /// strip reorder preview — the headers move apart around the highlighted ghost header.
-    /// Null — a non-strip target (wedges, centers, stripe zones) keeps the stage-1 visuals.
+    /// The live reorder-preview payload of a strip insertion zone (spec DA-9.7 v0.18): over
+    /// such a target the gesture visual replaces the marker with the strip reorder preview —
+    /// the headers move apart around the framed insertion placeholder while the pointer
+    /// ghost keeps riding at the cursor. Null — a non-strip target (wedges, centers, stripe
+    /// zones) keeps the stage-1 visuals.
     /// </summary>
     public StripReorderPreview? StripPreview { get; init; }
 

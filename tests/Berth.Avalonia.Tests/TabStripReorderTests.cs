@@ -13,15 +13,17 @@ namespace Berth.Controls.Tests;
 
 /// <summary>
 /// The live strip reorder preview of tab drags — stage 2 of the rich drag visual language
-/// (spec DA-9.7 v0.17): over a strip insertion zone the headers move apart around the
-/// highlighted ghost header sized off the source header at the gesture start, the dragged
-/// header's place collapses — in the donor strip of a cross-strip hover too — and the
-/// pointer ghost hides. Everything is a pure visual override of leaf chrome (the section 12
-/// contract of tool-windows): shifts are RenderTransforms and the collapse is opacity, so
-/// layout Bounds — the hit-test zone geometry — never change, and cancellation resets the
-/// overrides with no trace (DA-E22 by construction); an external re-projection re-lays the
-/// overrides over the rebuilt headers without a pointer move. The ghost header clips into
-/// the band — a narrow band's overflow stays unhandled (document-area, section 11).
+/// (spec DA-9.7 v0.18): over a strip insertion zone the headers move apart around the framed
+/// insertion placeholder sized off the source header at the gesture start — the place the
+/// tab takes on release — while the pointer chip keeps riding at the cursor, the single
+/// gesture language of every target kind; the dragged header's place collapses — in the
+/// donor strip of a cross-strip hover too. Everything is a pure visual override of leaf
+/// chrome (the section 12 contract of tool-windows): shifts are RenderTransforms and the
+/// collapse is opacity, so layout Bounds — the hit-test zone geometry — never change, and
+/// cancellation resets the overrides with no trace (DA-E22 by construction); an external
+/// re-projection re-lays the overrides over the rebuilt headers without a pointer move. The
+/// placeholder clips into the band — a narrow band's overflow stays unhandled
+/// (document-area, section 11).
 /// </summary>
 public class TabStripReorderTests
 {
@@ -97,10 +99,10 @@ public class TabStripReorderTests
         throw new InvalidOperationException($"No strip band hosts tab '{tabId}'.");
     }
 
-    // ---- the preview language over a strip (DA-9.7 v0.17) ----
+    // ---- the preview language over a strip (DA-9.7 v0.18) ----
 
     [AvaloniaFact]
-    public void DA_9_7_strip_hover_shows_the_reorder_preview_instead_of_the_ghost()
+    public void DA_9_7_strip_hover_parts_the_headers_around_the_placeholder()
     {
         var window = Show(DockState(Group("d1", "d1", "d2", "d3"), "d1"), DockRegistry());
         var d1 = BoundsIn(TabHeader(window, "d1"), window);
@@ -111,16 +113,17 @@ public class TabStripReorderTests
         var target = new Point(d1.Left + 1, d1.Center.Y);
         DragTo(window, d3.Center, target);
 
-        // The ghost header is the gesture image: the pointer chip hides and the stage-1
-        // insertion line yields to the preview (DA-9.7 v0.17).
-        Assert.False(Drag(window).GhostVisible);
+        // The pointer chip stays at the cursor — the single gesture language of every
+        // target (v0.18) — while the stage-1 insertion line yields to the preview.
+        Assert.True(Drag(window).GhostVisible);
+        Assert.False(Drag(window).GhostShowsMiniature);
         Assert.False(Part(window, "PART_DropMarker").IsVisible);
 
-        // The ghost takes the front position at the source header's width...
-        var chip = Part(window, "PART_StripGhostHeader");
-        Assert.True(chip.IsVisible);
-        Assert.Equal(d1.Left, Canvas.GetLeft(chip), 1);
-        Assert.Equal(d3.Width, chip.Width, 1);
+        // The placeholder frames the front position at the source header's width...
+        var place = Part(window, "PART_StripPlaceholder");
+        Assert.True(place.IsVisible);
+        Assert.Equal(d1.Left, Canvas.GetLeft(place), 1);
+        Assert.Equal(d3.Width, place.Width, 1);
 
         // ...the headers move apart by exactly that width — RenderTransform only, layout
         // Bounds (the hit-test zone geometry) stay untouched...
@@ -140,16 +143,16 @@ public class TabStripReorderTests
         var window = Show(DockState(Group("d1", "d1", "d2", "d3"), "d1"), DockRegistry());
         var d2 = BoundsIn(TabHeader(window, "d2"), window);
 
-        // The gap right after itself lays out identically to the natural order: the ghost
-        // takes the dragged header's own place and nobody moves — the preview of the
-        // identity drop (DA-E40).
+        // The gap right after itself lays out identically to the natural order: the
+        // placeholder takes the dragged header's own place and nobody moves — the preview
+        // of the identity drop (DA-E40).
         var target = new Point(d2.Right + 2, d2.Center.Y);
         DragTo(window, d2.Center, target);
 
-        var chip = Part(window, "PART_StripGhostHeader");
-        Assert.True(chip.IsVisible);
-        Assert.Equal(d2.Left, Canvas.GetLeft(chip), 1);
-        Assert.Equal(d2.Width, chip.Width, 1);
+        var place = Part(window, "PART_StripPlaceholder");
+        Assert.True(place.IsVisible);
+        Assert.Equal(d2.Left, Canvas.GetLeft(place), 1);
+        Assert.Equal(d2.Width, place.Width, 1);
         Assert.Null(TabHeader(window, "d1").RenderTransform);
         Assert.Null(TabHeader(window, "d3").RenderTransform);
         Assert.Equal(0, TabHeader(window, "d2").Opacity);
@@ -172,13 +175,13 @@ public class TabStripReorderTests
         DragTo(window, d1.Center, target);
 
         // The receiver opens the gap after d3 at the source header's width...
-        var chip = Part(window, "PART_StripGhostHeader");
-        Assert.True(chip.IsVisible);
-        Assert.Equal(d3.Right, Canvas.GetLeft(chip), 1);
-        Assert.Equal(d1.Width, chip.Width, 1);
+        var place = Part(window, "PART_StripPlaceholder");
+        Assert.True(place.IsVisible);
+        Assert.Equal(d3.Right, Canvas.GetLeft(place), 1);
+        Assert.Equal(d1.Width, place.Width, 1);
         Assert.Null(TabHeader(window, "d3").RenderTransform);
 
-        // ...and the donor strip collapses the dragged header's place too (v0.17).
+        // ...and the donor strip collapses the dragged header's place too (v0.18).
         Assert.Equal(0, TabHeader(window, "d1").Opacity);
         Assert.Equal(-d1.Width, OffsetX(TabHeader(window, "d2")), 1);
 
@@ -214,10 +217,10 @@ public class TabStripReorderTests
         var target = new Point(t1.Left + 1, t1.Center.Y);
         DragTo(window, t2.Center, target);
 
-        var chip = Part(window, "PART_StripGhostHeader");
-        Assert.True(chip.IsVisible);
-        Assert.Equal(t1.Left, Canvas.GetLeft(chip), 1);
-        Assert.Equal(t2.Width, chip.Width, 1);
+        var place = Part(window, "PART_StripPlaceholder");
+        Assert.True(place.IsVisible);
+        Assert.Equal(t1.Left, Canvas.GetLeft(place), 1);
+        Assert.Equal(t2.Width, place.Width, 1);
         Assert.Equal(t2.Width, OffsetX(TabHeader(window, "t1")), 1);
         Assert.Equal(0, TabHeader(window, "t2").Opacity);
 
@@ -227,21 +230,21 @@ public class TabStripReorderTests
     // ---- leaving, cancelling, re-projection ----
 
     [AvaloniaFact]
-    public void DA_9_7_leaving_the_strip_restores_the_headers_and_the_ghost()
+    public void DA_9_7_leaving_the_strip_restores_the_headers()
     {
         var window = Show(DockState(Group("d1", "d1", "d2", "d3"), "d1"), DockRegistry());
         var d1 = BoundsIn(TabHeader(window, "d1"), window);
         var d3 = BoundsIn(TabHeader(window, "d3"), window);
 
         DragTo(window, d3.Center, new Point(d1.Left + 1, d1.Center.Y));
-        Assert.False(Drag(window).GhostVisible);
+        Assert.True(Part(window, "PART_StripPlaceholder").IsVisible);
 
-        // Off the strip, onto the group center: every override resets, the pointer ghost
-        // returns and the stage-1 marker language takes over.
+        // Off the strip, onto the group center: every override resets and the stage-1
+        // marker language takes over; the pointer chip rode along the whole way.
         var center = BoundsIn(TabHost(window, "d1"), window).Center;
         MoveTo(window, center);
 
-        Assert.False(Part(window, "PART_StripGhostHeader").IsVisible);
+        Assert.False(Part(window, "PART_StripPlaceholder").IsVisible);
         Assert.True(Drag(window).GhostVisible);
         Assert.True(Part(window, "PART_DropMarker").IsVisible);
         Assert.Null(TabHeader(window, "d1").RenderTransform);
@@ -266,7 +269,7 @@ public class TabStripReorderTests
 
         // The overrides reset with the cancellation — the real headers were never
         // reordered, so there is nothing to undo (DA-E22 by construction).
-        Assert.False(Part(window, "PART_StripGhostHeader").IsVisible);
+        Assert.False(Part(window, "PART_StripPlaceholder").IsVisible);
         Assert.Null(TabHeader(window, "d1").RenderTransform);
         Assert.Null(TabHeader(window, "d2").RenderTransform);
         Assert.Equal(1, TabHeader(window, "d3").Opacity);
@@ -296,7 +299,7 @@ public class TabStripReorderTests
         Assert.NotSame(oldHeader, newHeader);
         Assert.Equal(d3.Width, OffsetX(newHeader), 1);
         Assert.Equal(0, TabHeader(window, "d3").Opacity);
-        Assert.True(Part(window, "PART_StripGhostHeader").IsVisible);
+        Assert.True(Part(window, "PART_StripPlaceholder").IsVisible);
 
         CancelAndRelease(window, target);
     }
@@ -304,10 +307,10 @@ public class TabStripReorderTests
     // ---- clipping of a narrow band (document-area, section 11) ----
 
     [AvaloniaFact]
-    public void DA_9_7_ghost_header_clips_into_the_band()
+    public void DA_9_7_placeholder_clips_into_the_band()
     {
         // Ten long-titled tabs overflow the right group's strip; the foreign tab dragged in
-        // near the band's right edge would land beyond it, so the ghost header clips into
+        // near the band's right edge would land beyond it, so the placeholder clips into
         // the band — overflow itself stays unhandled (document-area, section 11). The
         // r-tabs are unclaimed and sleep; dock-area strips take any tab regardless.
         var right = Group("r1", [.. Enumerable.Range(1, 10).Select(i => $"r{i}")]);
@@ -321,16 +324,16 @@ public class TabStripReorderTests
         var target = new Point(band.Right - 6, band.Center.Y);
         DragTo(window, Center(TabHeader(window, "d1"), window), target);
 
-        Assert.False(Drag(window).GhostVisible); // the reorder preview is active
+        Assert.True(Drag(window).GhostVisible); // the chip rides at the cursor (v0.18)
         Assert.Equal(0, TabHeader(window, "d1").Opacity); // the donor collapse holds
 
-        // The ghost paints only inside the band: clipped at the edge, or gone entirely
-        // when the gap lies wholly beyond it.
-        var chip = Part(window, "PART_StripGhostHeader");
-        if (chip.IsVisible)
+        // The placeholder paints only inside the band: clipped at the edge, or gone
+        // entirely when the gap lies wholly beyond it.
+        var place = Part(window, "PART_StripPlaceholder");
+        if (place.IsVisible)
         {
-            Assert.True(Canvas.GetLeft(chip) + chip.Width <= band.Right + 0.5);
-            Assert.True(chip.Width < draggedWidth);
+            Assert.True(Canvas.GetLeft(place) + place.Width <= band.Right + 0.5);
+            Assert.True(place.Width < draggedWidth);
         }
 
         CancelAndRelease(window, target);

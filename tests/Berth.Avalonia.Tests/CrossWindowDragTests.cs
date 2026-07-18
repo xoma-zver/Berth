@@ -145,7 +145,7 @@ public class CrossWindowDragTests
         var host = Workspace(main).TabHosts.GetHost("d2");
 
         // Mid-gesture the target visuals paint in the document window's own overlay (task
-        // 6.2) — over a strip that is the reorder preview's ghost header (stage 2, v0.17).
+        // 6.2) — over a strip that is the reorder preview's placeholder (stage 2, v0.18).
         var start = Center(TabHeader(main, "d2"), main);
         var after = BoundsIn(TabHeader(docWindow, "d9"), docWindow);
         var target = Gesture(docWindow, new Point(after.Right + 10, after.Center.Y));
@@ -154,7 +154,7 @@ public class CrossWindowDragTests
         main.MouseMove(Local(main, target));
         Dispatcher.UIThread.RunJobs();
         var markers = ((FloatingWindowLayer.FloatingWindowBase)docWindow).Markers;
-        Assert.True(Part(markers, "PART_StripGhostHeader").IsVisible);
+        Assert.True(Part(markers, "PART_StripPlaceholder").IsVisible);
         main.MouseUp(Local(main, target), MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
 
@@ -475,13 +475,13 @@ public class CrossWindowDragTests
         main.MouseMove(Local(main, target));
         Dispatcher.UIThread.RunJobs();
 
-        // The ghost header paints in the document window's own overlay, in its local
-        // coordinates; the OS-window pointer ghost hides — the preview is the gesture image.
-        Assert.False(drag.GhostVisible);
-        var chip = Part(docWindow, "PART_StripGhostHeader");
-        Assert.True(chip.IsVisible);
-        Assert.Equal(d9.Right, Canvas.GetLeft(chip), 1);
-        Assert.Equal(d2.Width, chip.Width, 1);
+        // The insertion placeholder paints in the document window's own overlay, in its
+        // local coordinates; the OS-window pointer chip keeps riding at the cursor (v0.18).
+        Assert.True(drag.GhostVisible);
+        var place = Part(docWindow, "PART_StripPlaceholder");
+        Assert.True(place.IsVisible);
+        Assert.Equal(d9.Right, Canvas.GetLeft(place), 1);
+        Assert.Equal(d2.Width, place.Width, 1);
 
         // The donor strip back in the main window collapses the dragged header's place.
         Assert.Equal(0, TabHeader(main, "d2").Opacity);
@@ -491,7 +491,7 @@ public class CrossWindowDragTests
         // Cancellation restores both windows' natural projection with no trace (DA-E22).
         main.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
         Dispatcher.UIThread.RunJobs();
-        Assert.False(chip.IsVisible);
+        Assert.False(place.IsVisible);
         Assert.Equal(1, TabHeader(main, "d2").Opacity);
         Assert.Null(TabHeader(main, "d3").RenderTransform);
         main.MouseUp(Local(main, target), MouseButton.Left);

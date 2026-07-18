@@ -7,7 +7,8 @@ namespace Berth.Controls;
 /// Overlay layer of a drag gesture (spec TW-5.17): the ghost following the pointer — the light
 /// face of the dragged subject over a target, its content miniature outside every target
 /// (v0.26) — plus the target visuals: the insertion marker, the translucent post-drop zone
-/// preview and the «Move to {slot}» hint label. Pure visualization — never hit-testable, never
+/// preview, the «Move to {slot}» hint label and the insertion placeholder of the strip
+/// reorder preview (DA-9.7 v0.18). Pure visualization — never hit-testable, never
 /// part of the state (ADR-0004); leaf chrome by classification (TW-9.13). The layer is also
 /// the pointer-capture owner of an active gesture: it lives in the permanent skeleton, so
 /// re-projections triggered by external state changes never tear the capture (TW-5.17). The
@@ -23,14 +24,11 @@ internal sealed class DragLayer : Canvas
     private readonly Border _zone;
     private readonly Border _hint;
     private readonly TextBlock _hintText;
-    private readonly Border _stripGhost;
-    private readonly TextBlock _stripGhostText;
+    private readonly Border _stripPlaceholder;
     private Control? _lightFace;
     private Control? _miniatureView;
     private Point _ghostPosition;
     private Rect _markerRect;
-    private bool _ghostShown;
-    private bool _ghostSuppressed;
 
     public DragLayer()
     {
@@ -57,12 +55,12 @@ internal sealed class DragLayer : Canvas
         _hint = GhostChrome.Chip(out _hintText);
         _hint.Name = "PART_DropHint";
         _hint.IsVisible = false;
-        _stripGhost = GhostChrome.StripGhostHeader(out _stripGhostText);
-        _stripGhost.Name = "PART_StripGhostHeader";
-        _stripGhost.IsVisible = false;
+        _stripPlaceholder = GhostChrome.StripPlaceholder();
+        _stripPlaceholder.Name = "PART_StripPlaceholder";
+        _stripPlaceholder.IsVisible = false;
         Children.Add(_zone);
         Children.Add(_marker);
-        Children.Add(_stripGhost);
+        Children.Add(_stripPlaceholder);
         Children.Add(_hint);
         Children.Add(_ghost);
     }
@@ -85,20 +83,7 @@ internal sealed class DragLayer : Canvas
             ? GhostChrome.MiniatureView(miniature, passport.MiniatureSize)
             : null;
         _ghost.Child = _lightFace;
-        _ghostShown = true;
-        _ghostSuppressed = false;
         _ghost.IsVisible = true;
-    }
-
-    /// <summary>
-    /// Suppresses or restores the pointer ghost (spec DA-9.7 v0.17): over a strip insertion
-    /// zone the reorder preview's ghost header is the gesture image, so the chip at the
-    /// pointer hides — and returns as soon as the pointer leaves the strip.
-    /// </summary>
-    public void SetGhostSuppressed(bool suppressed)
-    {
-        _ghostSuppressed = suppressed;
-        _ghost.IsVisible = _ghostShown && !suppressed;
     }
 
     /// <summary>Moves the ghost next to the pointer, in workspace coordinates.</summary>
@@ -164,22 +149,22 @@ internal sealed class DragLayer : Canvas
     public void HideZone() => _zone.IsVisible = false;
 
     /// <summary>
-    /// Shows the highlighted ghost header of the strip reorder preview, in workspace
-    /// coordinates (spec DA-9.7 v0.17): the rectangle is the gap the strip's headers opened,
-    /// already clipped into the band by the override engine.
+    /// Shows the insertion placeholder of the strip reorder preview, in workspace
+    /// coordinates (spec DA-9.7 v0.18): the framed fill of the gap the strip's headers
+    /// opened — the place the tab takes on release — already clipped into the band by the
+    /// override engine.
     /// </summary>
-    public void ShowStripGhost(Rect rect, string title)
+    public void ShowStripPlaceholder(Rect rect)
     {
-        _stripGhostText.Text = title;
-        _stripGhost.Width = rect.Width;
-        _stripGhost.Height = rect.Height;
-        SetLeft(_stripGhost, rect.X);
-        SetTop(_stripGhost, rect.Y);
-        _stripGhost.IsVisible = true;
+        _stripPlaceholder.Width = rect.Width;
+        _stripPlaceholder.Height = rect.Height;
+        SetLeft(_stripPlaceholder, rect.X);
+        SetTop(_stripPlaceholder, rect.Y);
+        _stripPlaceholder.IsVisible = true;
     }
 
-    /// <summary>Hides the strip ghost header — the pointer left the strip.</summary>
-    public void HideStripGhost() => _stripGhost.IsVisible = false;
+    /// <summary>Hides the insertion placeholder — the pointer left the strip.</summary>
+    public void HideStripPlaceholder() => _stripPlaceholder.IsVisible = false;
 
     /// <summary>
     /// Shows or hides (null) the target hint label (spec TW-5.17 v0.26): anchored under the
@@ -200,12 +185,10 @@ internal sealed class DragLayer : Canvas
         _ghost.Child = null;
         _lightFace = null;
         _miniatureView = null;
-        _ghostShown = false;
-        _ghostSuppressed = false;
         _marker.IsVisible = false;
         _zone.IsVisible = false;
         _hint.IsVisible = false;
-        _stripGhost.IsVisible = false;
+        _stripPlaceholder.IsVisible = false;
     }
 
     private void PlaceHint()

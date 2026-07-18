@@ -128,7 +128,7 @@ internal static class TabDropTargets
             }
         }
 
-        // Band views of the catalog (stage 2 of DA-9.7 v0.17): headers sorted by X in
+        // Band views of the catalog (stage 2 of DA-9.7 v0.18): headers sorted by X in
         // gesture coordinates. The donor band — the one holding the dragged header — travels
         // with every strip zone, so a cross-strip hover collapses it too; an external
         // re-projection rebuilds the views from the fresh leaf chrome, which reapplies the
@@ -159,7 +159,7 @@ internal static class TabDropTargets
                     h => !string.Equals(h.Header.TabId, draggedId, StringComparison.Ordinal)).Header?.TabId
                 ?? draggedId;
             // The receiver collapses the dragged header itself; the donor rides along only
-            // for a cross-strip hover (DA-9.7 v0.17).
+            // for a cross-strip hover (DA-9.7 v0.18).
             var donor = ReferenceEquals(donorBand, view) ? null : donorBand;
 
             var previous = view.Rect.Left;

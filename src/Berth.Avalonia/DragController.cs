@@ -171,9 +171,9 @@ internal sealed class DragController
     {
         GestureConsumedClick = false;
         _subject = subject;
-        // The armed header's width sizes the strip reorder preview's ghost (spec DA-9.7
-        // v0.17: the ghost width comes from the source header at the gesture start, never
-        // re-measured mid-gesture); only a tree tab arms from a tab header.
+        // The armed header's width sizes the strip reorder preview's insertion placeholder
+        // (spec DA-9.7 v0.18: the place the tab takes is sized off the source header at the
+        // gesture start, never re-measured mid-gesture); only a tree tab arms from a header.
         _armedHeaderWidth = subject.Kind == DragSourceKind.TreeTab
             ? DockTabHeader.FindHeader(e.Source)?.Bounds.Width
             : null;
@@ -214,7 +214,7 @@ internal sealed class DragController
     }
 
     /// <summary>
-    /// The eager reapply of the section 12 contract (tool-windows; spec DA-9.7 v0.17): an
+    /// The eager reapply of the section 12 contract (tool-windows; spec DA-9.7 v0.18): an
     /// external re-projection rebuilt the leaf chrome — including the strip headers carrying
     /// the reorder-preview overrides — so the target visuals must re-lay over the fresh views
     /// without waiting for the next pointer move. A posted job rebuilds the catalog over
@@ -471,7 +471,7 @@ internal sealed class DragController
     }
 
     /// <summary>
-    /// Assembles the ghost passport at the gesture start (spec TW-5.17 v0.26, DA-9.7 v0.17):
+    /// Assembles the ghost passport at the gesture start (spec TW-5.17 v0.26, DA-9.7 v0.18):
     /// the light face — the stripe icon face of a panel (the shared face of
     /// <see cref="StripeButton"/>), the title chip of a tab — plus the content miniature of a
     /// subject whose view is built and attached right now: the decorator of a hosted open
@@ -485,8 +485,7 @@ internal sealed class DragController
             var host = _workspace.TabHosts.TryPeek(_subject.SubjectId);
             var (image, size) = CaptureMiniature(
                 host is { HasContent: true } && ((ILogical)host).IsAttachedToLogicalTree ? host : null);
-            return new GhostPassport(
-                GhostChrome.TitleChip(_subject.Title), image, size, _subject.Title, _armedHeaderWidth);
+            return new GhostPassport(GhostChrome.TitleChip(_subject.Title), image, size, _armedHeaderWidth);
         }
 
         ToolWindowDescriptor? descriptor = null;
@@ -508,7 +507,6 @@ internal sealed class DragController
             GhostChrome.IconChip(descriptor?.IconKey, descriptor?.Title ?? _subject.Title),
             miniature,
             displaySize,
-            descriptor?.Title ?? _subject.Title,
             sourceHeaderWidth: null);
     }
 

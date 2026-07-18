@@ -60,7 +60,7 @@ internal static class GestureSpace
 }
 
 /// <summary>
-/// The ghost passport of one drag gesture (spec TW-5.17 v0.26, DA-9.7 v0.17), assembled once
+/// The ghost passport of one drag gesture (spec TW-5.17 v0.26, DA-9.7 v0.18), assembled once
 /// at the gesture start: the light face shown over any target — the stripe icon face of a
 /// panel (the same face as the stripe button), the title chip of a tab — and the optional
 /// content miniature shown outside every target, the herald of the take-out (TW-7.8, DA-9.7).
@@ -70,13 +70,11 @@ internal static class GestureSpace
 /// </summary>
 internal sealed class GhostPassport
 {
-    public GhostPassport(
-        Control lightFace, IImage? miniature, Size miniatureSize, string title, double? sourceHeaderWidth)
+    public GhostPassport(Control lightFace, IImage? miniature, Size miniatureSize, double? sourceHeaderWidth)
     {
         LightFace = lightFace;
         Miniature = miniature;
         MiniatureSize = miniatureSize;
-        Title = title;
         SourceHeaderWidth = sourceHeaderWidth;
     }
 
@@ -89,14 +87,11 @@ internal sealed class GhostPassport
     /// <summary>Display size of the miniature, capped at <see cref="BerthMetrics.GhostMiniatureMaxSize"/>.</summary>
     public Size MiniatureSize { get; }
 
-    /// <summary>Display title of the subject — the text of the strip reorder preview's ghost header (spec DA-9.7 v0.17).</summary>
-    public string Title { get; }
-
     /// <summary>
-    /// Width of the source tab header at the gesture start — the width of the reorder
-    /// preview's ghost header (spec DA-9.7 v0.17: the ghost is sized off the header the user
-    /// grabbed, never re-measured mid-gesture). Null for non-tab subjects, whose gestures
-    /// meet no strip zones.
+    /// Width of the source tab header at the gesture start — the width of the strip reorder
+    /// preview's insertion placeholder (spec DA-9.7 v0.18: the place the tab takes is sized
+    /// off the header the user grabbed, never re-measured mid-gesture). Null for non-tab
+    /// subjects, whose gestures meet no strip zones.
     /// </summary>
     public double? SourceHeaderWidth { get; }
 }
@@ -144,23 +139,17 @@ internal static class GhostChrome
         Chip(new StripeIconFace(iconKey, title), new Thickness(2));
 
     /// <summary>
-    /// The highlighted ghost header of the strip reorder preview (spec DA-9.7 v0.17): shown
-    /// in the gap the strip's headers opened, sized to the captured source-header width — a
-    /// longer title clips inside, like the band clips its own headers.
+    /// The insertion placeholder of the strip reorder preview (spec DA-9.7 v0.18): the
+    /// framed translucent fill of the gap the strip's headers opened — the place the tab
+    /// takes on release, sized to the captured source-header width. Carries no text: the
+    /// title rides on the pointer chip, which stays visible over the strip.
     /// </summary>
-    public static Border StripGhostHeader(out TextBlock text)
+    public static Border StripPlaceholder() => new()
     {
-        text = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
-        return new Border
-        {
-            Child = text,
-            Background = BerthBrushes.OpenIcon,
-            BorderBrush = BerthBrushes.DropMarker,
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(8, 0),
-            ClipToBounds = true,
-        };
-    }
+        Background = BerthBrushes.DropAreaPreview,
+        BorderBrush = BerthBrushes.DropMarker,
+        BorderThickness = new Thickness(1),
+    };
 
     /// <summary>The framed miniature view of the ghost outside every target (spec TW-5.17 v0.26).</summary>
     public static Control MiniatureView(IImage image, Size size) => new Border
@@ -215,10 +204,11 @@ internal interface IDragVisual
     /// Updates every target visual at once (spec TW-5.17 v0.26): over a target — the marker,
     /// the zone preview and the hint show, and the ghost switches to its light face; outside
     /// every target (null) they hide and the ghost switches to the miniature when one was
-    /// captured at the start. A strip insertion zone carrying a reorder payload replaces them
-    /// all with the live strip reorder preview (spec DA-9.7 v0.17): the headers move apart
-    /// around the highlighted ghost header — the gesture image — and the pointer ghost hides
-    /// until the pointer leaves the strip.
+    /// captured at the start. A strip insertion zone carrying a reorder payload swaps the
+    /// marker for the live strip reorder preview (spec DA-9.7 v0.18): the headers move apart
+    /// around the framed insertion placeholder — the place the tab takes on release — while
+    /// the pointer ghost keeps riding at the cursor, the single gesture language of every
+    /// target kind.
     /// </summary>
     public void UpdateTarget(DropTarget? target);
 
@@ -255,32 +245,31 @@ internal sealed class OverlayDragVisual : IDragVisual
 
     public void UpdateTarget(DropTarget? target)
     {
-        if (target?.StripPreview is { } preview && _passport is { SourceHeaderWidth: { } width } passport)
+        if (target?.StripPreview is { } preview && _passport is { SourceHeaderWidth: { } width })
         {
-            // The live reorder preview is the whole gesture image over a strip (DA-9.7
-            // v0.17): the pointer ghost and the line marker yield to the moved-apart headers
-            // and the highlighted ghost header in their gap. Gesture coordinates are
-            // workspace coordinates here (TW-7.7).
-            var ghost = _reorder.Apply(preview, width);
+            // Over a strip the line marker yields to the reorder preview (DA-9.7 v0.18):
+            // the headers move apart around the framed insertion placeholder while the
+            // pointer chip stays at the cursor, like over every other target. Gesture
+            // coordinates are workspace coordinates here (TW-7.7).
+            var place = _reorder.Apply(preview, width);
             _layer.HideMarker();
             _layer.HideZone();
             _layer.SetHint(null);
-            _layer.SetGhostSuppressed(true);
-            if (ghost.Width > 0)
+            _layer.SetGhostMiniature(false);
+            if (place.Width > 0)
             {
-                _layer.ShowStripGhost(ghost, passport.Title);
+                _layer.ShowStripPlaceholder(place);
             }
             else
             {
-                _layer.HideStripGhost(); // the narrow band clipped the ghost away entirely
+                _layer.HideStripPlaceholder(); // the narrow band clipped the place away entirely
             }
 
             return;
         }
 
         _reorder.Clear();
-        _layer.HideStripGhost();
-        _layer.SetGhostSuppressed(false);
+        _layer.HideStripPlaceholder();
         if (target is null)
         {
             _layer.HideMarker();
@@ -331,8 +320,6 @@ internal sealed class WindowedDragVisual : IDragVisual
     private GhostPassport? _passport;
     private MarkerOverlay? _markedOverlay;
     private MarkerOverlay? _stripOverlay;
-    private bool _ghostSuppressed;
-    private Point _lastGhostPoint;
 
     public WindowedDragVisual(BerthWorkspace workspace, DragLayer mainLayer)
     {
@@ -350,7 +337,6 @@ internal sealed class WindowedDragVisual : IDragVisual
 
     public void MoveGhost(Point gesturePoint)
     {
-        _lastGhostPoint = gesturePoint;
         if (_passport is null)
         {
             return;
@@ -358,11 +344,6 @@ internal sealed class WindowedDragVisual : IDragVisual
 
         if (_ghost is null)
         {
-            if (_ghostSuppressed)
-            {
-                return; // created at the last point when the pointer leaves the strip
-            }
-
             _ghost = new GhostWindow(_passport);
             _ghost.MoveTo(gesturePoint);
             _ghost.Show(); // positioned first: no flash at the origin
@@ -375,23 +356,23 @@ internal sealed class WindowedDragVisual : IDragVisual
 
     public void UpdateTarget(DropTarget? target)
     {
-        if (target?.StripPreview is { } preview && _passport is { SourceHeaderWidth: { } width } passport)
+        if (target?.StripPreview is { } preview && _passport is { SourceHeaderWidth: { } width })
         {
-            // The live reorder preview is the whole gesture image over a strip (DA-9.7
-            // v0.17): the OS-window ghost hides, the line marker yields, and the ghost
-            // header paints in the overlay of the window containing the strip.
-            var ghost = _reorder.Apply(preview, width);
+            // Over a strip the line marker yields to the reorder preview (DA-9.7 v0.18):
+            // the framed insertion placeholder paints in the overlay of the window
+            // containing the strip, while the OS-window pointer ghost keeps riding at the
+            // cursor, like over every other target.
+            var place = _reorder.Apply(preview, width);
             HideMarker();
             _mainLayer.HideZone();
             SetHint(null);
-            SetGhostSuppressed(true);
-            ShowStripGhost(ghost, passport.Title, target.WindowKey);
+            _ghost?.SetMiniature(false);
+            ShowStripPlaceholder(place, target.WindowKey);
             return;
         }
 
         _reorder.Clear();
-        HideStripGhost();
-        SetGhostSuppressed(false);
+        HideStripPlaceholder();
         if (target is null)
         {
             HideMarker();
@@ -418,7 +399,7 @@ internal sealed class WindowedDragVisual : IDragVisual
     public void HideAll()
     {
         _reorder.Clear();
-        HideStripGhost();
+        HideStripPlaceholder();
         HideMarker();
         _mainLayer.HideZone();
         _mainLayer.SetHint(null);
@@ -426,71 +407,44 @@ internal sealed class WindowedDragVisual : IDragVisual
         _ghost = null;
     }
 
-    /// <summary>
-    /// Hides the OS-window ghost while the strip reorder preview is the gesture image and
-    /// restores it when the pointer leaves the strip (spec DA-9.7 v0.17); a gesture that
-    /// began over a strip creates the ghost lazily at its last point on the way out.
-    /// </summary>
-    private void SetGhostSuppressed(bool suppressed)
-    {
-        if (_ghostSuppressed == suppressed)
-        {
-            return;
-        }
-
-        _ghostSuppressed = suppressed;
-        if (suppressed)
-        {
-            _ghost?.Hide();
-        }
-        else if (_ghost is not null)
-        {
-            _ghost.Show(); // ShowActivated is false: restoring never steals focus
-        }
-        else
-        {
-            MoveGhost(_lastGhostPoint);
-        }
-    }
-
-    /// <summary>Routes the strip ghost header into the window containing the strip: the workspace layer for the main window, the marker overlay for a floating one.</summary>
-    private void ShowStripGhost(Rect gestureRect, string title, object? windowKey)
+    /// <summary>Routes the insertion placeholder into the window containing the strip: the workspace layer for the main window, the marker overlay for a floating one.</summary>
+    private void ShowStripPlaceholder(Rect gestureRect, object? windowKey)
     {
         if (gestureRect.Width <= 0 || gestureRect.Height <= 0)
         {
-            HideStripGhost(); // the narrow band clipped the ghost away entirely
+            HideStripPlaceholder(); // the narrow band clipped the place away entirely
             return;
         }
 
         switch (windowKey)
         {
             case FloatingWindowLayer.FloatingWindowBase floating:
-                _mainLayer.HideStripGhost();
-                floating.Markers.ShowStripGhost(GestureSpace.ToTopLevel(floating, gestureRect), title);
+                _mainLayer.HideStripPlaceholder();
+                floating.Markers.ShowStripPlaceholder(GestureSpace.ToTopLevel(floating, gestureRect));
                 _stripOverlay = floating.Markers;
                 break;
             case TopLevel:
                 if (_stripOverlay is { } previous)
                 {
-                    previous.HideStripGhost();
+                    previous.HideStripPlaceholder();
                     _stripOverlay = null;
                 }
 
                 if (ToWorkspaceRect(gestureRect) is { } rect)
                 {
-                    _mainLayer.ShowStripGhost(rect, title);
+                    _mainLayer.ShowStripPlaceholder(rect);
                 }
 
                 break;
         }
     }
 
-    private void HideStripGhost()
+    private void HideStripPlaceholder()
     {
-        _mainLayer.HideStripGhost();
+        _mainLayer.HideStripPlaceholder();
         if (_stripOverlay is { } overlay)
         {
-            overlay.HideStripGhost();
+            overlay.HideStripPlaceholder();
             _stripOverlay = null;
         }
     }
@@ -641,8 +595,7 @@ internal sealed class GhostWindow : Window
 internal sealed class MarkerOverlay : Canvas
 {
     private readonly Border _marker;
-    private readonly Border _stripGhost;
-    private readonly TextBlock _stripGhostText;
+    private readonly Border _stripPlaceholder;
 
     public MarkerOverlay()
     {
@@ -650,10 +603,10 @@ internal sealed class MarkerOverlay : Canvas
         IsHitTestVisible = false;
         _marker = new Border { IsVisible = false };
         Children.Add(_marker);
-        _stripGhost = GhostChrome.StripGhostHeader(out _stripGhostText);
-        _stripGhost.Name = "PART_StripGhostHeader";
-        _stripGhost.IsVisible = false;
-        Children.Add(_stripGhost);
+        _stripPlaceholder = GhostChrome.StripPlaceholder();
+        _stripPlaceholder.Name = "PART_StripPlaceholder";
+        _stripPlaceholder.IsVisible = false;
+        Children.Add(_stripPlaceholder);
     }
 
     /// <summary>Shows the marker, in the window's local coordinates.</summary>
@@ -670,17 +623,16 @@ internal sealed class MarkerOverlay : Canvas
     /// <summary>Hides the marker.</summary>
     public void Hide() => _marker.IsVisible = false;
 
-    /// <summary>Shows the strip reorder preview's ghost header, in the window's local coordinates (spec DA-9.7 v0.17).</summary>
-    public void ShowStripGhost(Rect rect, string title)
+    /// <summary>Shows the strip reorder preview's insertion placeholder, in the window's local coordinates (spec DA-9.7 v0.18).</summary>
+    public void ShowStripPlaceholder(Rect rect)
     {
-        _stripGhostText.Text = title;
-        _stripGhost.Width = rect.Width;
-        _stripGhost.Height = rect.Height;
-        SetLeft(_stripGhost, rect.X);
-        SetTop(_stripGhost, rect.Y);
-        _stripGhost.IsVisible = true;
+        _stripPlaceholder.Width = rect.Width;
+        _stripPlaceholder.Height = rect.Height;
+        SetLeft(_stripPlaceholder, rect.X);
+        SetTop(_stripPlaceholder, rect.Y);
+        _stripPlaceholder.IsVisible = true;
     }
 
-    /// <summary>Hides the strip ghost header.</summary>
-    public void HideStripGhost() => _stripGhost.IsVisible = false;
+    /// <summary>Hides the insertion placeholder.</summary>
+    public void HideStripPlaceholder() => _stripPlaceholder.IsVisible = false;
 }
