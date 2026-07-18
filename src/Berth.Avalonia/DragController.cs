@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace Berth.Controls;
@@ -88,6 +89,9 @@ internal sealed class DragController
     private List<DropTarget>? _targets;
     private DropTarget? _current;
     private bool _catalogDirty;
+    private bool _reapplyScheduled;
+    private Point _lastGesturePoint;
+    private double? _armedHeaderWidth;
     private IDragVisual? _visual;
     private GhostPassport? _passport;
     private Interactive? _captureTarget;
@@ -167,6 +171,12 @@ internal sealed class DragController
     {
         GestureConsumedClick = false;
         _subject = subject;
+        // The armed header's width sizes the strip reorder preview's ghost (spec DA-9.7
+        // v0.17: the ghost width comes from the source header at the gesture start, never
+        // re-measured mid-gesture); only a tree tab arms from a tab header.
+        _armedHeaderWidth = subject.Kind == DragSourceKind.TreeTab
+            ? DockTabHeader.FindHeader(e.Source)?.Bounds.Width
+            : null;
         _sourceRoot = e.Source is Visual source
             ? TopLevel.GetTopLevel(source)
             : TopLevel.GetTopLevel(_workspace);
@@ -195,11 +205,45 @@ internal sealed class DragController
         if (SubjectInLayout(state))
         {
             _catalogDirty = true;
+            ScheduleReapply();
         }
         else
         {
             CancelDrag();
         }
+    }
+
+    /// <summary>
+    /// The eager reapply of the section 12 contract (tool-windows; spec DA-9.7 v0.17): an
+    /// external re-projection rebuilt the leaf chrome — including the strip headers carrying
+    /// the reorder-preview overrides — so the target visuals must re-lay over the fresh views
+    /// without waiting for the next pointer move. A posted job rebuilds the catalog over
+    /// settled layout and re-resolves the target at the last gesture point; the pointer-move
+    /// path stays the primary rebuild trigger — the job coalesces and yields when a move (or
+    /// the gesture's end) got there first.
+    /// </summary>
+    private void ScheduleReapply()
+    {
+        if (_reapplyScheduled)
+        {
+            return;
+        }
+
+        _reapplyScheduled = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _reapplyScheduled = false;
+            if (_phase != Phase.Dragging || !_catalogDirty)
+            {
+                return;
+            }
+
+            RebuildCatalog();
+            if (_phase == Phase.Dragging)
+            {
+                UpdateVisuals(_lastGesturePoint);
+            }
+        });
     }
 
     /// <summary>Full projection reset (Registry/Lifecycle swap): the gesture ends with no trace and the layer is forgotten.</summary>
@@ -403,6 +447,7 @@ internal sealed class DragController
 
     private void UpdateVisuals(Point position)
     {
+        _lastGesturePoint = position;
         _visual?.MoveGhost(position);
         _current = null;
         if (_targets is not null)
@@ -440,7 +485,8 @@ internal sealed class DragController
             var host = _workspace.TabHosts.TryPeek(_subject.SubjectId);
             var (image, size) = CaptureMiniature(
                 host is { HasContent: true } && ((ILogical)host).IsAttachedToLogicalTree ? host : null);
-            return new GhostPassport(GhostChrome.TitleChip(_subject.Title), image, size);
+            return new GhostPassport(
+                GhostChrome.TitleChip(_subject.Title), image, size, _subject.Title, _armedHeaderWidth);
         }
 
         ToolWindowDescriptor? descriptor = null;
@@ -461,7 +507,9 @@ internal sealed class DragController
         return new GhostPassport(
             GhostChrome.IconChip(descriptor?.IconKey, descriptor?.Title ?? _subject.Title),
             miniature,
-            displaySize);
+            displaySize,
+            descriptor?.Title ?? _subject.Title,
+            sourceHeaderWidth: null);
     }
 
     /// <summary>Captures the miniature of one hosted control, scaled into the display cap; (null, default) without a source or a render.</summary>

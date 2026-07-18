@@ -228,9 +228,10 @@ public class DragVisualTests
 
         // d1 is the active tab of a visible group: its view is built and attached (DA-9.6).
         var start = Center(TabHeader(window, "d1"), window);
-        DragTo(window, start, new Point(start.X + 10, start.Y)); // still over the strip — a target
+        var center = BoundsIn(TabHost(window, "d1"), window).Center; // the group center, clear of the wedges
+        DragTo(window, start, center);
 
-        Assert.True(Part(window, "PART_DropMarker").IsVisible);
+        Assert.True(Part(window, "PART_DropMarker").IsVisible); // the center zone's area marker
         Assert.False(Drag(window).GhostShowsMiniature); // the familiar chip over any target
         Assert.Null(Drag(window).HintText); // tab targets carry no hint in stage 1 (v2)
 

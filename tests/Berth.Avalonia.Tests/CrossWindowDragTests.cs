@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Xunit;
@@ -143,7 +144,8 @@ public class CrossWindowDragTests
         var docWindow = DocumentWindowOf(main, "d9")!;
         var host = Workspace(main).TabHosts.GetHost("d2");
 
-        // Mid-gesture the marker paints in the document window's own overlay (task 6.2).
+        // Mid-gesture the target visuals paint in the document window's own overlay (task
+        // 6.2) — over a strip that is the reorder preview's ghost header (stage 2, v0.17).
         var start = Center(TabHeader(main, "d2"), main);
         var after = BoundsIn(TabHeader(docWindow, "d9"), docWindow);
         var target = Gesture(docWindow, new Point(after.Right + 10, after.Center.Y));
@@ -152,7 +154,7 @@ public class CrossWindowDragTests
         main.MouseMove(Local(main, target));
         Dispatcher.UIThread.RunJobs();
         var markers = ((FloatingWindowLayer.FloatingWindowBase)docWindow).Markers;
-        Assert.True(markers.Children.OfType<Border>().Single().IsVisible);
+        Assert.True(Part(markers, "PART_StripGhostHeader").IsVisible);
         main.MouseUp(Local(main, target), MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
 
@@ -439,5 +441,61 @@ public class CrossWindowDragTests
         Assert.Empty(St(main).DockArea.Windows); // the emptied source window is gone (INV-D6)
         Assert.Equal("d9", St(main).DockArea.CurrentTabId);
         Assert.True(St(main).DockArea.ActiveDockHost.IsMainWindow);
+    }
+
+    // ---- the strip reorder preview across windows (DA-9.7 v0.17, stage 2) ----
+
+    [AvaloniaFact]
+    public void DA_9_7_strip_preview_reaches_a_document_window_and_collapses_the_main_donor()
+    {
+        var registry = DockRegistry();
+        var lifecycle = new ContentLifecycle(registry);
+        var state = LayoutState.Empty with
+        {
+            DockArea = new DockAreaState
+            {
+                Root = Group("d1", "d1", "d2", "d3"),
+                CurrentTabId = "d1",
+                Windows =
+                [
+                    new DocumentWindowState(new FloatingBounds(900, 50, 400, 300), Group("d9", "d9"), "d9"),
+                ],
+            },
+        };
+        var main = Show(state, registry, lifecycle: lifecycle);
+        var docWindow = DocumentWindowOf(main, "d9")!;
+        var before = St(main);
+        var drag = Workspace(main).Drag!;
+
+        var d2 = BoundsIn(TabHeader(main, "d2"), main);
+        var d9 = BoundsIn(TabHeader(docWindow, "d9"), docWindow);
+        var target = Gesture(docWindow, new Point(d9.Right + 4, d9.Center.Y)); // the gap after d9
+        main.MouseDown(d2.Center, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        main.MouseMove(Local(main, target));
+        Dispatcher.UIThread.RunJobs();
+
+        // The ghost header paints in the document window's own overlay, in its local
+        // coordinates; the OS-window pointer ghost hides — the preview is the gesture image.
+        Assert.False(drag.GhostVisible);
+        var chip = Part(docWindow, "PART_StripGhostHeader");
+        Assert.True(chip.IsVisible);
+        Assert.Equal(d9.Right, Canvas.GetLeft(chip), 1);
+        Assert.Equal(d2.Width, chip.Width, 1);
+
+        // The donor strip back in the main window collapses the dragged header's place.
+        Assert.Equal(0, TabHeader(main, "d2").Opacity);
+        var shifted = Assert.IsType<TranslateTransform>(TabHeader(main, "d3").RenderTransform);
+        Assert.Equal(-d2.Width, shifted.X, 1);
+
+        // Cancellation restores both windows' natural projection with no trace (DA-E22).
+        main.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(chip.IsVisible);
+        Assert.Equal(1, TabHeader(main, "d2").Opacity);
+        Assert.Null(TabHeader(main, "d3").RenderTransform);
+        main.MouseUp(Local(main, target), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Same(before, St(main));
     }
 }

@@ -23,10 +23,14 @@ internal sealed class DragLayer : Canvas
     private readonly Border _zone;
     private readonly Border _hint;
     private readonly TextBlock _hintText;
+    private readonly Border _stripGhost;
+    private readonly TextBlock _stripGhostText;
     private Control? _lightFace;
     private Control? _miniatureView;
     private Point _ghostPosition;
     private Rect _markerRect;
+    private bool _ghostShown;
+    private bool _ghostSuppressed;
 
     public DragLayer()
     {
@@ -53,8 +57,12 @@ internal sealed class DragLayer : Canvas
         _hint = GhostChrome.Chip(out _hintText);
         _hint.Name = "PART_DropHint";
         _hint.IsVisible = false;
+        _stripGhost = GhostChrome.StripGhostHeader(out _stripGhostText);
+        _stripGhost.Name = "PART_StripGhostHeader";
+        _stripGhost.IsVisible = false;
         Children.Add(_zone);
         Children.Add(_marker);
+        Children.Add(_stripGhost);
         Children.Add(_hint);
         Children.Add(_ghost);
     }
@@ -77,7 +85,20 @@ internal sealed class DragLayer : Canvas
             ? GhostChrome.MiniatureView(miniature, passport.MiniatureSize)
             : null;
         _ghost.Child = _lightFace;
+        _ghostShown = true;
+        _ghostSuppressed = false;
         _ghost.IsVisible = true;
+    }
+
+    /// <summary>
+    /// Suppresses or restores the pointer ghost (spec DA-9.7 v0.17): over a strip insertion
+    /// zone the reorder preview's ghost header is the gesture image, so the chip at the
+    /// pointer hides — and returns as soon as the pointer leaves the strip.
+    /// </summary>
+    public void SetGhostSuppressed(bool suppressed)
+    {
+        _ghostSuppressed = suppressed;
+        _ghost.IsVisible = _ghostShown && !suppressed;
     }
 
     /// <summary>Moves the ghost next to the pointer, in workspace coordinates.</summary>
@@ -143,6 +164,24 @@ internal sealed class DragLayer : Canvas
     public void HideZone() => _zone.IsVisible = false;
 
     /// <summary>
+    /// Shows the highlighted ghost header of the strip reorder preview, in workspace
+    /// coordinates (spec DA-9.7 v0.17): the rectangle is the gap the strip's headers opened,
+    /// already clipped into the band by the override engine.
+    /// </summary>
+    public void ShowStripGhost(Rect rect, string title)
+    {
+        _stripGhostText.Text = title;
+        _stripGhost.Width = rect.Width;
+        _stripGhost.Height = rect.Height;
+        SetLeft(_stripGhost, rect.X);
+        SetTop(_stripGhost, rect.Y);
+        _stripGhost.IsVisible = true;
+    }
+
+    /// <summary>Hides the strip ghost header — the pointer left the strip.</summary>
+    public void HideStripGhost() => _stripGhost.IsVisible = false;
+
+    /// <summary>
     /// Shows or hides (null) the target hint label (spec TW-5.17 v0.26): anchored under the
     /// ghost while one is shown, else next to the marker — the ghost-less path of the panel
     /// dock guide (TW-7.7, TW-7.1).
@@ -161,9 +200,12 @@ internal sealed class DragLayer : Canvas
         _ghost.Child = null;
         _lightFace = null;
         _miniatureView = null;
+        _ghostShown = false;
+        _ghostSuppressed = false;
         _marker.IsVisible = false;
         _zone.IsVisible = false;
         _hint.IsVisible = false;
+        _stripGhost.IsVisible = false;
     }
 
     private void PlaceHint()

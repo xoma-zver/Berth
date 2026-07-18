@@ -128,6 +128,13 @@ internal static class TabDropTargets
             }
         }
 
+        // Band views of the catalog (stage 2 of DA-9.7 v0.17): headers sorted by X in
+        // gesture coordinates. The donor band — the one holding the dragged header — travels
+        // with every strip zone, so a cross-strip hover collapses it too; an external
+        // re-projection rebuilds the views from the fresh leaf chrome, which reapplies the
+        // overrides (the section 12 contract of tool-windows).
+        var bands = new List<(StripBandView View, object? Key)>();
+        StripBandView? donorBand = null;
         foreach (var (band, headers) in strips)
         {
             if (space.RectOf(band) is not { } bandRect || bandRect.Width <= 0)
@@ -135,38 +142,53 @@ internal static class TabDropTargets
                 continue;
             }
 
-            var key = space.KeyOf(band);
             headers.Sort((a, b) => a.Rect.X.CompareTo(b.Rect.X));
+            var view = new StripBandView(
+                band, bandRect, [.. headers.Select(h => new StripHeaderView(h.Header, h.Rect))]);
+            bands.Add((view, space.KeyOf(band)));
+            if (headers.Any(h => string.Equals(h.Header.TabId, draggedId, StringComparison.Ordinal)))
+            {
+                donorBand = view;
+            }
+        }
+
+        foreach (var (view, key) in bands)
+        {
+            var headers = view.Headers;
             var anchor = headers.FirstOrDefault(
                     h => !string.Equals(h.Header.TabId, draggedId, StringComparison.Ordinal)).Header?.TabId
                 ?? draggedId;
+            // The receiver collapses the dragged header itself; the donor rides along only
+            // for a cross-strip hover (DA-9.7 v0.17).
+            var donor = ReferenceEquals(donorBand, view) ? null : donorBand;
 
-            var previous = bandRect.Left;
-            for (var i = 0; i < headers.Count; i++)
+            var previous = view.Rect.Left;
+            for (var i = 0; i < headers.Length; i++)
             {
                 var mid = headers[i].Rect.Center.X;
                 var markerX = i == 0
                     ? headers[0].Rect.Left
                     : (headers[i - 1].Rect.Right + headers[i].Rect.Left) / 2;
-                AddZone(targets, bandRect, previous, mid, markerX,
-                    draggedId, anchor, i == 0 ? null : headers[i - 1].Header.TabId, key);
+                AddZone(targets, view, previous, mid, markerX,
+                    draggedId, anchor, i == 0 ? null : headers[i - 1].Header.TabId, donor, key);
                 previous = mid;
             }
 
-            AddZone(targets, bandRect, previous, bandRect.Right, headers[^1].Rect.Right,
-                draggedId, anchor, headers[^1].Header.TabId, key);
+            AddZone(targets, view, previous, view.Rect.Right, headers[^1].Rect.Right,
+                draggedId, anchor, headers[^1].Header.TabId, donor, key);
         }
     }
 
     private static void AddZone(
         List<DropTarget> targets,
-        Rect bandRect,
+        StripBandView receiver,
         double zoneStart,
         double zoneEnd,
         double markerAnchor,
         string draggedId,
         string anchor,
         string? predecessorId,
+        StripBandView? donor,
         object? windowKey)
     {
         if (zoneEnd - zoneStart <= 0)
@@ -174,13 +196,17 @@ internal static class TabDropTargets
             return; // a degenerate zone of a crowded strip — the neighbours cover the space
         }
 
+        var bandRect = receiver.Rect;
         var markerX = Math.Clamp(markerAnchor, bandRect.Left, bandRect.Right - BerthMetrics.DropMarkerThickness);
         targets.Add(new DropTarget(
             new Rect(zoneStart, bandRect.Y, zoneEnd - zoneStart, bandRect.Height),
+            // The marker rect stays the stage-1 insertion line — the fallback of a gesture
+            // without a captured source-header width, whose preview has no ghost to size.
             new Rect(markerX, bandRect.Y + 2, BerthMetrics.DropMarkerThickness, bandRect.Height - 4),
             StripCommit(draggedId, anchor, predecessorId))
         {
             WindowKey = windowKey,
+            StripPreview = new StripReorderPreview(draggedId, receiver, predecessorId, donor),
         });
     }
 

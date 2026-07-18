@@ -157,7 +157,9 @@ public class TabDragTests
         var own = BoundsIn(TabHeader(window, "d2"), window);
         var target = new Point(own.Right + 8, own.Center.Y); // the gap after itself
         DragTo(window, own.Center, target);
-        Assert.True(Part(window, "PART_DropMarker").IsVisible); // the zone exists — the drop is an identity, not a miss
+        // The zone exists — the drop is an identity, not a miss; a strip zone shows the
+        // reorder preview instead of the line marker (DA-9.7 v0.17, stage 2).
+        Assert.True(Part(window, "PART_StripGhostHeader").IsVisible);
         Release(window, target);
 
         Assert.Same(before, St(window)); // no command, no activation, no focus (DA-E40)

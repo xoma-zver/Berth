@@ -48,6 +48,14 @@ internal sealed record DropTarget(
     /// <summary>The «Move to {slot}» hint of a stripe target (spec TW-5.17 v0.26); null — no hint (tab targets, v2).</summary>
     public string? Hint { get; init; }
 
+    /// <summary>
+    /// The live reorder-preview payload of a strip insertion zone (spec DA-9.7 v0.17): over
+    /// such a target the gesture visual replaces the marker and the pointer ghost with the
+    /// strip reorder preview — the headers move apart around the highlighted ghost header.
+    /// Null — a non-strip target (wedges, centers, stripe zones) keeps the stage-1 visuals.
+    /// </summary>
+    public StripReorderPreview? StripPreview { get; init; }
+
     /// <summary>Whether the pointer position lies in the target's zone.</summary>
     public bool Contains(Point position) => HitRect.Contains(position) && HitTest?.Invoke(position) != false;
 }
