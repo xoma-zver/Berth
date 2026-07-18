@@ -402,34 +402,37 @@ internal static class StripeDropTargets
 }
 
 /// <summary>
-/// Dock assist of a panel pseudo-window's live move gesture (spec TW-7.7 extension, browser
-/// only): while the header drags the window, the same stripe drop targets of TW-5.17 light up
-/// so a release over a stripe docks the panel instead of merely moving it. The window keeps
-/// moving live under the pointer — the pseudo-window owns its visual, unlike the ghost of the
-/// slot gesture — so this guide only hit-tests the stripe zones under the pointer, drives the
-/// insertion marker on the workspace <see cref="DragLayer"/>, and hands the resolved target
-/// back to the release. The commit itself is the target's own — the docking <c>Move</c> +
-/// <c>SetMode(LastInternalMode)</c> sequence that already backs the reverse icon/header drop
-/// of TW-7.8. The gesture lives in workspace coordinates — the overlay «screen» (TW-7.7) — so
-/// the pseudo-window canvas, the stripe zones and the marker share one space, no conversion.
+/// Dock assist of a panel window's live move gesture (spec TW-7.7 extension; TW-7.1 for the
+/// frameless Float window of Windows): while the header drags the window, the same stripe
+/// drop targets of TW-5.17 light up so a release over a stripe docks the panel instead of
+/// merely moving it. The window keeps moving live under the pointer — the pseudo-window and
+/// the frameless OS window own their visuals, unlike the ghost of the slot gesture — so this
+/// guide only hit-tests the stripe zones under the pointer, drives the insertion marker
+/// through the gesture visual, and hands the resolved target back to the release. The commit
+/// itself is the target's own — the docking <c>Move</c> + <c>SetMode(LastInternalMode)</c>
+/// sequence that already backs the reverse icon/header drop of TW-7.8. Points arrive in the
+/// gesture space the targets were built in (workspace coordinates on the overlay platform,
+/// screen coordinates on the windowed one — see
+/// <see cref="BerthWorkspace.BeginPanelDockGuide"/>); the hit-test is direct and geometric —
+/// occlusion is irrelevant: the stripes are the only targets (TW-7.7).
 /// </summary>
 internal sealed class PanelDockGuide
 {
-    private readonly DragLayer _layer;
+    private readonly IDragVisual _visual;
     private readonly List<DropTarget> _targets;
 
-    public PanelDockGuide(DragLayer layer, List<DropTarget> targets)
+    public PanelDockGuide(IDragVisual visual, List<DropTarget> targets)
     {
-        _layer = layer;
+        _visual = visual;
         _targets = targets;
     }
 
-    /// <summary>The stripe zone under the workspace point, or null — a pure geometric hit-test.</summary>
-    public DropTarget? Resolve(Point workspacePoint)
+    /// <summary>The stripe zone under the gesture point, or null — a pure geometric hit-test.</summary>
+    public DropTarget? Resolve(Point gesturePoint)
     {
         foreach (var target in _targets)
         {
-            if (target.Contains(workspacePoint))
+            if (target.Contains(gesturePoint))
             {
                 return target;
             }
@@ -442,19 +445,19 @@ internal sealed class PanelDockGuide
     /// Live marker while the panel moves: the stripe insertion line under the pointer, or
     /// nothing while suppressed (the <c>Ctrl</c> parking of TW-7.7) or off every stripe.
     /// </summary>
-    public void Update(Point workspacePoint, bool suppressed)
+    public void Update(Point gesturePoint, bool suppressed)
     {
-        var target = suppressed ? null : Resolve(workspacePoint);
+        var target = suppressed ? null : Resolve(gesturePoint);
         if (target is { } hit)
         {
-            _layer.ShowMarker(hit.MarkerRect, hit.AreaMarker);
+            _visual.ShowMarker(hit);
         }
         else
         {
-            _layer.HideMarker();
+            _visual.HideMarker();
         }
     }
 
     /// <summary>Hides the insertion marker — the gesture ended, cancelled or moved off the stripes.</summary>
-    public void Hide() => _layer.HideMarker();
+    public void Hide() => _visual.HideMarker();
 }

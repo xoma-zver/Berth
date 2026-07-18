@@ -70,8 +70,10 @@ var workspace = new BerthWorkspace
 `State` — двусторонний: каждый завершённый жест присваивает результат команды обратно
 (ADR-0004), приложение наблюдает изменения через `GetObservable(BerthWorkspace.StateProperty)`
 или биндинг. Необязательно: `TabTitleProvider` (id → заголовок вкладки, DA-9.6),
-`ShortcutHintProvider` (id → подсказка шортката в тултипе иконки, TW-5.5); кеймап активации
-приложение вешает на публичную команду `BerthWorkspace.ActivateToolWindow(id)`.
+`ShortcutHintProvider` (id → подсказка шортката в тултипе иконки, TW-5.5),
+`WindowTitleSuffix` (название проекта/решения в заголовках независимых окон — Window-панелей
+и окон документов, TW-7.2, DA-7.3); кеймап активации приложение вешает на публичную команду
+`BerthWorkspace.ActivateToolWindow(id)`.
 
 ## Разметочный вариант (AXAML)
 

@@ -169,9 +169,9 @@ public sealed class ToolWindowDecorator : Decorator
     /// platform's own tunnel handler at the source focuses the decorator — the nearest
     /// focusable ancestor — right on the press. Interactive header children — the chrome
     /// buttons and the tab headers of the root group's strip — keep their own presses.
-    /// Inside a pseudo-window the header is the window's move handle instead (TW-7.7): the
-    /// press delegates to the pseudo-window's move gesture, whose no-movement release runs
-    /// the same deferred activation.
+    /// Inside a pseudo-window — and inside a frameless Float window on Windows (TW-7.1) —
+    /// the header is the window's move handle instead (TW-7.7): the press delegates to the
+    /// window's move gesture, whose no-movement release runs the same deferred activation.
     /// </summary>
     private void OnHeaderPreviewPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -189,6 +189,13 @@ public sealed class ToolWindowDecorator : Decorator
         if (this.FindAncestorOfType<PseudoWindow>() is { } pseudo)
         {
             pseudo.BeginMove(e);
+            e.Handled = true;
+            return;
+        }
+
+        if (TopLevel.GetTopLevel(this) is FloatingWindowLayer.PanelWindow { IsFrameless: true } frameless)
+        {
+            frameless.BeginHeaderMove(e);
             e.Handled = true;
             return;
         }

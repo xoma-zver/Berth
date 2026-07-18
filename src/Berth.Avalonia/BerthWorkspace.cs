@@ -87,6 +87,10 @@ public sealed class BerthWorkspace : Decorator
     public static readonly StyledProperty<Func<string, string?>?> TabTitleProviderProperty =
         AvaloniaProperty.Register<BerthWorkspace, Func<string, string?>?>(nameof(TabTitleProvider));
 
+    /// <summary>Defines the <see cref="WindowTitleSuffix"/> property.</summary>
+    public static readonly StyledProperty<string?> WindowTitleSuffixProperty =
+        AvaloniaProperty.Register<BerthWorkspace, string?>(nameof(WindowTitleSuffix));
+
     private readonly Dictionary<string, ToolWindowDecorator> _hosts = new(StringComparer.Ordinal);
     private readonly List<TopLevel> _windowZOrder = [];
     private TabHostCache? _tabHosts;
@@ -209,6 +213,20 @@ public sealed class BerthWorkspace : Decorator
     {
         get => GetValue(TabTitleProviderProperty);
         set => SetValue(TabTitleProviderProperty, value);
+    }
+
+    /// <summary>
+    /// Optional application-supplied suffix of independent window titles (spec TW-7.2,
+    /// DA-7.3): appended as «{Title} - {suffix}» to Window-mode tool windows and to document
+    /// windows — the independent top-levels living in the OS taskbar and Alt-Tab (= IDEA:
+    /// «Title - Project»). The library has no notion of a project (ADR-0003), so the name
+    /// comes from the application — typically the open project or solution. Owned Float
+    /// windows never carry the suffix; null or empty leaves every title bare.
+    /// </summary>
+    public string? WindowTitleSuffix
+    {
+        get => GetValue(WindowTitleSuffixProperty);
+        set => SetValue(WindowTitleSuffixProperty, value);
     }
 
     /// <summary>
@@ -459,6 +477,13 @@ public sealed class BerthWorkspace : Decorator
     /// </summary>
     internal bool ForceOverlayFloating { get; set; }
 
+    /// <summary>
+    /// Test seam: forces the frameless Float presentation of spec TW-7.1 off Windows — the
+    /// platform gate is unreachable in cross-platform headless runs. Read when the floating
+    /// layer is created (attach, Reset); set before attaching.
+    /// </summary>
+    internal bool ForceFramelessFloat { get; set; }
+
     /// <summary>The pseudo-window canvas of the overlay floating layer (TW-7.7, DA-7.5); part of the skeleton.</summary>
     internal Canvas? PseudoWindowLayer => _pseudoLayer;
 
@@ -514,12 +539,15 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Builds the dock assist of a panel pseudo-window's live move gesture (spec TW-7.7
-    /// extension): the stripe drop targets the panel may dock into, over the workspace («screen»)
-    /// coordinate space of the overlay platform. Null when there is nothing to dock onto — no
-    /// drag layer or no state. Called by a <see cref="PseudoWindow"/> on the first movement of a
-    /// header drag; pseudo-windows exist only on the overlay platform (TW-7.7), so the gesture
-    /// space is always the workspace itself and the catalog is built with <c>windowed: false</c>.
+    /// Builds the dock assist of a panel window's live move gesture (spec TW-7.7 extension,
+    /// TW-7.1): the stripe drop targets the panel may dock into, over the gesture space of the
+    /// current floating layer — the workspace for a <see cref="PseudoWindow"/> header move on
+    /// the overlay platform, screen coordinates for the frameless Float window of the windowed
+    /// one. The marker paints through the matching gesture visual: the workspace
+    /// <see cref="DragLayer"/> directly in the overlay space, the screen-to-workspace routing
+    /// of <see cref="WindowedDragVisual"/> otherwise. Null when there is nothing to dock
+    /// onto — no drag layer or no state. Called on the first movement of a header drag, so a
+    /// mere header click pays nothing.
     /// </summary>
     internal PanelDockGuide? BeginPanelDockGuide(string panelId)
     {
@@ -531,8 +559,10 @@ public sealed class BerthWorkspace : Decorator
         // Zone geometry reads rendered stripe bounds: settle the layout first, as the drag
         // controller does before building its own catalog.
         UpdateLayout();
-        var space = new DropZoneSpace(this, windowed: false);
-        return new PanelDockGuide(layer, StripeDropTargets.Build(this, state, panelId, space));
+        var windowed = CanUseWindowed;
+        var space = new DropZoneSpace(this, windowed);
+        IDragVisual visual = windowed ? new WindowedDragVisual(this, layer) : new OverlayDragVisual(layer);
+        return new PanelDockGuide(visual, StripeDropTargets.Build(this, state, panelId, space));
     }
 
     /// <summary>
@@ -782,11 +812,13 @@ public sealed class BerthWorkspace : Decorator
                 ApplyDefinition();
             }
         }
-        else if (change.Property == ShortcutHintProviderProperty || change.Property == TabTitleProviderProperty)
+        else if (change.Property == ShortcutHintProviderProperty
+            || change.Property == TabTitleProviderProperty
+            || change.Property == WindowTitleSuffixProperty)
         {
-            // Tooltips and tab titles live on leaf chrome: a re-projection rebuilds them
-            // (TW-9.13, DA-9.6); the host caches and retained views are untouched, unlike a
-            // Registry/Lifecycle swap.
+            // Tooltips, tab titles and window titles live on leaf chrome: a re-projection
+            // rebuilds them (TW-9.13, DA-9.6); the host caches and retained views are
+            // untouched, unlike a Registry/Lifecycle swap.
             Sync();
         }
     }

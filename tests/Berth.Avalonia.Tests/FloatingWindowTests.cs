@@ -631,6 +631,204 @@ public class FloatingWindowTests
         Assert.True(Panel(main, "f").IsOpen);
     }
 
+    // ---- TW-7.1, TW-7.2: platform chrome — the frameless Float and the title suffix ----
+
+    /// <summary>The frameless-Float platform gate is Windows-only (TW-7.1); headless runs force it through the seam.</summary>
+    private static Window ShowFrameless(LayoutState state, ToolWindowRegistry registry, ContentLifecycle lifecycle)
+    {
+        var workspace = new BerthWorkspace
+        {
+            ForceFramelessFloat = true,
+            State = state,
+            Registry = registry,
+            Lifecycle = lifecycle,
+        };
+        var window = new Window { Width = 800, Height = 600, Content = workspace };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return window;
+    }
+
+    [AvaloniaFact]
+    public void TW_7_1_frameless_float_keeps_window_mode_decorated()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+
+        var floating = FloatingWindowOf(main, "a")!;
+        Assert.Equal(WindowDecorations.None, floating.WindowDecorations); // frameless Float (TW-7.1)
+
+        Workspace(main).State = St(main).SetMode("a", ToolWindowMode.Window);
+        Dispatcher.UIThread.RunJobs();
+
+        // Window mode keeps full system chrome on every platform (TW-7.2).
+        var windowed = FloatingWindowOf(main, "a")!;
+        Assert.NotSame(floating, windowed);
+        Assert.NotEqual(WindowDecorations.None, windowed.WindowDecorations);
+    }
+
+    [AvaloniaFact]
+    public void TW_7_2_independent_window_titles_carry_the_application_suffix()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Window, new FloatingBounds(40, 50, 320, 240));
+        state = state with
+        {
+            DockArea = new DockAreaState
+            {
+                Windows =
+                [
+                    new DocumentWindowState(new FloatingBounds(60, 70, 300, 200), Group("x", "x"), "x"),
+                ],
+            },
+        };
+        var main = Show(state, registry, lifecycle: lifecycle);
+        Assert.Equal("Alpha", FloatingWindowOf(main, "a")!.Title); // no suffix configured
+
+        Workspace(main).WindowTitleSuffix = "Ursa";
+        Dispatcher.UIThread.RunJobs();
+
+        // Independent top-levels live in the taskbar and Alt-Tab: the suffix names the
+        // application there (TW-7.2, DA-7.3; = IDEA «Title - Project»).
+        Assert.Equal("Alpha - Ursa", FloatingWindowOf(main, "a")!.Title);
+        Assert.Equal("x - Ursa", DocumentWindowOf(main, "x")!.Title);
+
+        // Float is owned and outside the taskbar: its title stays bare (TW-7.2).
+        Workspace(main).State = St(main).SetMode("a", ToolWindowMode.Float);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Alpha", FloatingWindowOf(main, "a")!.Title);
+    }
+
+    [AvaloniaFact]
+    public void TW_7_1_frameless_header_move_commits_one_set_floating_bounds()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+        var floating = FloatingWindowOf(main, "a")!;
+        var headerLocal = Center(Part(floating, "PART_Header"), floating);
+        var changes = new StateChangeCounter(main);
+
+        floating.MouseDown(headerLocal, MouseButton.Left);
+        floating.MouseMove(new Point(headerLocal.X + 60, headerLocal.Y + 40));
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(new PixelPoint(260, 240), floating.Position); // the window moves live
+        Assert.Equal(0, changes.Count); // pure visualization until the release (TW-7.1)
+
+        floating.MouseUp(headerLocal, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1, changes.Count); // exactly one SetFloatingBounds (TW-5.9)
+        Assert.Equal(new FloatingBounds(260, 240, 320, 240), Panel(main, "a").FloatingBounds);
+    }
+
+    [AvaloniaFact]
+    public void TW_7_1_dragging_the_frameless_header_onto_a_stripe_docks_the_panel()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+        var floating = FloatingWindowOf(main, "a")!;
+        var headerLocal = Center(Part(floating, "PART_Header"), floating);
+        // The panel's own stripe icon sits on Left.Primary — a robust point inside a stripe
+        // drop zone; the main window is at (0,0), so its local point is the gesture point.
+        var stripeGesture = Center(Button(main, "a"), main);
+
+        floating.MouseDown(headerLocal, MouseButton.Left);
+        floating.MouseMove(new Point(
+            stripeGesture.X - floating.Position.X, stripeGesture.Y - floating.Position.Y));
+        Dispatcher.UIThread.RunJobs();
+
+        // The move lit the stripe zone in the main window's overlay (TW-7.1, mirror of
+        // TW-7.7): the same insertion marker as the slot gesture, before any command.
+        Assert.True(Part(main, "PART_DropMarker").IsVisible);
+        Assert.Equal(ToolWindowMode.Float, Panel(main, "a").Mode); // still pure visualization
+
+        floating.MouseUp(headerLocal, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        // The release over the stripe docked the panel — the reverse of TW-7.8: Move +
+        // SetMode(LastInternalMode); the OS window is gone, the marker hidden.
+        Assert.Equal(ToolWindowMode.DockPinned, Panel(main, "a").Mode);
+        Assert.True(Panel(main, "a").IsOpen);
+        Assert.Null(FloatingWindowOf(main, "a"));
+        Assert.False(Part(main, "PART_DropMarker").IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void TW_7_1_ctrl_at_release_parks_the_frameless_float_without_docking()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+        var floating = FloatingWindowOf(main, "a")!;
+        var headerLocal = Center(Part(floating, "PART_Header"), floating);
+        var stripeGesture = Center(Button(main, "a"), main);
+        var changes = new StateChangeCounter(main);
+
+        floating.MouseDown(headerLocal, MouseButton.Left);
+        floating.MouseMove(
+            new Point(stripeGesture.X - floating.Position.X, stripeGesture.Y - floating.Position.Y),
+            RawInputModifiers.Control);
+        Dispatcher.UIThread.RunJobs();
+
+        // Ctrl parks the window: the stripe zones stay glued shut, no marker (TW-7.1).
+        Assert.False(Part(main, "PART_DropMarker").IsVisible);
+
+        floating.MouseUp(headerLocal, MouseButton.Left, RawInputModifiers.Control);
+        Dispatcher.UIThread.RunJobs();
+
+        // The panel moved, it did not dock: still Float, one SetFloatingBounds.
+        Assert.Equal(ToolWindowMode.Float, Panel(main, "a").Mode);
+        Assert.NotNull(FloatingWindowOf(main, "a"));
+        Assert.Equal(1, changes.Count);
+    }
+
+    [AvaloniaFact]
+    public void TW_7_1_escape_restores_the_frameless_float_without_a_command()
+    {
+        var (registry, lifecycle, state, _, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+        var floating = FloatingWindowOf(main, "a")!;
+        var headerLocal = Center(Part(floating, "PART_Header"), floating);
+        var before = St(main);
+
+        floating.MouseDown(headerLocal, MouseButton.Left);
+        floating.MouseMove(new Point(headerLocal.X + 80, headerLocal.Y));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(new PixelPoint(280, 200), floating.Position);
+
+        PressEscape(floating); // restores the starting position (TW-7.1)
+        Assert.Equal(new PixelPoint(200, 200), floating.Position);
+
+        floating.MouseUp(new Point(headerLocal.X + 80, headerLocal.Y), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Same(before, St(main)); // no command, no trace
+    }
+
+    [AvaloniaFact]
+    public void TW_6_6_frameless_header_click_activates_without_moving()
+    {
+        var (registry, lifecycle, state, body, _) = Setup(
+            ToolWindowMode.Float, new FloatingBounds(200, 200, 320, 240));
+        var main = ShowFrameless(state, registry, lifecycle);
+        var floating = FloatingWindowOf(main, "a")!;
+        var before = St(main);
+
+        Click(floating, Part(floating, "PART_Header"));
+
+        // The deferred header activation (TW-6.6): focus moved into the content, which the
+        // activity wiring reduced to the panel activation (DA-6.4); the window did not move.
+        Assert.True(body.IsKeyboardFocusWithin || body.IsFocused);
+        Assert.Equal("a", St(main).ActiveToolWindowId);
+        Assert.Equal(before.ToolWindows[0].FloatingBounds, Panel(main, "a").FloatingBounds);
+        Assert.Equal(new PixelPoint(200, 200), floating.Position);
+    }
+
     // ---- TW-7.4: the screen-visibility validator ----
 
     [AvaloniaFact]
