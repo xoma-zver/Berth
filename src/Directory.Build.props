@@ -22,7 +22,7 @@
        Только эти два библиотечных проекта живут под src/, так что props их не задевает
        демо-хосты и тесты. -->
   <PropertyGroup>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Sergey Zhdanov</Authors>
     <Company>Sergey Zhdanov</Company>
     <Copyright>Copyright (c) 2026 Sergey Zhdanov</Copyright>
