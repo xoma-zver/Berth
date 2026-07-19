@@ -7,6 +7,8 @@ windows and layout save/restore. Deliberately **not** free-form docking — stri
 an enumerable state space and, with it, reliability: behaviour is defined by written specs,
 and every normative clause is covered by a test carrying the same id.
 
+<img src="https://raw.githubusercontent.com/xoma-zver/Berth/master/docs/assets/berth-hero-light.png" width="720" alt="Berth layout model: icon stripes, docked tool windows, panel tabs, the document area with a split, and a floating overlay above the layout">
+
 ## Packages
 
 - **Berth.Core** — the layout model and operations: pure, serializable state and pure
