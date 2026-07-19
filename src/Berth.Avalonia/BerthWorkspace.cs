@@ -79,6 +79,9 @@ public sealed class BerthWorkspace : Decorator
     private AutoHideController? _autoHide;
     private IFloatingLayer? _floating;
     private bool _definitionApplied;
+    private bool _syncing;
+    private bool _syncAgain;
+    private bool _resetPending;
 
     /// <summary>
     /// The single tab-host cache of the workspace (DA-9.6): shared by the dock area and
@@ -88,6 +91,9 @@ public sealed class BerthWorkspace : Decorator
 
     /// <summary>The drag gesture controller (TW-5.17); null until the skeleton is built.</summary>
     internal DragController? Drag => _drag;
+
+    /// <summary>True while a projection pass runs (TW-9.14) — the observable seam of the reentrancy contract.</summary>
+    internal bool IsProjecting => _syncing;
 
     /// <summary>
     /// TopLevels of the workspace in approximate z-order, topmost first (TW-5.17, task
@@ -245,7 +251,8 @@ public sealed class BerthWorkspace : Decorator
     /// and the property system deduplicates equal assignments. Sleeping dock tabs re-resolve
     /// their owners on every projection, so a refresh after a live registration also wakes
     /// them up. Core layout commands need no explicit refresh beyond assigning their result
-    /// to <see cref="State"/>.
+    /// to <see cref="State"/>. A refresh requested while a projection pass runs defers to
+    /// the end of that pass and re-projects the live state (TW-9.14).
     /// </summary>
     public void Refresh() => Sync();
 
@@ -788,8 +795,10 @@ public sealed class BerthWorkspace : Decorator
         else if (change.Property == RegistryProperty || change.Property == LifecycleProperty)
         {
             // A full reconfiguration: cached hosts and their retained views belong to the
-            // previous registry and coordinator.
-            Reset();
+            // previous registry and coordinator. The teardown goes through the projection
+            // funnel: requested mid-pass it defers with the re-run (TW-9.14) — dropping the
+            // skeleton under a running pass would crash the pass on its next cache access.
+            _resetPending = true;
             Sync();
         }
         else if (change.Property == DefinitionProperty)
@@ -813,8 +822,72 @@ public sealed class BerthWorkspace : Decorator
         }
     }
 
-    /// <summary>The incremental projection of TW-9.13: hosts update in place, geometry relays around them.</summary>
+    /// <summary>
+    /// Cap on projection passes of one <see cref="Sync"/> entry (TW-9.14). Legal cascades —
+    /// a command or reset raised inside a pass — converge within a pass or two; an
+    /// oscillating command pair (activation DA-6.4 ↔ auto-hide TW-6.1) never converges, and
+    /// without the cap the equal-state argument bounds nothing: the loop would hang the UI
+    /// thread silently where the pre-guard reentrancy at least overflowed the stack visibly.
+    /// </summary>
+    private const int MaxProjectionPasses = 8;
+
+    /// <summary>
+    /// The non-reentrant projection funnel of TW-9.14. Reattaching hosts inside a pass moves
+    /// keyboard focus, and focus reactions are core commands (DA-6.4, TW-6.1) — as are
+    /// platform window events raised by Show() (TW-7.x). Such a command assigns the state
+    /// and lands here mid-pass: running a nested pass over the caches the outer one is
+    /// mutating would let the DA-1.3 overlap matching mint a duplicate window for one state
+    /// entry (the tab-strip-without-content ghost). The nested request only marks the
+    /// projection stale; the pass then re-runs over the live state until it converges, and a
+    /// run past <see cref="MaxProjectionPasses"/> fails loudly instead of hanging. A pending
+    /// registry/lifecycle reset joins the same funnel and runs between passes. An exception
+    /// thrown by a pass aborts the deferred re-run with the entry: the projection catches up
+    /// on the next state change or <see cref="Refresh"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The passes exceeded <see cref="MaxProjectionPasses"/>.</exception>
     private void Sync()
+    {
+        if (_syncing)
+        {
+            _syncAgain = true;
+            return;
+        }
+
+        _syncing = true;
+        try
+        {
+            for (var passes = 0; ; passes++)
+            {
+                if (passes == MaxProjectionPasses)
+                {
+                    throw new InvalidOperationException(
+                        $"The projection did not converge within {MaxProjectionPasses} passes: commands raised "
+                        + "inside the projection keep changing the state (TW-9.14) — an oscillating pair of "
+                        + "focus reactions, e.g. an activation re-opening what an auto-hide close keeps closing.");
+                }
+
+                _syncAgain = false;
+                if (_resetPending)
+                {
+                    _resetPending = false;
+                    Reset();
+                }
+
+                SyncCore();
+                if (!_syncAgain)
+                {
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    /// <summary>The incremental projection of TW-9.13: hosts update in place, geometry relays around them.</summary>
+    private void SyncCore()
     {
         if (State is not { } state || Registry is not { } registry)
         {
