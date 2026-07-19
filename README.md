@@ -18,20 +18,22 @@ state space → reliability.
 
 *Эта страница по-русски — [README.ru.md](README.ru.md).*
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/berth-hero-dark.png">
+  <img src="docs/assets/berth-hero-light.png" width="880" alt="Berth layout model: icon stripes, docked tool windows, panel tabs, the document area with a split, and a floating overlay above the layout">
+</picture>
+
 </div>
 
 ## The model at a glance
 
-```text
-┌──┬─────────────────────────────────┬──┐
-│s │ ┌───────┬───────────┬─────────┐ │s │
-│t │ │ left  │ dock area │  right  │ │t │
-│r │ │ panel │(documents)│  panel  │ │r │
-│i │ ├───────┴───────────┴─────────┤ │i │
-│p │ │        bottom panel         │ │p │
-│e │ └─────────────────────────────┘ │e │
-└──┴─────────────────────────────────┴──┘
-```
+The numbered zones above:
+
+1. **Icon stripes** — the six fixed slots (three sides × two groups).
+2. **Tool windows** — docked to the sides, in one of five display modes.
+3. **Panel tabs** — a tool window hosts its own tree of tabs.
+4. **Document area** — an n-ary tree of splits with document tabs.
+5. **Floating overlay** — an undocked or floating panel drawn above the layout.
 
 Three sides × two groups = **six slots** for tool windows; each window has **five display
 modes**: dock pinned, dock unpinned, undock (an overlay taking no layout space), float

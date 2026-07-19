@@ -1,0 +1,335 @@
+<!doctype html>
+<!--
+  Исходник схемы для шапки README (berth-hero-light.png / berth-hero-dark.png).
+  Самодостаточная страница; тема — параметром ?theme=light|dark. Перерисовка:
+
+    chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "$chrome" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
+      --window-size=1600,1000 --virtual-time-budget=2000 \
+      --screenshot=docs/assets/berth-hero-light.png "file://$PWD/docs/assets/berth-hero.html?theme=light"
+    "$chrome" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
+      --window-size=1600,1000 --virtual-time-budget=2000 \
+      --screenshot=docs/assets/berth-hero-dark.png  "file://$PWD/docs/assets/berth-hero.html?theme=dark"
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg1:#e9edf5; --bg2:#dde3ee;
+    --frame:#c3ccdb;
+    --surface:#ffffff; --surface-2:#f6f8fc;
+    --stripe:#eef1f7; --stripe-icon:#dbe2ee; --stripe-icon-on:#c9d3e6;
+    --panel:#f7f9fd; --panel-head:#eef2f8;
+    --dock:#ffffff; --dock-head:#f1f4fa;
+    --line:#e2e8f2; --line-strong:#cfd8e6;
+    --ink:#2b3648; --muted:#7b8698; --faint:#9aa4b4;
+    --accent:#6c5ce7; --accent-soft:#efecff;
+    --tab-on:#ffffff; --tab-off:#eef2f8;
+    --ov-shadow:0 26px 60px -12px rgba(35,45,70,.45), 0 8px 20px -8px rgba(35,45,70,.30);
+    --badge-bg:#2b3648; --badge-ink:#ffffff;
+    --title:#1e2634;
+  }
+  :root[data-theme="dark"] {
+    --bg1:#0d0f14; --bg2:#090b0f;
+    --frame:#20242c;
+    --surface:#16191f; --surface-2:#12151a;
+    --stripe:#171a20; --stripe-icon:#252a33; --stripe-icon-on:#33394a;
+    --panel:#171a20; --panel-head:#1b1f26;
+    --dock:#14171c; --dock-head:#1a1e25;
+    --line:#242932; --line-strong:#2e343f;
+    --ink:#c6cdd8; --muted:#828b98; --faint:#5f6772;
+    --accent:#8f7bff; --accent-soft:#241f3d;
+    --tab-on:#1d2129; --tab-off:#171a20;
+    --ov-shadow:0 28px 64px -12px rgba(0,0,0,.7), 0 8px 22px -8px rgba(0,0,0,.55);
+    --badge-bg:#8f7bff; --badge-ink:#0b0d11;
+    --title:#e7eaf0;
+  }
+
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { width:1600px; height:1000px; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    background:radial-gradient(120% 120% at 30% 0%, var(--bg1), var(--bg2));
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .stage { width:1600px; height:1000px; padding:54px 60px; display:flex; flex-direction:column; }
+
+  /* ---- window ---- */
+  .window {
+    flex:1; display:flex; flex-direction:column; position:relative;
+    background:var(--surface); border:1px solid var(--frame);
+    border-radius:14px; overflow:hidden;
+    box-shadow:0 40px 90px -30px rgba(30,40,65,.5), 0 2px 0 rgba(255,255,255,.4) inset;
+  }
+  :root[data-theme="dark"] .window { box-shadow:0 40px 100px -30px rgba(0,0,0,.75); }
+
+  .titlebar {
+    height:44px; flex:0 0 44px; display:flex; align-items:center; gap:14px;
+    padding:0 18px; background:var(--surface-2); border-bottom:1px solid var(--line);
+  }
+  .dots { display:flex; gap:8px; }
+  .dots i { width:12px; height:12px; border-radius:50%; display:block; }
+  .dots i:nth-child(1){ background:#f0655c; } .dots i:nth-child(2){ background:#f5bd4f; } .dots i:nth-child(3){ background:#61c554; }
+  :root[data-theme="dark"] .dots i { opacity:.9; }
+  .wordmark { display:flex; align-items:baseline; gap:10px; margin-left:6px; }
+  .wordmark b { font-size:15px; font-weight:700; letter-spacing:.2px; color:var(--title); }
+  .wordmark span { font-size:12.5px; color:var(--muted); }
+  .titlebar .spacer { flex:1; }
+  .titlebar .proj { font-size:12px; color:var(--faint); letter-spacing:.3px; }
+
+  .body { flex:1; display:flex; min-height:0; }
+
+  /* ---- stripes ---- */
+  .stripe {
+    width:46px; flex:0 0 46px; background:var(--stripe);
+    display:flex; flex-direction:column; align-items:center; padding:9px 0;
+    position:relative;
+  }
+  .stripe.left { border-right:1px solid var(--line); }
+  .stripe.right { border-left:1px solid var(--line); }
+  .ico {
+    width:30px; height:30px; border-radius:7px; background:var(--stripe-icon);
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px;
+  }
+  .ico.on { background:var(--stripe-icon-on); color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--accent); }
+  .ico.dots { color:var(--faint); font-weight:700; letter-spacing:1px; }
+  .sep { width:22px; height:1px; background:var(--line-strong); margin:3px 0 10px; }
+  .grow { flex:1; }
+
+  /* ---- center column ---- */
+  .center { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .upper { flex:1; display:flex; min-height:0; }
+
+  /* ---- generic panel ---- */
+  .panel { background:var(--panel); display:flex; flex-direction:column; min-width:0; position:relative; }
+  .panel.left { width:250px; flex:0 0 250px; border-right:1px solid var(--line); }
+  .panel.right { width:238px; flex:0 0 238px; border-left:1px solid var(--line); }
+  .phead {
+    height:34px; flex:0 0 34px; display:flex; align-items:center; gap:8px;
+    padding:0 12px; background:var(--panel-head); border-bottom:1px solid var(--line);
+    font-size:12px; font-weight:600; color:var(--ink); letter-spacing:.2px;
+  }
+  .phead .tools { margin-left:auto; color:var(--faint); font-size:13px; letter-spacing:1px; }
+  .pbody { flex:1; padding:12px 12px; overflow:hidden; }
+
+  /* tree list (project) */
+  .tree { font-size:12.5px; color:var(--ink); line-height:2.05; }
+  .tree .row { display:flex; align-items:center; gap:7px; white-space:nowrap; }
+  .tree .row.i1 { padding-left:16px; } .tree .row.i2 { padding-left:32px; }
+  .tree .k { color:var(--faint); }
+  .tree .row.sel { background:var(--accent-soft); border-radius:6px; color:var(--ink); }
+  .dot { width:8px; height:8px; border-radius:2px; background:var(--line-strong); flex:0 0 8px; }
+  .dot.a { background:var(--accent); }
+
+  /* properties rows */
+  .props { font-size:12px; }
+  .props .r { display:flex; justify-content:space-between; padding:7px 2px; border-bottom:1px dashed var(--line); }
+  .props .r span:first-child { color:var(--muted); }
+  .props .r span:last-child { color:var(--ink); font-variant-numeric:tabular-nums; }
+
+  /* ---- tab strip (shared) ---- */
+  .tabs { height:34px; flex:0 0 34px; display:flex; align-items:flex-end; gap:4px; padding:0 8px; background:var(--dock-head); border-bottom:1px solid var(--line); }
+  .tab {
+    height:26px; padding:0 12px; display:flex; align-items:center; gap:8px;
+    font-size:12px; color:var(--muted); background:var(--tab-off);
+    border:1px solid var(--line); border-bottom:none;
+    border-radius:8px 8px 0 0; white-space:nowrap;
+  }
+  .tab .x { color:var(--faint); font-size:12px; }
+  .tab.on { color:var(--ink); background:var(--tab-on); font-weight:600; box-shadow:0 -2px 0 var(--accent) inset; }
+  .tab .fdot { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+
+  /* ---- dock area ---- */
+  .dock { flex:1; display:flex; min-width:0; background:var(--dock); position:relative; }
+  .dgroup { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .dgroup + .dgroup { border-left:1px solid var(--line); }
+  .dgroup.small { flex:0 0 320px; }
+  .code { flex:1; padding:16px 18px; font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.95; color:var(--ink); overflow:hidden; }
+  .code .ln { white-space:pre; }
+  .code .c { color:var(--faint); } .code .kw { color:var(--accent); } .code .s { color:#3fa672; }
+  :root[data-theme="dark"] .code .s { color:#6bd39a; }
+  .code .m { color:var(--muted); }
+
+  /* ---- bottom panel (terminal, with tabs) ---- */
+  .bottom { height:186px; flex:0 0 186px; background:var(--panel); border-top:1px solid var(--line); display:flex; flex-direction:column; position:relative; }
+  .term { flex:1; padding:12px 16px; font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.9; color:var(--ink); }
+  .term .p { color:var(--accent); } .term .muted { color:var(--muted); } .term .cur { color:var(--ink); }
+
+  /* ---- floating overlay ---- */
+  .overlay {
+    position:absolute; top:150px; left:492px; width:372px;
+    background:var(--surface); border:1px solid var(--line-strong);
+    border-radius:12px; box-shadow:var(--ov-shadow); overflow:hidden; z-index:5;
+  }
+  :root[data-theme="dark"] .overlay { border-color:var(--accent); }
+  .ohead { height:34px; display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--panel-head); border-bottom:1px solid var(--line); font-size:12px; font-weight:600; color:var(--ink); }
+  .ohead .chip { margin-left:auto; font-size:10.5px; font-weight:600; letter-spacing:.4px; color:var(--accent); background:var(--accent-soft); padding:3px 8px; border-radius:20px; }
+  .ohead .x { color:var(--faint); font-size:13px; margin-left:8px; }
+  .obody { padding:12px 12px 14px; }
+  .ofield { height:34px; border:1px solid var(--line-strong); border-radius:8px; display:flex; align-items:center; padding:0 12px; font-size:12.5px; color:var(--muted); background:var(--surface-2); }
+  .ofield .car { width:1.5px; height:15px; background:var(--accent); margin-left:2px; }
+  .olist { margin-top:10px; }
+  .olist .or { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; font-size:12.5px; color:var(--ink); }
+  .olist .or .k { color:var(--faint); font-size:11px; }
+  .olist .or.sel { background:var(--accent-soft); }
+  .olist .or .g { width:9px; height:9px; border-radius:2px; background:var(--line-strong); }
+  .olist .or.sel .g { background:var(--accent); }
+  .olist .or .sp { margin-left:auto; }
+
+  /* ---- numbered zone badges ---- */
+  .badge {
+    position:absolute; z-index:8; width:24px; height:24px; border-radius:50%;
+    background:var(--badge-bg); color:var(--badge-ink);
+    font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 8px -2px rgba(20,28,45,.5);
+  }
+
+  /* ---- legend ---- */
+  .legend { flex:0 0 auto; margin-top:20px; display:flex; gap:26px; justify-content:center; flex-wrap:wrap; }
+  .leg { display:flex; align-items:center; gap:9px; font-size:13px; color:var(--ink); }
+  .leg .n { width:22px; height:22px; border-radius:50%; background:var(--badge-bg); color:var(--badge-ink); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .leg b { font-weight:600; } .leg .d { color:var(--muted); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="window">
+      <div class="titlebar">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <div class="wordmark"><b>Berth</b><span>IntelliJ-style docking for Avalonia</span></div>
+        <div class="spacer"></div>
+        <div class="proj">MyApp — main window</div>
+      </div>
+
+      <div class="body">
+        <!-- left stripe -->
+        <div class="stripe left">
+          <div class="badge" style="top:-16px;left:6px">1</div>
+          <div class="ico on">P</div>
+          <div class="ico">S</div>
+          <div class="sep"></div>
+          <div class="ico">G</div>
+          <div class="ico dots">⋯</div>
+          <div class="grow"></div>
+          <div class="ico on">T</div>
+        </div>
+
+        <div class="center">
+          <div class="upper">
+            <!-- left panel: Project (single body, no tab strip) -->
+            <div class="panel left">
+              <div class="badge" style="top:-11px;left:14px">2</div>
+              <div class="phead">Project <span class="tools">⋮ —</span></div>
+              <div class="pbody">
+                <div class="tree">
+                  <div class="row"><span class="dot"></span>MyApp</div>
+                  <div class="row i1"><span class="dot"></span>src</div>
+                  <div class="row i2 sel"><span class="dot a"></span>MainWindow.axaml</div>
+                  <div class="row i2"><span class="dot"></span>App.axaml.cs</div>
+                  <div class="row i1"><span class="dot"></span>Views</div>
+                  <div class="row i2"><span class="dot"></span>DocumentView.cs</div>
+                  <div class="row i1"><span class="dot"></span>README.md</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- dock area: split into two document groups -->
+            <div class="dock">
+              <div class="badge" style="top:-11px;left:14px">4</div>
+              <div class="dgroup">
+                <div class="tabs">
+                  <div class="tab on"><span class="fdot"></span>README.md</div>
+                  <div class="tab">Program.cs<span class="x">×</span></div>
+                </div>
+                <div class="code">
+<div class="ln"><span class="c"># Berth</span></div>
+<div class="ln"> </div>
+<div class="ln"><span class="m">Docking library for</span> <span class="kw">Avalonia</span><span class="m">,</span></div>
+<div class="ln"><span class="m">built on the strict</span></div>
+<div class="ln"><span class="m">IntelliJ IDEA model.</span></div>
+<div class="ln"> </div>
+<div class="ln"><span class="c">## Six fixed slots</span></div>
+<div class="ln"><span class="c">## Five display modes</span></div>
+                </div>
+              </div>
+              <div class="dgroup small">
+                <div class="tabs">
+                  <div class="tab on">Layout.cs</div>
+                </div>
+                <div class="code">
+<div class="ln"><span class="kw">var</span> ws = <span class="kw">new</span></div>
+<div class="ln">  BerthWorkspace</div>
+<div class="ln">{</div>
+<div class="ln">  State = state,</div>
+<div class="ln">};</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- right panel: Properties -->
+            <div class="panel right">
+              <div class="phead">Properties <span class="tools">⋮ —</span></div>
+              <div class="pbody">
+                <div class="props">
+                  <div class="r"><span>Mode</span><span>DockPinned</span></div>
+                  <div class="r"><span>Side</span><span>Left</span></div>
+                  <div class="r"><span>Group</span><span>Primary</span></div>
+                  <div class="r"><span>Weight</span><span>0.33</span></div>
+                  <div class="r"><span>Order</span><span>0</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- bottom panel: Terminal WITH tabs -->
+          <div class="bottom">
+            <div class="badge" style="top:-11px;left:14px">3</div>
+            <div class="tabs">
+              <div class="tab on">Local</div>
+              <div class="tab">Local (2)<span class="x">×</span></div>
+              <div class="tab">Build<span class="x">×</span></div>
+            </div>
+            <div class="term">
+              <div><span class="p">~/MyApp $</span> <span class="cur">dotnet run --project samples/Berth.Demo.Desktop</span></div>
+              <div class="muted">Restored layout · 2 documents · 3 tool windows</div>
+              <div><span class="p">~/MyApp $</span> <span class="cur">_</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- right stripe -->
+        <div class="stripe right">
+          <div class="ico on">Pr</div>
+          <div class="ico">N</div>
+          <div class="grow"></div>
+          <div class="ico">D</div>
+        </div>
+      </div>
+
+      <!-- floating overlay ON TOP -->
+      <div class="badge" style="top:139px;left:481px">5</div>
+      <div class="overlay">
+        <div class="ohead">Search Everywhere <span class="chip">⟂ FLOAT</span><span class="x">×</span></div>
+        <div class="obody">
+          <div class="ofield">Berth<span class="car"></span></div>
+          <div class="olist">
+            <div class="or sel"><span class="g"></span>BerthWorkspace<span class="sp k">Berth.Controls</span></div>
+            <div class="or"><span class="g"></span>BerthLayoutDefinition<span class="sp k">Berth.Controls</span></div>
+            <div class="or"><span class="g"></span>LayoutCompositionBuilder<span class="sp k">Berth</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const t = new URLSearchParams(location.search).get('theme');
+    if (t) document.documentElement.dataset.theme = t;
+  </script>
+</body>
+</html>
