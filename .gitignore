@@ -3,3 +3,7 @@ obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
+
+# Мусор ОС и per-user файлы IDE (общая конфигурация .idea остаётся под контролем версий)
+.DS_Store
+.idea/**/.name

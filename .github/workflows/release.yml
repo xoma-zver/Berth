@@ -1,0 +1,71 @@
+name: Release
+
+# Публикация по тегу vX.Y.Z: тесты → упаковка → пуш на nuget.org → GitHub Release.
+# Обычный CI (ci.yml) идёт на каждый пуш и PR; этот воркфлоу — только на релизных тегах.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # создание GitHub Release
+  id-token: write   # OIDC-токен для Trusted Publishing на nuget.org (без хранимого ключа)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Тег должен совпадать с <Version> в src/Directory.Build.props — иначе на
+      # nuget.org уедет не та версия, что подразумевал тег.
+      - name: Verify version
+        run: |
+          version=$(grep -oPm1 '(?<=<Version>)[^<]+' src/Directory.Build.props)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "::error::Тег $GITHUB_REF_NAME не совпадает с <Version> $version в src/Directory.Build.props"
+            exit 1
+          fi
+          echo "Публикуется версия $version"
+
+      # Публикация только на зелёных тестах: пуш на nuget.org необратим (пакет можно
+      # снять с листинга, но не удалить).
+      - name: Core tests
+        run: dotnet test tests/Berth.Core.Tests -c Release
+      - name: Avalonia headless tests
+        run: dotnet test tests/Berth.Avalonia.Tests -c Release
+      - name: Mini-IDE integration tests
+        run: dotnet test tests/Berth.Demo.Tests -c Release
+
+      - name: Pack libraries
+        run: |
+          dotnet pack src/Berth.Core/Berth.Core.csproj -c Release -o artifacts
+          dotnet pack src/Berth.Avalonia/Berth.Avalonia.csproj -c Release -o artifacts
+
+      # Trusted Publishing: обмен OIDC-токена GitHub на временный ключ nuget.org.
+      # vars.NUGET_USER — имя аккаунта-владельца политики (переменная репозитория).
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      # push по .nupkg подхватывает и .snupkg (символы) из той же папки.
+      - name: Push to nuget.org
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME"
+          artifacts/*.nupkg artifacts/*.snupkg
+          --title "$GITHUB_REF_NAME"
+          --generate-notes
