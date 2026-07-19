@@ -492,11 +492,14 @@ public sealed class BerthWorkspace : Decorator
     internal bool ForceOverlayFloating { get; set; }
 
     /// <summary>
-    /// Test seam: forces the frameless Float presentation of TW-7.1 off Windows — the
-    /// platform gate is unreachable in cross-platform headless runs. Read when the floating
-    /// layer is created (attach, Reset); set before attaching.
+    /// Test seam over the platform gate of the Float presentation (TW-7.1): null follows the
+    /// platform — frameless on Windows, system decorations elsewhere — while true and false
+    /// pin the branch. Both pins are needed: neither presentation is reachable from every
+    /// headless run, and the two differ in what the decorator header is (the window's move
+    /// handle versus a slot-drag source of TW-5.17). Read when the floating layer is created
+    /// (attach, Reset); set before attaching.
     /// </summary>
-    internal bool ForceFramelessFloat { get; set; }
+    internal bool? FramelessFloatOverride { get; set; }
 
     /// <summary>The pseudo-window canvas of the overlay floating layer (TW-7.7, DA-7.5); part of the skeleton.</summary>
     internal Canvas? PseudoWindowLayer => _pseudoLayer;

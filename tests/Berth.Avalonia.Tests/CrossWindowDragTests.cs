@@ -248,7 +248,11 @@ public class CrossWindowDragTests
                 },
             ],
         };
-        var main = Show(state, registry);
+        // The decorated Float presentation is pinned: only there is the header a slot-drag
+        // source (TW-7.1). Its frameless counterpart — the header as the window's move
+        // handle, whose release commits one SetFloatingBounds — is FloatingWindowTests'
+        // TW_7_1_frameless_header_move_commits_one_set_floating_bounds.
+        var main = Show(state, registry, framelessFloat: false);
         var floating = FloatingWindowOf(main, "a")!;
         var before = St(main);
 
@@ -309,7 +313,10 @@ public class CrossWindowDragTests
                 },
             ],
         };
-        var main = Show(state, registry);
+        // Decorated Float pinned (TW-7.1): the header is a slot-drag source only here. The
+        // frameless branch docks through the move gesture's dock guide instead — covered by
+        // FloatingWindowTests' TW_7_1_dragging_the_frameless_header_onto_a_stripe_docks_the_panel.
+        var main = Show(state, registry, framelessFloat: false);
         var floating = FloatingWindowOf(main, "a")!;
 
         var header = Part(Decorator(floating, "a"), "PART_Header");

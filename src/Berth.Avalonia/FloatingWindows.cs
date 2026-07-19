@@ -37,8 +37,8 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
         _workspace = workspace;
         _owner = owner;
         // The frameless-Float platform gate of TW-7.1: Windows only — macOS and Linux keep
-        // system decorations of the owned window; the seam covers headless runs.
-        _framelessFloat = OperatingSystem.IsWindows() || workspace.ForceFramelessFloat;
+        // system decorations of the owned window; the seam pins either branch in headless runs.
+        _framelessFloat = workspace.FramelessFloatOverride ?? OperatingSystem.IsWindows();
         // Closing the main window must tear down the independent windows too — Window-mode
         // panels and document windows, which no platform cascade reaches (TW-7.5, DA-7.6).
         // The owned-Float cascade is recognized by CloseReason instead: it raises Closing on

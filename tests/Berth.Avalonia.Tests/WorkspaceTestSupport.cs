@@ -13,18 +13,31 @@ namespace Berth.Controls.Tests;
 /// </summary>
 internal static class WorkspaceTestSupport
 {
+    /// <param name="framelessFloat">
+    /// Pins the Float presentation of TW-7.1; null follows the platform. Pass false wherever
+    /// the test drives the decorator header as a slot-drag source (TW-5.17): on Windows the
+    /// header is the frameless window's move handle instead, and the gesture means something
+    /// else entirely.
+    /// </param>
     public static Window Show(
         LayoutState state,
         ToolWindowRegistry registry,
         double width = 800,
         double height = 600,
-        ContentLifecycle? lifecycle = null)
+        ContentLifecycle? lifecycle = null,
+        bool? framelessFloat = null)
     {
         var window = new Window
         {
             Width = width,
             Height = height,
-            Content = new BerthWorkspace { State = state, Registry = registry, Lifecycle = lifecycle },
+            Content = new BerthWorkspace
+            {
+                FramelessFloatOverride = framelessFloat,
+                State = state,
+                Registry = registry,
+                Lifecycle = lifecycle,
+            },
         };
         window.Show();
         Dispatcher.UIThread.RunJobs();

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Xunit;
 using static Berth.Controls.Tests.WorkspaceTestSupport;
@@ -241,5 +242,102 @@ public class ProjectionReentrancyTests
         var floating = workspace.WindowsTopMostFirst.OfType<Window>().Where(w => !ReferenceEquals(w, main)).ToArray();
         var document = Assert.Single(floating);
         Assert.Same(document, TopLevel.GetTopLevel(workspace.TabHosts.GetHost("d1")));
+    }
+
+    /// <summary>
+    /// Tab content that acts when the projection detaches it — the deterministic stand-in for
+    /// the real trigger of that same detach: the keyboard focus it held moves, and a focus
+    /// reaction is a core command (DA-6.4, TW-6.1). One-shot, so the detaches of the deferred
+    /// re-run stay quiet.
+    /// </summary>
+    private sealed class ActOnDetach : TextBox
+    {
+        public BerthWorkspace? Workspace { get; set; }
+
+        public Action<BerthWorkspace>? OnDetach { get; set; }
+
+        public int FiredInsideProjection { get; private set; }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnDetachedFromVisualTree(e);
+            if (Workspace is { } workspace && OnDetach is { } act)
+            {
+                OnDetach = null;
+                if (workspace.IsProjecting)
+                {
+                    FiredInsideProjection++;
+                }
+
+                act(workspace);
+            }
+        }
+    }
+
+    private static SplitNode Row(params SplitChild[] children) =>
+        new() { Orientation = SplitOrientation.Row, Children = [.. children] };
+
+    private static MenuItem Item(ItemCollection items, string header) =>
+        items.OfType<MenuItem>().First(i => string.Equals(i.Header as string, header, StringComparison.Ordinal));
+
+    private static void Invoke(MenuItem item)
+    {
+        item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void TW_9_14_command_during_a_shrinking_split_keeps_the_pass_consistent()
+    {
+        // The reported desktop crash, end to end: a tab menu «Move to …» whose move empties
+        // one group of a three-child split. The pass releases that group's view (TW-9.13,
+        // DA-9.6) while it still holds the tab host — the receiver reattaches it only later
+        // in the same pass — so the detach moves keyboard focus and the focus reaction issues
+        // a command from inside the pass. Without the funnel of TW-9.14 the nested pass
+        // rebuilt the split's child list under the running loop, and the pass died on a stale
+        // index.
+        var registry = new ToolWindowRegistry();
+        registry.RegisterDockContent(new CountingTabFactory("d", _ => new TextBox()));
+        var content = new ActOnDetach();
+        registry.Register(new ToolWindowDescriptor(
+            "p", "P", new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Primary))
+        {
+            TabFactory = new CountingTabFactory("p:", _ => content),
+        });
+        var lifecycle = new ContentLifecycle(registry);
+        var state = LayoutState.Empty with
+        {
+            // The owner panel stays closed: its tree is not materialized, so no decorator
+            // adopts the tab host before the dock area's own subpass reaches the split.
+            ToolWindows = [Win("p", ToolWindowSide.Left, ToolWindowGroup.Primary)],
+            DockArea = new DockAreaState
+            {
+                Root = Row(
+                    new SplitChild(Group("d1", "d1"), 0.4),
+                    new SplitChild(Group("d2", "d2"), 0.3),
+                    new SplitChild(Group("p:t1", "p:t1"), 0.3)),
+                CurrentTabId = "d1",
+            },
+        };
+        var main = Show(state, registry, lifecycle: lifecycle);
+        var workspace = Workspace(main);
+        content.Workspace = workspace;
+        content.OnDetach = ws => ws.Execute(s => s.ActivateTab("d2"));
+
+        // The reported entry point: the move item of DockTabMenus, with its activation and
+        // focus transfer following (DA-5.4, DA-6.4).
+        Invoke(Item(((MenuFlyout)TabHeader(main, "p:t1").ContextFlyout!).Items, "Move to P"));
+
+        Assert.True(content.FiredInsideProjection > 0); // the command really ran inside a pass
+        // The pass survived and converged: the split lost its third child, the moved tab
+        // lives in its owner's tree, and the owner opened by the activation (DA-E39)...
+        var root = Assert.IsType<SplitNode>(St(main).DockArea.Root);
+        Assert.Equal(2, root.Children.Length);
+        var panel = St(main).ToolWindows.Single(w => string.Equals(w.Id, "p", StringComparison.Ordinal));
+        Assert.Equal(["p:t1"], Assert.IsType<TabGroupNode>(panel.ContentTree).Tabs);
+        Assert.True(panel.IsOpen);
+        // ...and the command raised mid-pass is not lost — the deferred re-run projected it.
+        Assert.Equal("d2", St(main).DockArea.CurrentTabId);
+        Assert.Empty(LayoutInvariants.Validate(St(main), registry));
     }
 }

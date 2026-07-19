@@ -638,7 +638,7 @@ public class FloatingWindowTests
     {
         var workspace = new BerthWorkspace
         {
-            ForceFramelessFloat = true,
+            FramelessFloatOverride = true,
             State = state,
             Registry = registry,
             Lifecycle = lifecycle,
