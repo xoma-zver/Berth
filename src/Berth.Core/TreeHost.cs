@@ -1,9 +1,9 @@
 namespace Berth;
 
 /// <summary>
-/// Internal address of one tab-tree host (spec DA-1.3): a dock-area host — the main window or
-/// a document window — or a tool window's content tree (spec TW-9.5). The dock-area subset is
-/// the public <see cref="DockHost"/>; the public API addresses panels by their id
+/// Internal address of one tab-tree host: a dock-area host — the main window or a document
+/// window — or a tool window's content tree. The dock-area subset is the public
+/// <see cref="DockHost"/>; the public API addresses panels by their id
 /// (<see cref="DockGroupRef.PanelRoot"/>), so this union stays internal.
 /// </summary>
 internal readonly record struct TreeHost

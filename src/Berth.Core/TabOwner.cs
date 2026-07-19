@@ -1,8 +1,8 @@
 namespace Berth;
 
 /// <summary>
-/// Owner of a tab as resolved by the registry (spec TW-9.7, TW-9.11, DA-1): the dock area —
-/// such a tab is a document — or a specific tool window. The default value is the dock area.
+/// Owner of a tab as resolved by the registry: the dock area — such a tab is a document —
+/// or a specific tool window. The default value is the dock area.
 /// </summary>
 public readonly record struct TabOwner
 {

@@ -5,7 +5,7 @@ using Avalonia.VisualTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// One drop target of a drag gesture (spec TW-5.17, DA-9.7): the hit zone and the marker in
+/// One drop target of a drag gesture (TW-5.17, DA-9.7): the hit zone and the marker in
 /// gesture coordinates (screen on the windowed platform, workspace on the overlay one — see
 /// <see cref="GestureSpace"/>), plus the commit of the drop — the core command(s) of the
 /// gesture, run through the workspace funnel (ADR-0004). The commit is written defensively
@@ -28,7 +28,7 @@ internal sealed record DropTarget(
     public bool AreaMarker { get; init; }
 
     /// <summary>
-    /// Key of the workspace window containing the target (spec TW-5.17, task 6.2): the
+    /// Key of the workspace window containing the target (TW-5.17, task 6.2): the
     /// TopLevel on the windowed platform, the containing <see cref="PseudoWindow"/> or null
     /// (the base surface) on the overlay one. A target hits only while its window is the top
     /// window at the pointer — the zone of an occluded window never fires.
@@ -37,7 +37,7 @@ internal sealed record DropTarget(
 
     /// <summary>
     /// Translucent preview of the zone the panel occupies after the drop, in gesture
-    /// coordinates (spec TW-5.17 v0.26): read off the drop's command sequence run on the
+    /// coordinates (TW-5.17 v0.26): read off the drop's command sequence run on the
     /// current state in memory — never assigned — so the preview agrees with the actual
     /// outcome by construction, the derived R1 pair share included. Null — no zone: the drop
     /// leaves the panel closed, or the target is a tab target (stage 1 previews slot drops
@@ -45,11 +45,11 @@ internal sealed record DropTarget(
     /// </summary>
     public Rect? ZoneRect { get; init; }
 
-    /// <summary>The «Move to {slot}» hint of a stripe target (spec TW-5.17 v0.26); null — no hint (tab targets, v2).</summary>
+    /// <summary>The «Move to {slot}» hint of a stripe target (TW-5.17 v0.26); null — no hint (tab targets, v2).</summary>
     public string? Hint { get; init; }
 
     /// <summary>
-    /// The live reorder-preview payload of a strip insertion zone (spec DA-9.7 v0.18): over
+    /// The live reorder-preview payload of a strip insertion zone (DA-9.7 v0.18): over
     /// such a target the gesture visual replaces the marker with the strip reorder preview —
     /// the headers move apart around the framed insertion placeholder while the pointer
     /// ghost keeps riding at the cursor. Null — a non-strip target (wedges, centers, stripe
@@ -62,7 +62,7 @@ internal sealed record DropTarget(
 }
 
 /// <summary>
-/// Geometry context of one target catalog build (spec TW-5.17, task 6.2): enumerates the
+/// Geometry context of one target catalog build (TW-5.17, task 6.2): enumerates the
 /// visual roots hosting sources and targets — the workspace, plus every floating TopLevel on
 /// the windowed platform — and converts control bounds into gesture coordinates, tagging each
 /// target with its window key for the top-window hit-test.
@@ -139,20 +139,18 @@ internal sealed class DropZoneSpace
 }
 
 /// <summary>
-/// Catalog builder of the stripe drop targets (spec TW-5.17): the six slot segments of the two
+/// Catalog builder of the stripe drop targets (TW-5.17): the six slot segments of the two
 /// stripes, receiving stripe icons and tool window headers alike — from any window of the
-/// workspace (task 6.2). A drop of an internal-mode window reduces to one Move (TW-5.7); a
-/// drop of a floating-mode window docks it — Move plus SetMode to the last internal mode
-/// (TW-7.8, = the reference: dragging a floating tool window onto a stripe docks it). Zones
-/// cover each stripe column entirely: insertion positions split a segment at the midpoints of
-/// its neighbouring icons (= IDEA, AbstractDroppableStripe), free space is divided between the
-/// adjacent segments, and an empty segment gets the zone of its zero position — reachable by
-/// drag, unlike the reference. Positions are encoded as the visible predecessor's id and
-/// mapped into the dense order at commit time (TW-1.5), so the mapping survives state changes
-/// between the catalog build and the drop. Bottom segments grow upward (TW-1.4) — their zones
-/// are mirrored accordingly. Each target carries the v0.26 visual language: the marker is the
-/// position fill (= the reference), the hint names the slot, and the zone preview is read off
-/// the drop's command sequence run on the current state in memory.
+/// workspace. A drop of an internal-mode window reduces to one Move; a drop of a
+/// floating-mode window docks it — Move plus SetMode to the last internal mode (TW-7.8).
+/// Zones cover each stripe column entirely: insertion positions split a segment at the
+/// midpoints of its neighbouring icons, free space is divided between the adjacent segments,
+/// and an empty segment gets the zone of its zero position. Positions are encoded as the
+/// visible predecessor's id and mapped into the dense order at commit time (TW-1.5), so the
+/// mapping survives state changes between the catalog build and the drop; bottom segments
+/// grow upward, their zones mirrored. Each target carries the visual language: the
+/// position-fill marker, the slot-naming hint and the zone preview read off the drop's
+/// command sequence run on the current state in memory.
 /// </summary>
 internal static class StripeDropTargets
 {
@@ -280,7 +278,7 @@ internal static class StripeDropTargets
         AddBottomZones(targets, context, key, rect, freeMid, bottom, bottomSlot);
     }
 
-    /// <summary>Insertion zones of a top-down segment: gaps at the midpoints of the icons (spec TW-5.17).</summary>
+    /// <summary>Insertion zones of a top-down segment: gaps at the midpoints of the icons (TW-5.17).</summary>
     private static void AddSegmentZones(
         List<DropTarget> targets,
         BuildContext context,
@@ -317,7 +315,7 @@ internal static class StripeDropTargets
     }
 
     /// <summary>
-    /// Insertion zones of a bottom segment, which grows upward from the edge (spec TW-1.4):
+    /// Insertion zones of a bottom segment, which grows upward from the edge (TW-1.4):
     /// the topmost icon has the highest order, so the zone above it appends to the slot end and
     /// the zone at the edge inserts at position zero.
     /// </summary>
@@ -401,7 +399,7 @@ internal static class StripeDropTargets
     }
 
     /// <summary>
-    /// The post-drop zone preview of one stripe target (spec TW-5.17 v0.26): the drop's
+    /// The post-drop zone preview of one stripe target (TW-5.17 v0.26): the drop's
     /// command sequence — the move plus the docking SetMode of a floating-mode window — runs
     /// on the current state in memory, never assigned, and the zone is read off the result:
     /// the preview agrees with the actual outcome by construction, pair formation and the
@@ -479,20 +477,14 @@ internal static class StripeDropTargets
 }
 
 /// <summary>
-/// Dock assist of a panel window's live move gesture (spec TW-7.7 extension; TW-7.1 for the
-/// frameless Float window of Windows): while the header drags the window, the same stripe
-/// drop targets of TW-5.17 light up so a release over a stripe docks the panel instead of
-/// merely moving it. The window keeps moving live under the pointer — the pseudo-window and
-/// the frameless OS window own their visuals, unlike the ghost of the slot gesture — so this
-/// guide only hit-tests the stripe zones under the pointer, drives the target visuals —
-/// the position-fill marker, the post-drop zone preview and the «Move to {slot}» hint, the
-/// shared visual language of the stripe catalog (v0.26) — through the gesture visual, and
-/// hands the resolved target back to the release. The commit itself is the target's own — the
-/// docking <c>Move</c> + <c>SetMode(LastInternalMode)</c> sequence that already backs the
-/// reverse icon/header drop of TW-7.8. Points arrive in the gesture space the targets were
-/// built in (workspace coordinates on the overlay platform, screen coordinates on the
-/// windowed one — see <see cref="BerthWorkspace.BeginPanelDockGuide"/>); the hit-test is
-/// direct and geometric — occlusion is irrelevant: the stripes are the only targets (TW-7.7).
+/// Dock assist of a panel window's live move gesture (TW-7.7, TW-7.1): while the header
+/// drags the window, the stripe drop targets of TW-5.17 light up so a release over a stripe
+/// docks the panel instead of merely moving it. The window keeps moving live under the
+/// pointer, so this guide only hit-tests the stripe zones, drives the target visuals through
+/// the gesture visual, and hands the resolved target back to the release; the commit itself
+/// is the target's own docking sequence. Points arrive in the gesture space the targets were
+/// built in (see <see cref="BerthWorkspace.BeginPanelDockGuide"/>); the hit-test is direct
+/// and geometric — the stripes are the only targets, occlusion is irrelevant.
 /// </summary>
 internal sealed class PanelDockGuide
 {

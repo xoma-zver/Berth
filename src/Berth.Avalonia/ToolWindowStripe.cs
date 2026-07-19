@@ -8,7 +8,7 @@ using Avalonia.Media;
 namespace Berth.Controls;
 
 /// <summary>
-/// One stripe — the vertical icon bar at the left or right edge (spec TW-1.1, TW-1.2). Top to
+/// One stripe — the vertical icon bar at the left or right edge (TW-1.1, TW-1.2). Top to
 /// bottom: the side's Primary segment → a separator shown only when both segments are
 /// non-empty (TW-1.3) → the Secondary segment → the quick access «⋯» button when this stripe
 /// is the configured side and the list is non-empty (TW-8.1, TW-8.4) → a stretch → the bottom
@@ -16,7 +16,7 @@ namespace Berth.Controls;
 /// from the edge (TW-1.4). Icons are ordered by <see cref="ToolWindowState.Order"/> within a
 /// segment (TW-1.4); sleeping states have no registration, hence no title or icon to show, and
 /// produce no button (ADR-0003). The stripe container persists; its buttons are leaf chrome,
-/// rebuilt on every update (spec TW-9.13).
+/// rebuilt on every update (TW-9.13).
 /// </summary>
 internal sealed class ToolWindowStripe : Decorator
 {
@@ -94,7 +94,7 @@ internal sealed class ToolWindowStripe : Decorator
 }
 
 /// <summary>
-/// The quick access «⋯» button (spec TW-8.1): sits at the end of the Secondary segment of the
+/// The quick access «⋯» button (TW-8.1): sits at the end of the Secondary segment of the
 /// configured stripe; not created at all while the quick access list is empty (TW-8.4). A left
 /// click opens the list of hidden windows (TW-8.2) — selecting one returns its icon and opens
 /// it (TW-8.3); the context menu moves the button between the stripes (TW-5.15, TW-5.16). The

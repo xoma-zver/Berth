@@ -1,6 +1,6 @@
 namespace Berth;
 
-/// <summary>Orientation of a split node (spec DA-1.2).</summary>
+/// <summary>Orientation of a split node.</summary>
 public enum SplitOrientation
 {
     /// <summary>Children are laid out left to right.</summary>

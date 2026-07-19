@@ -10,16 +10,14 @@ using Avalonia.Media;
 namespace Berth.Controls;
 
 /// <summary>
-/// Stripe icon of one tool window (spec TW-1.4): shows the application-supplied icon resource
-/// when <see cref="ToolWindowDescriptor.IconKey"/> resolves to an <see cref="IImage"/>,
-/// otherwise the initials of the title; the tooltip is the title, extended with the
-/// application-supplied shortcut hint when the workspace has a
-/// <see cref="BerthWorkspace.ShortcutHintProvider"/> (spec TW-5.5, TW-6.4). An open window is
-/// highlighted and carries the <c>:open</c> pseudo-class (spec TW-6.4). A left click toggles
-/// openness regardless of activity (spec TW-5.4); the right-click context menu is the compact
-/// menu of TW-5.16 — both reduce to core commands (ADR-0004). The icon face itself is a
-/// <see cref="StripeIconFace"/>, shared with the drag ghost of the slot gesture (spec TW-5.17:
-/// the user drags what they grabbed).
+/// Stripe icon of one tool window: shows the application-supplied icon resource when
+/// <see cref="ToolWindowDescriptor.IconKey"/> resolves to an <see cref="IImage"/>, otherwise
+/// the initials of the title; the tooltip is the title, extended with the shortcut hint when
+/// the workspace has a <see cref="BerthWorkspace.ShortcutHintProvider"/>. An open window is
+/// highlighted and carries the <c>:open</c> pseudo-class. A left click toggles openness
+/// regardless of activity; the right-click context menu is the compact icon menu — both
+/// reduce to core commands. The icon face itself is a <see cref="StripeIconFace"/>, shared
+/// with the drag ghost of the slot gesture: the user drags what they grabbed.
 /// </summary>
 public sealed class StripeButton : Decorator
 {
@@ -47,7 +45,7 @@ public sealed class StripeButton : Decorator
     /// <summary>Id of the tool window the icon represents.</summary>
     public string ToolWindowId { get; }
 
-    /// <summary>Whether the represented window is open — open icons are highlighted (spec TW-6.4).</summary>
+    /// <summary>Whether the represented window is open — open icons are highlighted (TW-6.4).</summary>
     public bool IsOpen { get; }
 
     /// <inheritdoc/>
@@ -88,9 +86,9 @@ public sealed class StripeButton : Decorator
 }
 
 /// <summary>
-/// The face of a stripe icon (spec TW-1.4): the application-supplied icon resource when the
+/// The face of a stripe icon (TW-1.4): the application-supplied icon resource when the
 /// icon key resolves to an <see cref="IImage"/>, otherwise the initials of the title. Shared
-/// between <see cref="StripeButton"/> and the drag ghost of the slot gesture (spec TW-5.17,
+/// between <see cref="StripeButton"/> and the drag ghost of the slot gesture (TW-5.17,
 /// v0.26): the ghost shows the same face the user grabbed.
 /// </summary>
 internal sealed class StripeIconFace : Border

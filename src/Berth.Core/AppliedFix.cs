@@ -1,11 +1,11 @@
 namespace Berth;
 
 /// <summary>
-/// One correction applied by <see cref="LayoutApply.Apply"/> (spec TW-10.4, DA-9.2). Every fix
-/// is reported exactly once; secondary activity reassignments caused by a fix — a host's
-/// current tab after deduplication, the active dock host after a window removal — produce no
-/// entries of their own. Regular behaviour (eviction TW-5.1, reconciliation TW-10.3, the
-/// Arrangement reset of the active tool window TW-10.7) is not a fix and is never reported.
+/// One correction applied by <see cref="LayoutApply.Apply"/>. Every fix is reported exactly
+/// once; secondary activity reassignments caused by a fix — a host's current tab after
+/// deduplication, the active dock host after a window removal — produce no entries of their
+/// own. Regular behaviour (eviction, reconciliation, the Arrangement reset of the active tool
+/// window) is not a fix and is never reported.
 /// </summary>
 /// <param name="Rule">
 /// Spec rule behind the fix: the invariant id ("INV-2", "INV-D3", …) for defects found by

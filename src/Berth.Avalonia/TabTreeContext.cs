@@ -4,12 +4,12 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// Context of one materialized tab tree (spec DA-9.6): the dock area of the main window
+/// Context of one materialized tab tree (DA-9.6): the dock area of the main window
 /// (<see cref="PanelId"/> null), the content tree of a tool window, or the tree of a
 /// document window. Group and split views are tree-agnostic and reach everything
 /// host-specific — the root, the SetSplitShares receiver, the shared host cache — through
 /// this context; the reconciliation logic is shared verbatim between the trees. Document
-/// windows have no identity of their own (spec DA-1.3): the floating layer refreshes
+/// windows have no identity of their own (DA-1.3): the floating layer refreshes
 /// <see cref="DocumentWindowIndex"/> on every reconciliation pass, and every state change
 /// re-projects before any further command can run, so the index is fresh at command time.
 /// </summary>
@@ -29,13 +29,13 @@ internal sealed class TabTreeContext
         _isDocumentWindow = true;
     }
 
-    /// <summary>Context of one document window's tree (spec DA-7.1); the index is set by the floating layer per pass.</summary>
+    /// <summary>Context of one document window's tree (DA-7.1); the index is set by the floating layer per pass.</summary>
     public static TabTreeContext ForDocumentWindow(BerthWorkspace workspace) => new(workspace);
 
     /// <summary>The owning workspace — the command funnel and the shared host cache.</summary>
     public BerthWorkspace Workspace { get; }
 
-    /// <summary>Id of the tool window hosting the tree, or null for a dock-area host — the canHost key of the drop catalog (spec DA-9.7).</summary>
+    /// <summary>Id of the tool window hosting the tree, or null for a dock-area host — the canHost key of the drop catalog (DA-9.7).</summary>
     public string? PanelId { get; }
 
     /// <summary>Index of the projected document window in <see cref="DockAreaState.Windows"/>; meaningful only for a document-window context.</summary>
@@ -60,7 +60,7 @@ internal sealed class TabTreeContext
         return state.DockArea.Root;
     }
 
-    /// <summary>The SetSplitShares receiver of this tree (spec DA-5.6): the dock host or the panel overload.</summary>
+    /// <summary>The SetSplitShares receiver of this tree (DA-5.6): the dock host or the panel overload.</summary>
     public LayoutState SetShares(LayoutState state, ImmutableArray<int> path, ImmutableArray<double> shares) =>
         PanelId is { } panelId
             ? state.SetSplitShares(panelId, path, shares)
@@ -97,7 +97,7 @@ internal sealed class TabTreeContext
     /// <summary>
     /// Reconciles the whole tree into a container: a root kind mismatch discards the old view —
     /// its hosts return to the cache — before the new one attaches (the whitelisted structural
-    /// rebuild of the addressed node, spec DA-9.6).
+    /// rebuild of the addressed node, DA-9.6).
     /// </summary>
     public void ReconcileRoot(Decorator container, TabTreeNode root, LayoutState state, ToolWindowRegistry registry)
     {
@@ -117,7 +117,7 @@ internal sealed class TabTreeContext
         }
     }
 
-    /// <summary>Reconciliation key of a child view (groups have no identity, spec DA-1.3).</summary>
+    /// <summary>Reconciliation key of a child view (groups have no identity, DA-1.3).</summary>
     public static HashSet<string> TabsOfView(Control view) => view switch
     {
         TabGroupView group => group.Tabs,
@@ -125,7 +125,7 @@ internal sealed class TabTreeContext
         _ => [],
     };
 
-    /// <summary>Returns every cached host of a discarded view subtree to the cache (spec DA-9.6).</summary>
+    /// <summary>Returns every cached host of a discarded view subtree to the cache (DA-9.6).</summary>
     public static void ReleaseHosts(Control view)
     {
         switch (view)

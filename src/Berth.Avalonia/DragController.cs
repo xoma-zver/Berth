@@ -10,59 +10,44 @@ using Avalonia.VisualTree;
 
 namespace Berth.Controls;
 
-/// <summary>Kind of a drag source (spec TW-5.17, DA-9.7).</summary>
+/// <summary>Kind of a drag source (TW-5.17, DA-9.7).</summary>
 internal enum DragSourceKind
 {
-    /// <summary>A stripe icon (spec TW-1.4).</summary>
+    /// <summary>A stripe icon (TW-1.4).</summary>
     StripeIcon,
 
-    /// <summary>The header bar of a tool window decorator (spec TW-5.17, TW-7.8).</summary>
+    /// <summary>The header bar of a tool window decorator (TW-5.17, TW-7.8).</summary>
     PanelHeader,
 
-    /// <summary>A tab header of a materialized tree (spec DA-9.7).</summary>
+    /// <summary>A tab header of a materialized tree (DA-9.7).</summary>
     TreeTab,
 }
 
 /// <summary>
-/// The dragged subject: what the gesture moves and what the ghost shows (spec TW-5.17).
+/// The dragged subject: what the gesture moves and what the ghost shows (TW-5.17).
 /// <see cref="SubjectId"/> is a tool window id for a stripe icon or a header, and a tab id
-/// for a tree tab (spec DA-9.7).
+/// for a tree tab (DA-9.7).
 /// </summary>
 internal readonly record struct DragSubject(DragSourceKind Kind, string SubjectId, string Title);
 
 /// <summary>
-/// The drag gesture controller (spec TW-5.17, ADR-0004): one instance per workspace, driving
-/// every drag source through one state machine. Sources arm a candidate on their press; the
-/// controller turns it into a drag when the pointer travels past
-/// <see cref="BerthMetrics.DragStartThreshold"/>, re-capturing the pointer onto a stable root
-/// of the source window — the <see cref="DragLayer"/> for the main window and its
-/// pseudo-windows, the floating TopLevel itself for a real floating window (task 6.2) —
-/// external re-projections rebuild leaf chrome but never tear the capture, and the release
-/// always routes to the capture owner, whatever window the pointer ends up over. The gesture
-/// lives in gesture coordinates (<see cref="GestureSpace"/>): screen on the windowed platform,
-/// workspace on the overlay one. The gesture is pure visualization until the release: a ghost
-/// chip and a target marker (<see cref="IDragVisual"/>), no state changes, no focus moves. The
-/// drop target catalog spans every window of the workspace and is rebuilt when an external
-/// state change re-projects the workspace mid-gesture — the gesture continues over the updated
-/// targets and is cancelled only when the dragged subject leaves the layout (TW-5.17); a
-/// target hits only while its window is the top window at the pointer — the zone of an
-/// occluded window never fires, with the z-order of real windows approximated (floating
-/// windows above the main one, MRU among themselves — a v1 assumption, TW-5.17) and of
-/// pseudo-windows exact (the overlay child order). A drop commits through the workspace funnel — one Move (plus the docking SetMode of
-/// a floating-mode window) for a stripe drop (TW-5.17), the menu-mirroring command sequence
-/// for a tab drop (DA-9.7). A release outside every target is the take-out command of task
-/// 6.2: a stripe icon or header floats at the release point (TW-7.8), a tab moves into a new
-/// document window there (DA-9.7); cancellation — Esc or a lost capture — leaves no trace: no
-/// command, no activation, no focus transfer (DA-E22). A gesture that became a drag also
-/// consumes the click: sources and the auto-hide pointer path check
-/// <see cref="GestureConsumedClick"/> (TW-6.2: a DnD gesture is not a click).
-///
-/// The controller also owns the press-focus deferral of tab headers (spec DA-9.7, the mirror
-/// of the decorator's bare-header interception of TW-6.6): a tunnel handler on the workspace
-/// root — and on every floating TopLevel — marks presses on tab headers handled before the
-/// platform's press-focus class handler at the source can park focus on the nearest focusable
-/// ancestor; the click semantics run on the release. Presses on interactive header children
-/// (the «×» button) are left alone.
+/// The drag gesture controller (TW-5.17): one instance per workspace, driving every drag
+/// source through one state machine. Sources arm a candidate on their press; past
+/// <see cref="BerthMetrics.DragStartThreshold"/> the press becomes a drag and the pointer is
+/// re-captured onto a stable root of the source window, so re-projections rebuild leaf chrome
+/// without tearing the gesture and the release always routes to the capture owner. The
+/// gesture lives in gesture coordinates (<see cref="GestureSpace"/>) and is pure
+/// visualization until the release: a ghost and a target marker (<see cref="IDragVisual"/>),
+/// no state changes, no focus moves. The target catalog spans every window of the workspace,
+/// is rebuilt on external re-projections mid-gesture, and hits only in the top window at the
+/// pointer. A drop commits through the workspace funnel; a release outside every target is
+/// the take-out — a panel floats at the release point (TW-7.8), a tab moves into a new
+/// document window (DA-9.7); cancellation leaves no trace (DA-E22). A gesture that became a
+/// drag also consumes the click: sources and the auto-hide pointer path check
+/// <see cref="GestureConsumedClick"/> (TW-6.2). The controller also owns the press-focus
+/// deferral of tab headers (DA-9.7): a tunnel handler marks bare header presses handled
+/// before the platform parks focus, and the click semantics run on the release; presses on
+/// interactive header children (the «×» button) are left alone.
 /// </summary>
 internal sealed class DragController
 {
@@ -107,7 +92,7 @@ internal sealed class DragController
     public DragLayer? Layer { get; set; }
 
     /// <summary>
-    /// Renderer of the ghost content miniature (spec TW-5.17 v0.26), invoked once at the
+    /// Renderer of the ghost content miniature (TW-5.17 v0.26), invoked once at the
     /// gesture start for a subject whose view is built and attached. The default renders the
     /// hosted control into a bitmap; null means no miniature — the ghost keeps its light
     /// face. Replaceable as the test seam: the headless platform cannot render offscreen, so
@@ -117,7 +102,7 @@ internal sealed class DragController
 
     /// <summary>
     /// Whether the current press gesture became a drag: its release performs no click action —
-    /// neither the source's (toggle, activation) nor the auto-hide pointer close (spec TW-5.17,
+    /// neither the source's (toggle, activation) nor the auto-hide pointer close (TW-5.17,
     /// TW-6.2). Reset when the next press arms or passes by.
     /// </summary>
     public bool GestureConsumedClick { get; private set; }
@@ -125,10 +110,10 @@ internal sealed class DragController
     /// <summary>Whether the gesture ghost is currently shown — the test observation point (the windowed ghost is an OS window outside the main visual tree).</summary>
     public bool GhostVisible => _visual?.GhostVisible == true;
 
-    /// <summary>The target hint currently shown, or null — the test observation point (spec TW-5.17 v0.26).</summary>
+    /// <summary>The target hint currently shown, or null — the test observation point (TW-5.17 v0.26).</summary>
     public string? HintText => _visual?.HintText;
 
-    /// <summary>Whether the ghost currently shows the content miniature — the test observation point (spec TW-5.17 v0.26).</summary>
+    /// <summary>Whether the ghost currently shows the content miniature — the test observation point (TW-5.17 v0.26).</summary>
     public bool GhostShowsMiniature => _visual?.GhostShowsMiniature == true;
 
     /// <summary>Subscribes a floating TopLevel of the workspace (task 6.2): its sources arm and drive the same state machine.</summary>
@@ -162,7 +147,7 @@ internal sealed class DragController
 
     /// <summary>
     /// Arms a drag candidate — called by a source from its press handler, before the press
-    /// bubbles here (spec TW-5.17). The gesture starts only if the pointer travels past the
+    /// bubbles here (TW-5.17). The gesture starts only if the pointer travels past the
     /// threshold; otherwise the press stays an ordinary click. Sources in every window of the
     /// workspace arm alike (task 6.2); the header of a panel pseudo-window never reaches here —
     /// it is the pseudo-window's move handle (TW-7.7).
@@ -172,7 +157,7 @@ internal sealed class DragController
         GestureConsumedClick = false;
         _subject = subject;
         // The armed header's width sizes the strip reorder preview's insertion placeholder
-        // (spec DA-9.7 v0.18: the place the tab takes is sized off the source header at the
+        // (DA-9.7 v0.18: the place the tab takes is sized off the source header at the
         // gesture start, never re-measured mid-gesture); only a tree tab arms from a header.
         _armedHeaderWidth = subject.Kind == DragSourceKind.TreeTab
             ? DockTabHeader.FindHeader(e.Source)?.Bounds.Width
@@ -191,7 +176,7 @@ internal sealed class DragController
     }
 
     /// <summary>
-    /// Reacts to a state re-projection (spec TW-5.17): an external change mid-gesture rebuilds
+    /// Reacts to a state re-projection (TW-5.17): an external change mid-gesture rebuilds
     /// the targets — lazily, on the next pointer move over settled layout — and cancels the
     /// gesture only when the dragged subject left the layout.
     /// </summary>
@@ -214,7 +199,7 @@ internal sealed class DragController
     }
 
     /// <summary>
-    /// The eager reapply of the section 12 contract (tool-windows; spec DA-9.7 v0.18): an
+    /// The eager reapply of the section 12 contract (tool-windows; DA-9.7 v0.18): an
     /// external re-projection rebuilt the leaf chrome — including the strip headers carrying
     /// the reorder-preview overrides — so the target visuals must re-lay over the fresh views
     /// without waiting for the next pointer move. A posted job rebuilds the catalog over
@@ -262,7 +247,7 @@ internal sealed class DragController
     }
 
     /// <summary>
-    /// The press-focus deferral of tab headers (spec DA-9.7): a left or middle press whose
+    /// The press-focus deferral of tab headers (DA-9.7): a left or middle press whose
     /// target lies in a tab header is marked handled on the tunnel, before the platform's
     /// press-focus class handler at the source parks focus on the nearest focusable ancestor —
     /// on a panel tree that would activate the panel right on the press, leaving a trace
@@ -366,7 +351,7 @@ internal sealed class DragController
     /// <summary>Whether the gesture lives in screen coordinates — the windowed platform (task 6.2).</summary>
     private bool Windowed => _workspace.CanUseWindowed;
 
-    /// <summary>Pointer position in gesture coordinates (spec TW-5.17): events route within the source window.</summary>
+    /// <summary>Pointer position in gesture coordinates (TW-5.17): events route within the source window.</summary>
     private Point GesturePoint(PointerEventArgs e)
     {
         var root = _sourceRoot ?? TopLevel.GetTopLevel(_workspace);
@@ -443,7 +428,7 @@ internal sealed class DragController
         _current = null;
     }
 
-    /// <summary>Whether the dragged subject is still present in the layout (spec TW-5.17, DA-9.7).</summary>
+    /// <summary>Whether the dragged subject is still present in the layout (TW-5.17, DA-9.7).</summary>
     private bool SubjectInLayout(LayoutState state) => _subject.Kind == DragSourceKind.TreeTab
         ? DockTrees.LayoutContainsTab(state, _subject.SubjectId)
         : state.ToolWindows.Any(w => string.Equals(w.Id, _subject.SubjectId, StringComparison.Ordinal));
@@ -474,7 +459,7 @@ internal sealed class DragController
     }
 
     /// <summary>
-    /// Assembles the ghost passport at the gesture start (spec TW-5.17 v0.26, DA-9.7 v0.18):
+    /// Assembles the ghost passport at the gesture start (TW-5.17 v0.26, DA-9.7 v0.18):
     /// the light face — the stripe icon face of a panel (the shared face of
     /// <see cref="StripeButton"/>), the title chip of a tab — plus the content miniature of a
     /// subject whose view is built and attached right now: the decorator of a hosted open
@@ -603,7 +588,7 @@ internal sealed class DragController
     // ---- the take-out commits of a release outside every target (task 6.2) ----
 
     /// <summary>
-    /// A release outside every target is not a cancellation (spec TW-5.17): a stripe icon or
+    /// A release outside every target is not a cancellation (TW-5.17): a stripe icon or
     /// a header takes the panel out into Float at the release point (TW-7.8), a tab moves
     /// into a new document window there (DA-9.7). Guards re-read the live state; a platform
     /// without a materialized floating layer commits nothing.
@@ -689,7 +674,7 @@ internal sealed class DragController
         return null;
     }
 
-    /// <summary>Esc cancels the drag (spec TW-5.17); the capture holds until the release, which then does nothing.</summary>
+    /// <summary>Esc cancels the drag (TW-5.17); the capture holds until the release, which then does nothing.</summary>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape && _phase == Phase.Dragging)
@@ -699,7 +684,7 @@ internal sealed class DragController
         }
     }
 
-    /// <summary>A capture lost to the outside world ends the gesture with no trace (spec TW-5.17).</summary>
+    /// <summary>A capture lost to the outside world ends the gesture with no trace (TW-5.17).</summary>
     private void OnCaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
         if (_phase is Phase.Dragging or Phase.CancelledAwaitingRelease)

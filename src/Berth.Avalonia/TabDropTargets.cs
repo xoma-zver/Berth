@@ -6,22 +6,17 @@ using Avalonia.VisualTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// Catalog builder of the tab drop targets (spec DA-9.7): the strips, edge wedges and centers
-/// of every materialized tab group the dragged tab may enter — in every window of the
-/// workspace (task 6.2): the main window, floating panels, document windows and
-/// pseudo-windows. Priority is the list order (= the reference's processDropOver): strip
-/// insertion zones first, then the diagonal edge wedges limited to
-/// <see cref="BerthMetrics.SplitWedgeRatio"/> of the group's extent, then the group centers.
-/// canHost decides which trees offer zones at all (INV-D5, DA-8.2): the tree currently
-/// hosting the tab (moves within one host are always legal), the dock-area hosts — the main
-/// window and every materialized document window (dock hosts accept every tab) — and the
-/// confirmed owner panel's tree; trees of foreign panels yield nothing, and a closed panel is
-/// simply not materialized. Commits are encoded by tab ids — an anchor tab of the receiving
-/// group plus the insertion predecessor — and re-resolved against the live state at drop time
-/// with guards, so they survive external state changes between the catalog build and the
-/// release (TW-5.17); an identity drop does nothing at all (DA-E40). Completed drops follow
-/// the 4.1 menu items: the command sequence, then activation for a cross-host move, then the
-/// focus transfer (DA-5.4, DA-6.4).
+/// Catalog builder of the tab drop targets (DA-9.7): the strips, edge wedges and centers of
+/// every materialized tab group the dragged tab may enter, in every window of the workspace.
+/// Priority is the list order: strip insertion zones, then the diagonal edge wedges limited
+/// to <see cref="BerthMetrics.SplitWedgeRatio"/> of the group's extent, then the group
+/// centers. canHost decides which trees offer zones at all (INV-D5, DA-8.2): the tree
+/// currently hosting the tab, the dock-area hosts, and the confirmed owner panel's tree;
+/// trees of foreign panels yield nothing, and a closed panel is simply not materialized.
+/// Commits are encoded by tab ids and re-resolved against the live state at drop time with
+/// guards, so they survive external state changes between the catalog build and the release;
+/// an identity drop does nothing at all (DA-E40). Completed drops mirror the tab menu items:
+/// the command sequence, then activation for a cross-host move, then the focus transfer.
 /// </summary>
 internal static class TabDropTargets
 {
@@ -227,7 +222,7 @@ internal static class TabDropTargets
     // ---- wedges ----
 
     /// <summary>
-    /// One edge wedge of a group (spec DA-9.7): the coarse zone is the band of
+    /// One edge wedge of a group (DA-9.7): the coarse zone is the band of
     /// <see cref="BerthMetrics.SplitWedgeRatio"/> depth along the edge, refined by the
     /// diagonal condition — the point's nearest edge in normalized coordinates must be this
     /// one (= the reference's getDropSideFor). The marker previews the result: the half of

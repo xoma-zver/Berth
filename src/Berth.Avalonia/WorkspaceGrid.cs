@@ -3,11 +3,11 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// The persistent docked layout of the workspace (spec TW-2.1): an outer grid stacking the main
+/// The persistent docked layout of the workspace (TW-2.1): an outer grid stacking the main
 /// row above the bottom pane — the bottom pane spans the full width between the stripes — and
 /// an inner row of the left pane, the dock area and the right pane. Sides without an open
 /// docked window collapse to zero instead of leaving the tree, so opening a neighbouring side
-/// or the bottom pane only relays geometry around the remaining hosts (spec TW-9.13). Star
+/// or the bottom pane only relays geometry around the remaining hosts (TW-9.13). Star
 /// sizes follow the side weights (TW-2.5) with render-time minimums (TW-2.8); the drag of a
 /// side splitter is pure visualization (ADR-0004), and its release commits the side weight —
 /// the pane's share of the star-sized cells — as one SetSideSize from the rendered bounds
@@ -26,7 +26,7 @@ internal sealed class WorkspaceGrid : Grid
 
     public WorkspaceGrid(BerthWorkspace workspace, Control dockContent)
     {
-        _dockArea.Child = dockContent; // the dock-area tree projection (spec DA-9.6)
+        _dockArea.Child = dockContent; // the dock-area tree projection (DA-9.6)
         _left = new SidePane(ToolWindowSide.Left, workspace);
         _right = new SidePane(ToolWindowSide.Right, workspace);
         _bottom = new SidePane(ToolWindowSide.Bottom, workspace);

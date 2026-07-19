@@ -4,31 +4,31 @@ namespace Berth;
 
 /// <summary>
 /// Core commands over the tab trees of <see cref="LayoutState"/> — the dock-area hosts and the
-/// content trees of tool windows (spec document-area, section 5; tool-windows, section 9).
-/// Every command is a pure transition ending in normalization (DA-3.2); the same command backs
-/// menu items, shortcuts and completed drag gestures (ADR-0004). A command over a tab id absent
-/// from the layout throws — except <see cref="OpenDocument"/> and <see cref="OpenPanelTab"/>,
-/// whose purpose is introducing new ids. Commands that confirm tab owners — opening and moves
-/// into a panel — take the <see cref="ToolWindowRegistry"/> (canHost, INV-D5, TW-9.11).
+/// content trees of tool windows. Every command is a pure transition ending in normalization;
+/// the same command backs menu items, shortcuts and completed drag gestures. A command over a
+/// tab id absent from the layout throws — except <see cref="OpenDocument"/> and
+/// <see cref="OpenPanelTab"/>, whose purpose is introducing new ids. Commands that confirm tab
+/// owners — opening and moves into a panel — take the <see cref="ToolWindowRegistry"/>.
 /// </summary>
 public static class DockOperations
 {
     /// <summary>
-    /// Opens a document in the current group of the effective host (spec DA-5.1, DA-6.1): the
-    /// tab is inserted after the group's active tab (into an empty group — as the only one) and
-    /// activated per <see cref="ActivateTab"/>. The effective host is the main window while a
-    /// tool window is active, otherwise the active dock host. An id already present anywhere in
-    /// the layout — including a sleeping tab in a panel tree — is only activated, never moved
-    /// (DA-E33, INV-D2). An id with a confirmed tool window owner is an error: panel tabs are
-    /// opened by <see cref="OpenPanelTab"/> (DA-5.1, TW-9.12).
+    /// Opens a document in the current group of the effective host: the tab is inserted after
+    /// the group's active tab (into an empty group — as the only one) and activated per
+    /// <see cref="ActivateTab"/>. The effective host is the main window while a tool window is
+    /// active, otherwise the active dock host. An id already present anywhere in the layout —
+    /// including a sleeping tab in a panel tree — is only activated, never moved. An id with a
+    /// confirmed tool window owner is an error: panel tabs are opened by
+    /// <see cref="OpenPanelTab"/>.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of the document tab; a new id opens a new tab.</param>
-    /// <param name="registry">Registry confirming tab owners (spec TW-9.11).</param>
+    /// <param name="registry">Registry confirming tab owners.</param>
     /// <exception cref="ArgumentException">The id is empty, or its confirmed owner is a tool window.</exception>
-    /// <exception cref="InvalidOperationException">Two live registrations claim the id (spec TW-9.11).</exception>
+    /// <exception cref="InvalidOperationException">Two live registrations claim the id.</exception>
     public static LayoutState OpenDocument(this LayoutState state, string id, ToolWindowRegistry registry)
     {
+        // DA-5.1; the effective host is DA-6.1; a present id only activates (DA-E33, INV-D2).
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(registry);
@@ -69,22 +69,23 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Opens a panel tab in the tree of its owner (spec TW-9.12). The owner must be confirmed
-    /// by a live claim and be a tool window; a sleeping id and a document are caller errors. An
-    /// id already present anywhere in the layout only becomes the active tab of its group —
-    /// with no other effects (INV-D2). Otherwise the tab is inserted into the first non-empty
-    /// group of the owner's tree in depth-first order, after its active tab (into an empty
-    /// tree — as the root group), and becomes the group's active tab. The panel's openness,
-    /// <see cref="LayoutState.ActiveToolWindowId"/> and the dock-area hosts are not touched
-    /// (TW-9.3) — activation is a follow-up <see cref="ActivateTab"/> by the UI.
+    /// Opens a panel tab in the tree of its owner. The owner must be confirmed by a live claim
+    /// and be a tool window; a sleeping id and a document are caller errors. An id already
+    /// present anywhere in the layout only becomes the active tab of its group — with no other
+    /// effects. Otherwise the tab is inserted into the first non-empty group of the owner's
+    /// tree in depth-first order, after its active tab (into an empty tree — as the root
+    /// group), and becomes the group's active tab. The panel's openness,
+    /// <see cref="LayoutState.ActiveToolWindowId"/> and the dock-area hosts are not touched —
+    /// activation is a follow-up <see cref="ActivateTab"/> by the UI.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of the panel tab; a new id opens a new tab.</param>
-    /// <param name="registry">Registry confirming tab owners (spec TW-9.11).</param>
+    /// <param name="registry">Registry confirming tab owners.</param>
     /// <exception cref="ArgumentException">The id is empty, unclaimed, owned by the dock area, or its owner has no state in the layout.</exception>
-    /// <exception cref="InvalidOperationException">Two live registrations claim the id (spec TW-9.11).</exception>
+    /// <exception cref="InvalidOperationException">Two live registrations claim the id.</exception>
     public static LayoutState OpenPanelTab(this LayoutState state, string id, ToolWindowRegistry registry)
     {
+        // TW-9.12; a present id only activates in its group (INV-D2).
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(registry);
@@ -136,19 +137,20 @@ public static class DockOperations
 
     /// <summary>
     /// Closes a tab in any host — a dock-area host or a panel tree, the owner does not
-    /// participate (spec DA-5.2). If the tab was active in its group, the previous neighbour
-    /// becomes active (the closed first — the new first); an emptied group disappears by
-    /// normalization. For a dock host whose current tab was the closed one, rule DA-6.3
-    /// applies: the surviving group's new active tab, else the active tab of the previous group
-    /// in depth-first order of the pre-removal tree (else the next), else null for an emptied
-    /// main window; an emptied document window disappears entirely (INV-D6). Panels have no
-    /// host current tab — only the group rule applies there.
+    /// participate. If the tab was active in its group, the previous neighbour becomes active
+    /// (the closed first — the new first); an emptied group disappears by normalization. For a
+    /// dock host whose current tab was the closed one, the host fallback applies: the surviving
+    /// group's new active tab, else the active tab of the previous group in depth-first order
+    /// of the pre-removal tree (else the next), else null for an emptied main window; an
+    /// emptied document window disappears entirely. Panels have no host current tab — only the
+    /// group rule applies there.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of a tab present in the layout.</param>
     /// <exception cref="ArgumentException">No such tab exists in the layout.</exception>
     public static LayoutState CloseTab(this LayoutState state, string id)
     {
+        // DA-5.2 (group activity), DA-6.3 (host current-tab fallback), INV-D6 (emptied window).
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
@@ -166,18 +168,19 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Activates a tab (spec DA-5.3): the tab becomes the active tab of its group. A tab in a
-    /// dock-area host additionally becomes the host's current tab, the host becomes the active
-    /// dock host, and the active tool window is cleared (DA-6.2, TW-6.5). A tab in a panel tree
-    /// activates the panel (<see cref="LayoutState.ActiveToolWindowId"/> = the owner) without
-    /// touching the dock-area hosts (DA-6.1, DA-E19); a closed panel is opened per TW-5.1 —
-    /// with layer eviction and rule R1 — because the active panel is always open (INV-5, DA-E39).
+    /// Activates a tab: the tab becomes the active tab of its group. A tab in a dock-area host
+    /// additionally becomes the host's current tab, the host becomes the active dock host, and
+    /// the active tool window is cleared. A tab in a panel tree activates the panel
+    /// (<see cref="LayoutState.ActiveToolWindowId"/> = the owner) without touching the
+    /// dock-area hosts; a closed panel is opened with the usual layer eviction — the active
+    /// panel is always open.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of a tab present in the layout.</param>
     /// <exception cref="ArgumentException">No such tab exists in the layout.</exception>
     public static LayoutState ActivateTab(this LayoutState state, string id)
     {
+        // DA-5.3; DA-6.2/TW-6.5 (mutual activity), DA-E39 (a closed panel opens per TW-5.1).
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
@@ -197,28 +200,30 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Moves a tab into the target group at the given position — the position in the receiver's
-    /// tab list after the moved tab is taken out, clamped into range (spec DA-5.4). Within one
+    /// Moves a tab into the target group at the given position — the position in the
+    /// receiver's tab list after the moved tab is taken out, clamped into range. Within one
     /// group this is a reorder. Moving into a panel from another host requires the registry to
-    /// confirm that panel as the tab's owner (canHost, INV-D5, DA-8.2) — a sleeping tab cannot
-    /// move into a panel; moves within one host and into dock-area hosts need no check. The
-    /// moved tab becomes the active tab of the receiving group and — for a dock-area receiver —
-    /// the current tab of the receiving host (panels have no host current tab, DA-6.1); the
-    /// donor group's active tab follows DA-5.2, and a dock donor host's current tab follows
-    /// DA-6.3 — only when the move crosses hosts. <see cref="DockAreaState.ActiveDockHost"/>
-    /// and <see cref="LayoutState.ActiveToolWindowId"/> are not touched — activation is a
+    /// confirm that panel as the tab's owner — a sleeping tab cannot move into a panel; moves
+    /// within one host and into dock-area hosts need no check. The moved tab becomes the
+    /// active tab of the receiving group and — for a dock-area receiver — the current tab of
+    /// the receiving host (panels have no host current tab); the donor group's and the donor
+    /// host's activity fall back to their neighbours — the latter only when the move crosses
+    /// hosts. <see cref="DockAreaState.ActiveDockHost"/> and
+    /// <see cref="LayoutState.ActiveToolWindowId"/> are not touched — activation is a
     /// follow-up <see cref="ActivateTab"/> by the UI.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of the tab to move.</param>
-    /// <param name="target">Group to move into (spec DA-1.3).</param>
+    /// <param name="target">Group to move into.</param>
     /// <param name="index">Position in the receiver after the moved tab is taken out; clamped.</param>
-    /// <param name="registry">Registry confirming tab owners for moves into panels (spec TW-9.11).</param>
+    /// <param name="registry">Registry confirming tab owners for moves into panels.</param>
     /// <exception cref="ArgumentException">The tab or the target does not exist, or the move into a panel is not confirmed by ownership.</exception>
-    /// <exception cref="InvalidOperationException">Two live registrations claim the id (spec TW-9.11).</exception>
+    /// <exception cref="InvalidOperationException">Two live registrations claim the id.</exception>
     public static LayoutState MoveTab(
         this LayoutState state, string id, DockGroupRef target, int index, ToolWindowRegistry registry)
     {
+        // DA-5.4; canHost on a cross-host move into a panel (INV-D5, DA-8.2); donor rules
+        // DA-5.2/DA-6.3. A move is never close-plus-open: content is untouched.
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(registry);
@@ -273,24 +278,24 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Splits by moving (spec DA-5.5, DA-2.4): a new group with the tab appears next to the
-    /// tab's group in the given direction — in any host, since the tab never leaves its tree
-    /// (canHost holds by construction). Along the parent split's orientation the new group
-    /// becomes a sibling (before the group for <see cref="SplitDirection.Left"/>/<see cref="SplitDirection.Up"/>,
-    /// after for <see cref="SplitDirection.Right"/>/<see cref="SplitDirection.Down"/>); across
-    /// the orientation — or at a root group — the group is replaced by a split of the two, the
-    /// new group on the direction side. Both halves share the donor's share; a donor emptied by
-    /// the move passes its place and its whole share to the new group, so splitting a
-    /// single-tab group restores the exact structure and shares (DA-E1). The rest follows
-    /// <see cref="MoveTab"/>.
+    /// Splits by moving: a new group with the tab appears next to the tab's group in the given
+    /// direction — in any host, since the tab never leaves its tree. Along the parent split's
+    /// orientation the new group becomes a sibling (before the group for
+    /// <see cref="SplitDirection.Left"/>/<see cref="SplitDirection.Up"/>, after for
+    /// <see cref="SplitDirection.Right"/>/<see cref="SplitDirection.Down"/>); across the
+    /// orientation — or at a root group — the group is replaced by a split of the two, the new
+    /// group on the direction side. Both halves share the donor's share; a donor emptied by the
+    /// move passes its place and its whole share to the new group, so splitting a single-tab
+    /// group restores the exact structure and shares. The rest follows <see cref="MoveTab"/>.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of the tab to split away.</param>
-    /// <param name="direction">Direction of the split (spec DA-1.2).</param>
+    /// <param name="direction">Direction of the split.</param>
     /// <exception cref="ArgumentException">No such tab exists in the layout.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The direction is not a defined value.</exception>
     public static LayoutState SplitTab(this LayoutState state, string id, SplitDirection direction)
     {
+        // DA-5.5 (split-by-move; the transfer semantics of DA-2.4); DA-E1 (single-tab donor).
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         var orientation = direction switch
@@ -341,20 +346,20 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Sets the share vector of the split at the given path of the given dock-area host (spec
-    /// DA-5.6, DA-1.3). The UI reduces splitter drags to this command, changing only a pair of
-    /// adjacent children; throttling is allowed, but the path must be re-resolved after every
-    /// operation.
+    /// Sets the share vector of the split at the given path of the given dock-area host. The
+    /// UI reduces splitter drags to this command, changing only a pair of adjacent children;
+    /// throttling is allowed, but the path must be re-resolved after every operation.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="host">Dock-area host of the tree containing the split.</param>
     /// <param name="path">Child indices from the root to the split; empty addresses the root.</param>
-    /// <param name="shares">New shares, one per child, each in (0..1), summing to 1 (INV-D3).</param>
+    /// <param name="shares">New shares, one per child, each in (0..1), summing to 1.</param>
     /// <exception cref="ArgumentException">The host or the path does not address a split, or the share count or sum is invalid.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A share is outside the open interval (0..1).</exception>
     public static LayoutState SetSplitShares(
         this LayoutState state, DockHost host, ImmutableArray<int> path, ImmutableArray<double> shares)
     {
+        // DA-5.6; path addressing per DA-1.3; share validation per INV-D3.
         ArgumentNullException.ThrowIfNull(state);
         if (host.DocumentWindowIndex is { } windowIndex && windowIndex >= state.DockArea.Windows.Length)
         {
@@ -365,13 +370,13 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Sets the share vector of the split at the given path of a tool window's content tree
-    /// (spec DA-5.6, DA-1.3, TW-9.5) — the panel counterpart of the dock-area overload.
+    /// Sets the share vector of the split at the given path of a tool window's content tree —
+    /// the panel counterpart of the dock-area overload.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="toolWindowId">Id of the tool window hosting the tree.</param>
     /// <param name="path">Child indices from the root to the split; empty addresses the root.</param>
-    /// <param name="shares">New shares, one per child, each in (0..1), summing to 1 (INV-D3).</param>
+    /// <param name="shares">New shares, one per child, each in (0..1), summing to 1.</param>
     /// <exception cref="ArgumentException">The tool window or the path does not address a split, or the share count or sum is invalid.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A share is outside the open interval (0..1).</exception>
     public static LayoutState SetSplitShares(
@@ -450,20 +455,20 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Moves a tab into a new document window with the given bounds (spec DA-5.7): the window is
-    /// appended to the list (creation order, DA-2.5), its tree is a single group, the tab is the
-    /// window's current tab. Dock-area hosts accept every tab (INV-D5) — documents, panel tabs
-    /// (TW-9.8) and sleeping tabs alike, so no ownership check is needed. The rest follows
-    /// <see cref="MoveTab"/>, including the disappearance of emptied groups and windows; pixels
-    /// come from the UI (ADR-0002).
+    /// Moves a tab into a new document window with the given bounds: the window is appended to
+    /// the list (creation order), its tree is a single group, the tab is the window's current
+    /// tab. Dock-area hosts accept every tab — documents, panel tabs and sleeping tabs alike,
+    /// so no ownership check is needed. The rest follows <see cref="MoveTab"/>, including the
+    /// disappearance of emptied groups and windows; pixels come from the UI.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of the tab to move out.</param>
     /// <param name="bounds">Screen bounds of the new window.</param>
     /// <exception cref="ArgumentException">No such tab exists in the layout.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number (TW-5.9).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number.</exception>
     public static LayoutState MoveTabToNewWindow(this LayoutState state, string id, FloatingBounds bounds)
     {
+        // DA-5.7; dock hosts accept every tab (INV-D5, TW-9.8).
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         bounds.ThrowIfNotFinite(nameof(bounds));
@@ -484,16 +489,17 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Remembers the bounds of the document window containing the tab (spec DA-5.8). The UI
-    /// calls this while the window is moved or resized; throttling is allowed.
+    /// Remembers the bounds of the document window containing the tab. The UI calls this while
+    /// the window is moved or resized; throttling is allowed.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of a tab of the document window.</param>
     /// <param name="bounds">New screen bounds of the window.</param>
     /// <exception cref="ArgumentException">No such tab exists, or the tab does not live in a document window.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number (TW-5.9).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number.</exception>
     public static LayoutState SetDocumentWindowBounds(this LayoutState state, string id, FloatingBounds bounds)
     {
+        // DA-5.8.
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         bounds.ThrowIfNotFinite(nameof(bounds));
@@ -518,15 +524,15 @@ public static class DockOperations
 
     /// <summary>
     /// Flips the orientation of the split holding the tab's group — in any host — keeping the
-    /// order and the shares of the children (spec DA-5.9); normalization then merges levels
-    /// whose orientations coincide (N3) — see DA-E25/E26/E31/E32 for the merge-free and merging
-    /// cases.
+    /// order and the shares of the children; normalization then merges levels whose
+    /// orientations coincide.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of a tab whose group's parent split is rotated.</param>
     /// <exception cref="ArgumentException">No such tab exists, or the tab's group is the root of its tree.</exception>
     public static LayoutState RotateSplit(this LayoutState state, string id)
     {
+        // DA-5.9; the N3 merges of the rotation are characterized by DA-E25/E26/E31/E32.
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
@@ -549,7 +555,7 @@ public static class DockOperations
 
     // ---- ownership ----
 
-    /// <summary>Resolves the owner of a tab id; a claim conflict throws per TW-9.11 (operations are resolve sites).</summary>
+    /// <summary>Resolves the owner of a tab id; a claim conflict throws — operations are resolve sites (TW-9.11).</summary>
     private static TabOwner? ResolveOwner(ToolWindowRegistry registry, string tabId)
     {
         var found = registry.ResolveTabClaim(tabId, out var claim, out var conflict);
@@ -579,9 +585,9 @@ public static class DockOperations
     // ---- activation ----
 
     /// <summary>
-    /// Finishes a dock-area activation (spec DA-5.3): the tab becomes the current tab of the
-    /// host, the host becomes the active dock host, the active tool window is cleared (DA-6.2),
-    /// and the layout is normalized. Returns the original state when nothing changed.
+    /// Finishes a dock-area activation (DA-5.3): the tab becomes the current tab of the host,
+    /// the host becomes the active dock host, the active tool window is cleared (DA-6.2), and
+    /// the layout is normalized. Returns the original state when nothing changed.
     /// </summary>
     private static LayoutState ActivateInDock(LayoutState state, DockHost host, string id)
     {
@@ -603,8 +609,8 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Removes a tab from a group with the active-tab rule of spec DA-5.2: the previous
-    /// neighbour of a removed active tab becomes active, for the removed first — the new first.
+    /// Removes a tab from a group with the active-tab rule of DA-5.2: the previous neighbour
+    /// of a removed active tab becomes active, for the removed first — the new first.
     /// </summary>
     private static TabGroupNode RemoveFromGroup(TabGroupNode group, string id)
     {
@@ -619,8 +625,8 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Rule DA-6.3 for a dock host whose current tab disappeared: the surviving donor group's
-    /// new active tab; for a vanished group — the active tab of the previous group in
+    /// The DA-6.3 fallback for a dock host whose current tab disappeared: the surviving donor
+    /// group's new active tab; for a vanished group — the active tab of the previous group in
     /// depth-first order of the pre-removal tree, else the next; null when no group is left
     /// (the emptied main window; an emptied document window is removed by normalization instead).
     /// </summary>
@@ -770,7 +776,7 @@ public static class DockOperations
             };
     }
 
-    /// <summary>The current tab of a dock host; panels have no host current tab (DA-6.1) — null.</summary>
+    /// <summary>The current tab of a dock host; panels have no host current tab — null.</summary>
     private static string? GetCurrentTab(LayoutState state, TreeHost host)
     {
         if (host.IsPanel)
@@ -784,8 +790,8 @@ public static class DockOperations
     }
 
     /// <summary>
-    /// Sets the current tab of a dock host; a no-op for panels (no host current tab, DA-6.1).
-    /// Null for a document window is ignored: it can only mean the window's tree emptied, and
+    /// Sets the current tab of a dock host; a no-op for panels (no host current tab). Null for
+    /// a document window is ignored: it can only mean the window's tree emptied, and
     /// normalization removes such a window entirely (INV-D6).
     /// </summary>
     private static LayoutState WithCurrentTab(LayoutState state, TreeHost host, string? currentTabId)

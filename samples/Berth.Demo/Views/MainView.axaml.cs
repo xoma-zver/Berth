@@ -7,7 +7,7 @@ namespace Berth.Demo.Views;
 public partial class MainView : UserControl
 {
     // The demo keymap: activation shortcuts belong to the application, not to the
-    // registrations (spec TW-5.5) — the workspace only executes the tri-state activation
+    // registrations (TW-5.5) — the workspace only executes the tri-state activation
     // and shows the hints its provider supplies (TW-6.4). Gestures are matched with
     // KeyGesture (canonical Key + modifier comparison) on the tunnel of KeyDown, so the
     // application keymap resolves Alt+digit before access-key or menu handling can claim it.

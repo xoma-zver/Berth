@@ -5,9 +5,9 @@ namespace Berth;
 
 /// <summary>
 /// Traversal helpers over tab-group trees, shared by normalization, invariant validation and
-/// the dock-area operations. Depth-first, left-to-right — the traversal order of spec DA-6.3
-/// and DA-9.2. Node addressing follows spec DA-1.3: a path is the sequence of child indices
-/// from the root.
+/// the dock-area operations. Depth-first, left-to-right — the traversal order the activity
+/// fallbacks and deduplication rely on (DA-6.3, DA-9.2). A path is the sequence of child
+/// indices from the root.
 /// </summary>
 internal static class TabTreeTraversal
 {
@@ -50,7 +50,7 @@ internal static class TabTreeTraversal
         }
     }
 
-    /// <summary>Whether the tree contains at least one tab (the INV-D6 gate for document windows).</summary>
+    /// <summary>Whether the tree contains at least one tab — the existence gate for document windows (INV-D6).</summary>
     public static bool HasTabs(TabTreeNode root) => EnumerateGroups(root).Any(g => !g.Tabs.IsEmpty);
 
     /// <summary>Whether the tab id is present in any tree of the layout — a dock-area host or a panel tree.</summary>
@@ -85,8 +85,8 @@ internal static class TabTreeTraversal
         EnumerateGroups(root).FirstOrDefault(g => g.Tabs.Contains(tabId, StringComparer.Ordinal));
 
     /// <summary>
-    /// Finds the group containing the given tab together with its path — the child indices from
-    /// the root (spec DA-1.3); the path is empty when the root is that group.
+    /// Finds the group containing the given tab together with its path — the child indices
+    /// from the root; the path is empty when the root is that group.
     /// </summary>
     public static bool TryFindGroupPath(
         TabTreeNode root, string tabId, out ImmutableArray<int> path, [NotNullWhen(true)] out TabGroupNode? group)

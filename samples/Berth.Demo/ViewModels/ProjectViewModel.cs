@@ -14,7 +14,7 @@ public partial class ProjectViewModel : ViewModelBase
     private string? _selectedFile;
 
     /// <summary>
-    /// Application callback opening the selected file as a document (spec DA-5.1); the
+    /// Application callback opening the selected file as a document (DA-5.1); the
     /// composition root wires it to the command channel, the view invokes it on double-tap.
     /// </summary>
     public Action<string>? OpenFile { get; set; }

@@ -3,7 +3,7 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// Builders of the tool window menus (spec TW-5.16) and the quick access menus (TW-8.3,
+/// Builders of the tool window menus (TW-5.16) and the quick access menus (TW-8.3,
 /// TW-5.15). Every item invokes a core command through <see cref="BerthWorkspace.Execute"/>
 /// (ADR-0004). Menus are built when the projection is rebuilt, so they always reflect the
 /// state they were built from, and the rebuild after each command replaces them wholesale.
@@ -15,14 +15,14 @@ namespace Berth.Controls;
 /// </summary>
 internal static class ToolWindowMenus
 {
-    /// <summary>Slot names, index-aligned with <see cref="ToolWindowSlot.All"/> (spec TW-1.1).</summary>
+    /// <summary>Slot names, index-aligned with <see cref="ToolWindowSlot.All"/> (TW-1.1).</summary>
     private static readonly string[] SlotHeaders =
         ["Left Top", "Left Bottom", "Right Top", "Right Bottom", "Bottom Left", "Bottom Right"];
 
-    /// <summary>Display name of one slot — shared with the «Move to {slot}» drag hint (spec TW-5.17 v0.26).</summary>
+    /// <summary>Display name of one slot — shared with the «Move to {slot}» drag hint (TW-5.17 v0.26).</summary>
     public static string SlotHeader(ToolWindowSlot slot) => SlotHeaders[ToolWindowSlot.All.IndexOf(slot)];
 
-    /// <summary>The compact stripe-icon context menu: Hide — icon hiding (TW-5.10) — then «Dock» for a floating record, then Move to (spec TW-5.16).</summary>
+    /// <summary>The compact stripe-icon context menu: Hide — icon hiding (TW-5.10) — then «Dock» for a floating record, then Move to (TW-5.16).</summary>
     public static MenuFlyout BuildIconMenu(ToolWindowState window, BerthWorkspace workspace)
     {
         var id = window.Id;
@@ -39,7 +39,7 @@ internal static class ToolWindowMenus
         return menu;
     }
 
-    /// <summary>The full menu of the decorator's «⋮» button and title-bar context (spec TW-5.16).</summary>
+    /// <summary>The full menu of the decorator's «⋮» button and title-bar context (TW-5.16).</summary>
     public static MenuFlyout BuildWindowMenu(ToolWindowState window, BerthWorkspace workspace)
     {
         var menu = new MenuFlyout();
@@ -48,7 +48,7 @@ internal static class ToolWindowMenus
     }
 
     /// <summary>
-    /// The items of the full menu (spec TW-5.16): View Mode, Move to, «Remove from Sidebar» —
+    /// The items of the full menu (TW-5.16): View Mode, Move to, «Remove from Sidebar» —
     /// icon hiding, the same command as «Hide» of the compact icon menu (TW-5.10) — and
     /// «Hide» — closing, the «—» button's command (TW-5.3). Shared with the tail of the panel
     /// tab menu: the reference's tab menu includes the window menu.
@@ -66,7 +66,7 @@ internal static class ToolWindowMenus
         menu.Items.Add(hide);
     }
 
-    /// <summary>The quick access list (spec TW-8.2): selecting an item returns the icon and opens the window (TW-8.3).</summary>
+    /// <summary>The quick access list (TW-8.2): selecting an item returns the icon and opens the window (TW-8.3).</summary>
     public static MenuFlyout BuildQuickAccessList(LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
     {
         var menu = new MenuFlyout();
@@ -81,7 +81,7 @@ internal static class ToolWindowMenus
         return menu;
     }
 
-    /// <summary>The «⋯» context menu: moving the button between the stripes (spec TW-5.15, TW-8.1, TW-5.16).</summary>
+    /// <summary>The «⋯» context menu: moving the button between the stripes (TW-5.15, TW-8.1, TW-5.16).</summary>
     public static MenuFlyout BuildQuickAccessSideMenu(QuickAccessSide current, BerthWorkspace workspace)
     {
         var menu = new MenuFlyout();
@@ -163,7 +163,7 @@ internal static class ToolWindowMenus
         }
     }
 
-    /// <summary>«Dock» of a floating record — the return to the last internal mode (spec TW-5.6, E27).</summary>
+    /// <summary>«Dock» of a floating record — the return to the last internal mode (TW-5.6, E27).</summary>
     private static MenuItem DockItem(ToolWindowState window, BerthWorkspace workspace)
     {
         var id = window.Id;

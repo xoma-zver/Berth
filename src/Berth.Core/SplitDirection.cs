@@ -1,10 +1,10 @@
 namespace Berth;
 
 /// <summary>
-/// Direction of a split operation (spec DA-1.2): <see cref="Left"/>/<see cref="Right"/> produce
+/// Direction of a split operation: <see cref="Left"/>/<see cref="Right"/> produce
 /// or extend a <see cref="SplitOrientation.Row"/>, <see cref="Up"/>/<see cref="Down"/> —
 /// a <see cref="SplitOrientation.Column"/>; <see cref="Left"/>/<see cref="Up"/> place the new
-/// group before the split one, <see cref="Right"/>/<see cref="Down"/> — after (spec DA-5.5).
+/// group before the split one, <see cref="Right"/>/<see cref="Down"/> — after.
 /// </summary>
 public enum SplitDirection
 {

@@ -10,7 +10,7 @@ using Avalonia.VisualTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// One tab group of a materialized tree (spec DA-2.1): the tab strip on top — leaf chrome,
+/// One tab group of a materialized tree (DA-2.1): the tab strip on top — leaf chrome,
 /// refilled on every update (DA-9.6) — and the content area below, hosting the active tab's
 /// <see cref="DockTabHost"/> from the workspace-wide cache. Only the active tab's content is
 /// shown, so only it materializes (TW-9.3, DA-9.3). The group has no identity beyond its tabs
@@ -48,10 +48,10 @@ internal sealed class TabGroupView : DockPanel
         Children.Add(_content);
     }
 
-    /// <summary>Context of the tree the group belongs to — the canHost key of the drop catalog (spec DA-9.7).</summary>
+    /// <summary>Context of the tree the group belongs to — the canHost key of the drop catalog (DA-9.7).</summary>
     public TabTreeContext Context => _context;
 
-    /// <summary>Tabs currently projected — the reconciliation key (spec DA-1.3).</summary>
+    /// <summary>Tabs currently projected — the reconciliation key (DA-1.3).</summary>
     public HashSet<string> Tabs { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Refills the strip and points the content area at the active tab's host.</summary>
@@ -92,7 +92,7 @@ internal sealed class TabGroupView : DockPanel
     }
 
     /// <summary>
-    /// Fills a strip panel with the group's tab headers — leaf chrome (spec DA-9.6), shared by
+    /// Fills a strip panel with the group's tab headers — leaf chrome (DA-9.6), shared by
     /// the group's own bar and the decorator header row hosting a panel root group's strip.
     /// </summary>
     public static void FillStrip(
@@ -126,12 +126,11 @@ internal sealed class TabGroupView : DockPanel
 }
 
 /// <summary>
-/// Header of one tab in a strip — leaf chrome (spec DA-9.6), rebuilt on every update so it
+/// Header of one tab in a strip — leaf chrome (DA-9.6), rebuilt on every update so it
 /// always reflects the state it was built from. A left click activates the tab and moves
 /// keyboard focus into its content (DA-5.3, DA-6.4) — committed on release, like every chrome
 /// gesture (TW-6.2); a middle click and the «×» button close it (DA-5.2); the context menu
-/// carries the tab commands (ADR-0004, TW-5.16). The header is also a drag source (spec
-/// DA-9.7): its press arms the workspace drag controller, whose workspace-level tunnel
+/// carries the tab commands (ADR-0004, TW-5.16). The header is also a drag source (DA-9.7): its press arms the workspace drag controller, whose workspace-level tunnel
 /// handler already marked the press handled — deferring the platform press-focus — so the
 /// header's own press handling runs on the tunnel with handledEventsToo, and the click
 /// semantics complete on the release only when the gesture never became a drag. The group's
@@ -199,7 +198,7 @@ internal sealed class DockTabHeader : Border
     /// <summary>Id of the tab the header represents.</summary>
     internal string TabId => _tabId;
 
-    /// <summary>Context of the tree the header belongs to — the canHost key of the drop catalog (spec DA-9.7).</summary>
+    /// <summary>Context of the tree the header belongs to — the canHost key of the drop catalog (DA-9.7).</summary>
     internal TabTreeContext Context => _context;
 
     /// <summary>Nearest tab header above the press target, or null.</summary>
@@ -208,7 +207,7 @@ internal sealed class DockTabHeader : Border
 
     /// <summary>
     /// Whether the press target is an interactive child of this header — the «×» button keeps
-    /// its own press and the platform press-focus path (spec DA-9.6, DA-9.7).
+    /// its own press and the platform press-focus path (DA-9.6, DA-9.7).
     /// </summary>
     internal bool IsPressOnInteractiveChild(object? source)
     {

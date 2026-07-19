@@ -6,17 +6,16 @@ using Avalonia.LogicalTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// Host of one tab — the persistent visual node of spec DA-9.6, shared by every materialized
-/// tree (the dock area and the content trees of tool windows): created once per tab id,
-/// updated in place, reattached only by the semantics of a command (a move, an
-/// activation switch, a structural rebuild of the addressed node) and living detached in the
-/// projection cache while the tab is inactive or away in a non-materialized host. The content
-/// view is built once per content object over the application's data templates — the same
-/// manual ContentPresenter cut as the tool window body (TW-9.13) — and survives reattachment
-/// and detached retention. Until content arrives — lazily (TW-9.3), for a sleeping tab
-/// (DA-9.4) or without a content coordinator — the host shows a placeholder with the tab's
-/// title. The host is focusable as the activation fallback target, and a press on a
-/// non-focusable content area moves focus into the tab, thereby activating it (DA-6.4).
+/// Host of one tab — the persistent visual node shared by every materialized tree (the dock
+/// area and the content trees of tool windows): created once per tab id, updated in place,
+/// reattached only by the semantics of a command (a move, an activation switch, a structural
+/// rebuild of the addressed node) and living detached in the projection cache while the tab is
+/// inactive or away in a non-materialized host. The content view is built once per content
+/// object over the application's data templates and survives reattachment and detached
+/// retention. Until content arrives — lazily, for a sleeping tab or without a content
+/// coordinator — the host shows a placeholder with the tab's title. The host is focusable as
+/// the activation fallback target, and a press on a non-focusable content area moves focus
+/// into the tab, thereby activating it.
 /// </summary>
 public sealed class DockTabHost : Decorator
 {
@@ -43,16 +42,16 @@ public sealed class DockTabHost : Decorator
     /// <summary>Whether live content is attached; without it the host shows the placeholder.</summary>
     internal bool HasContent => _content is not null;
 
-    /// <summary>Sleeping marker of the current pull pass (spec DA-9.4); re-resolved on every projection.</summary>
+    /// <summary>Sleeping marker of the current pull pass (DA-9.4); re-resolved on every projection.</summary>
     internal bool IsSleeping { get; set; }
 
-    /// <summary>Updates the placeholder title — the provider string or the id (spec DA-9.6).</summary>
+    /// <summary>Updates the placeholder title — the provider string or the id (DA-9.6).</summary>
     internal void UpdateTitle(string title) => _placeholder.Text = title;
 
     /// <summary>
-    /// Adopts the materialized content and builds its view once per content object (spec
-    /// DA-9.6). Replacing the content — a DisposeOnClose body recreated after reopening —
-    /// drops the previous view first: a view must never outlive its content (TW-9.13).
+    /// Adopts the materialized content and builds its view once per content object (DA-9.6).
+    /// Replacing the content — a DisposeOnClose body recreated after reopening — drops the
+    /// previous view first: a view must never outlive its content (TW-9.13).
     /// </summary>
     internal void SetContent(object content)
     {
@@ -67,7 +66,7 @@ public sealed class DockTabHost : Decorator
     }
 
     /// <summary>
-    /// Forgets the content and its built view, returning to the placeholder (spec DA-9.6):
+    /// Forgets the content and its built view, returning to the placeholder (DA-9.6):
     /// called when the coordinator releases content whose id stays in the layout — the
     /// DisposeOnClose transition of a panel body out of openness (TW-9.2) or the owner's
     /// unregistration (TW-9.4). The host only drops references; releasing the content object
@@ -96,7 +95,7 @@ public sealed class DockTabHost : Decorator
     }
 
     /// <summary>
-    /// Adopts keyboard focus for activation (spec TW-6.6, DA-6.4): the first focusable element
+    /// Adopts keyboard focus for activation (TW-6.6, DA-6.4): the first focusable element
     /// of the built view — the search starts at the host, so a view that is itself focusable
     /// (a bare TextBox) counts — with the host as the fallback for content without one.
     /// </summary>

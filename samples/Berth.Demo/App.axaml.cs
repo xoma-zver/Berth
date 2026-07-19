@@ -10,7 +10,7 @@ namespace Berth.Demo;
 public partial class App : Application
 {
     /// <summary>
-    /// Host-supplied layout store (spec TW-10.1; the file — or localStorage — is the
+    /// Host-supplied layout store (TW-10.1; the file — or localStorage — is the
     /// application's concern): the desktop host injects a <see cref="FileLayoutStore"/>, the
     /// browser one — a localStorage store, both via AppBuilder.AfterSetup. Null — no
     /// persistence, the demo starts from defaults (mobile hosts, headless tests).

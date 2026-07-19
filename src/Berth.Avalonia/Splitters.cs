@@ -4,7 +4,7 @@ namespace Berth.Controls;
 
 /// <summary>
 /// Splitter helpers shared by the persistent grids of the workspace. Splitters are leaf chrome
-/// (spec TW-9.13): not focusable, carrying no view-state. The drag itself is pure visualization
+/// (TW-9.13): not focusable, carrying no view-state. The drag itself is pure visualization
 /// (ADR-0004); releasing after actual movement commits one core command computed from the
 /// rendered bounds (TW-5.9).
 /// </summary>

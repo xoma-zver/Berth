@@ -3,19 +3,17 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// Builder of the tab context menus (spec TW-5.16, DA-5.2, DA-5.5, DA-5.9, DA-8.2): every item
-/// invokes a core command through <see cref="BerthWorkspace.Execute"/> (ADR-0004). Menus are
-/// leaf chrome, rebuilt with the strip on every update, so they always reflect the state they
-/// were built from. The split items are named «Split and Move …» — our split transfers the tab
-/// (DA-5.5), while the reference's plain «Split …» copies content; the short label stays
-/// reserved for a possible «Split and Duplicate» (v2). Moves between hosts are followed by
-/// activation and focus (DA-5.4, DA-6.4): a closed receiving panel opens by DA-E39. A dock tab
-/// offers «Move to the owner» only when its single confirmed owner is a tool window (canHost,
-/// INV-D5); a conflicted claim confirms nothing (TW-9.11) and yields no item. A panel tab
-/// offers «Move to Document Area» and then the tail of the full window menu — the reference's
-/// tab menu includes the window menu (TW-5.16). On a platform with real windows any tab
-/// offers «Move to New Window» (DA-5.7), and a tab living in a document window offers «Move
-/// to Document Area» back — the command channel stays complete without DnD (ADR-0004).
+/// Builder of the tab context menus (TW-5.16): every item invokes a core command through
+/// <see cref="BerthWorkspace.Execute"/>. Menus are leaf chrome, rebuilt with the strip on
+/// every update, so they always reflect the state they were built from. The split items are
+/// named «Split and Move …» — our split transfers the tab, while the reference's plain
+/// «Split …» copies content. Moves between hosts are followed by activation and focus; a
+/// closed receiving panel opens (DA-E39). A dock tab offers «Move to the owner» only when
+/// its single confirmed owner is a tool window — a conflicted claim yields no item. A panel
+/// tab offers «Move to Document Area» and then the tail of the full window menu; with a
+/// materialized floating layer any tab offers «Move to New Window», and a tab living in a
+/// document window offers «Move to Document Area» back — the command channel stays complete
+/// without DnD.
 /// </summary>
 internal static class DockTabMenus
 {

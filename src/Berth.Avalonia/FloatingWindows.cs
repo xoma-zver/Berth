@@ -8,32 +8,20 @@ using Avalonia.Threading;
 namespace Berth.Controls;
 
 /// <summary>
-/// Materialization of the floating layer on a platform with real windows (spec TW-7.1…TW-7.5,
-/// DA-7.1…DA-7.3, DA-7.6): open Float/Window tool windows become OS windows hosting the same
-/// cached <see cref="ToolWindowDecorator"/> — a move between the docked layout and a floating
-/// window is the whitelisted layer-change reattachment of TW-9.13 — and every document window
-/// of the state becomes an independent OS window projecting its tab tree by the shared
-/// projection over the workspace-wide host cache (DA-9.6). The layer is a pure projection of
-/// the state (ADR-0002): reconciliation is keyed by tool window id for panels and by tab-set
-/// overlap for document windows, which have no identity of their own (DA-1.3). Window gestures
-/// reduce to core commands (ADR-0004): the system close button issues Close (TW-7.3) or one
-/// CloseTab per tab (DA-7.3), moves and resizes commit SetFloatingBounds and
-/// SetDocumentWindowBounds (TW-5.9, DA-5.8) with equal-value guards breaking the feedback
-/// loop; the user gesture cancels the platform close and lets the resulting state change close
-/// the window, so a state-driven close never doubles as a command. Closing the main window —
-/// and detaching the workspace — tears every floating window down without commands: the state
-/// keeps the windows open for the next session (TW-7.5, DA-7.6). Each floating window
-/// registers with the workspace's <see cref="AutoHideController"/>, so focus and click wiring
-/// spans every window of the workspace (TW-6.1, TW-6.2, DA-6.4).
-///
-/// Presentation is platform-specific (spec TW-7.1, TW-7.2): on Windows a Float window is
-/// frameless — the hosted decorator's header is the live move handle offering the stripe
-/// docking of TW-7.7, the window edges resize through the system — while a Window-mode
-/// window keeps full system chrome everywhere; on macOS and Linux both kinds keep system
-/// decorations, the float/window difference being the owned/independent window type the
-/// platform styles itself. Titles of independent windows — Window-mode panels and document
-/// windows — carry the application's <see cref="BerthWorkspace.WindowTitleSuffix"/> (TW-7.2,
-/// DA-7.3).
+/// Materialization of the floating layer on a platform with real windows (TW-7.1…TW-7.5,
+/// DA-7.1…DA-7.3): open Float/Window tool windows become OS windows hosting the same cached
+/// <see cref="ToolWindowDecorator"/>, and every document window of the state becomes an
+/// independent OS window projecting its tab tree over the workspace-wide host cache. A pure
+/// projection of the state: panels reconcile by id, document windows by tab-set overlap —
+/// they have no identity of their own (DA-1.3). Window gestures reduce to core commands: the
+/// system close button issues Close or one CloseTab per tab, moves and resizes commit bounds
+/// commands with equal-value guards breaking the feedback loop. Closing the main window — or
+/// detaching the workspace — tears every floating window down without commands: the state
+/// keeps the windows open for the next session (TW-7.5, DA-7.6). Presentation is
+/// platform-specific (TW-7.1): on Windows a Float window is frameless — the decorator header
+/// is the live move handle offering stripe docking — while macOS and Linux keep system
+/// decorations, the float/window difference being the owned/independent window type. Titles
+/// of independent windows carry <see cref="BerthWorkspace.WindowTitleSuffix"/> (TW-7.2).
 /// </summary>
 internal sealed class FloatingWindowLayer : IFloatingLayer
 {
@@ -61,7 +49,7 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
     /// <inheritdoc/>
     public bool IsWindowed => true;
 
-    /// <summary>The reconciliation pass, run from the workspace projection (spec TW-9.13, DA-9.6).</summary>
+    /// <summary>The reconciliation pass, run from the workspace projection (TW-9.13, DA-9.6).</summary>
     public void Update(LayoutState state, ToolWindowRegistry registry)
     {
         if (_torndown)
@@ -504,7 +492,7 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
         /// <summary>Last bounds applied or committed; an equal state value is not re-applied.</summary>
         public FloatingBounds? AppliedBounds { get; set; }
 
-        /// <summary>Drop marker overlay of this window (spec TW-5.17, task 6.2): permanent chrome above the content.</summary>
+        /// <summary>Drop marker overlay of this window (TW-5.17, task 6.2): permanent chrome above the content.</summary>
         public MarkerOverlay Markers { get; } = new();
 
         /// <summary>Returns the hosted content to the workspace caches before the window closes.</summary>

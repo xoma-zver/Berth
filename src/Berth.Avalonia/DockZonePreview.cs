@@ -3,7 +3,7 @@ using Avalonia;
 namespace Berth.Controls;
 
 /// <summary>
-/// Geometry of the post-drop zone preview (spec TW-5.17 v0.26): the workspace region a tool
+/// Geometry of the post-drop zone preview (TW-5.17 v0.26): the workspace region a tool
 /// window's content occupies in a given state, mirrored from the layout math of
 /// <see cref="WorkspaceGrid"/>, <see cref="SidePane"/> and <see cref="UndockOverlay"/>. The
 /// caller runs the drop's command sequence on the current state in memory — a pure core

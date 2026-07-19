@@ -1,32 +1,31 @@
 namespace Berth;
 
 /// <summary>
-/// Core commands over <see cref="LayoutState"/> (spec section 5). Every command is a pure
-/// transition producing a new immutable state; the same command backs menu items, keyboard
-/// shortcuts and completed drag gestures (ADR-0004). A command applied to an id absent from the
-/// layout throws — sleeping states exist, but operations act on known tool windows. An
-/// out-of-domain enum value in a programmatic input is likewise a caller error
-/// (<see cref="ArgumentOutOfRangeException"/>, section 5).
-/// Resizes (TW-5.9) and snapshot/apply (TW-5.14) are separate tasks (backlog 1.3, 1.6).
+/// Core commands over <see cref="LayoutState"/>. Every command is a pure transition producing
+/// a new immutable state; the same command backs menu items, keyboard shortcuts and completed
+/// drag gestures. A command applied to an id absent from the layout throws — sleeping states
+/// exist, but operations act on known tool windows. An out-of-domain enum value in a
+/// programmatic input is likewise a caller error (<see cref="ArgumentOutOfRangeException"/>).
 /// </summary>
 public static class LayoutOperations
 {
     /// <summary>
-    /// Opens (shows) a tool window (spec TW-5.1, TW-5.2, TW-5.13). If another window of the same
-    /// layer — docked ({<see cref="ToolWindowMode.DockPinned"/>, <see cref="ToolWindowMode.DockUnpinned"/>})
-    /// or overlay ({<see cref="ToolWindowMode.Undock"/>}) — is open in the same slot, that one is
-    /// closed with its other fields untouched (TW-5.1); a window of the other layer is left alone
-    /// (INV-2). Opening always makes the stripe icon visible (TW-5.13). A pair formed by the
-    /// open needs no geometry bookkeeping: the pair's effective ratio derives from the members'
-    /// preferences (rule R1, <see cref="LayoutState.GetPairRatio"/>). Opening an already open
-    /// window changes nothing except activation (TW-5.2).
+    /// Opens (shows) a tool window. If another window of the same layer — docked
+    /// ({<see cref="ToolWindowMode.DockPinned"/>, <see cref="ToolWindowMode.DockUnpinned"/>})
+    /// or overlay ({<see cref="ToolWindowMode.Undock"/>}) — is open in the same slot, that one
+    /// is closed with its other fields untouched; a window of the other layer is left alone.
+    /// Opening always makes the stripe icon visible. A pair formed by the open needs no
+    /// geometry bookkeeping: the pair's effective ratio derives from the members' preferences
+    /// (<see cref="LayoutState.GetPairRatio"/>). Opening an already open window changes
+    /// nothing except activation.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of a tool window present in the layout.</param>
-    /// <param name="activate">Whether the window becomes the active tool window (spec TW-6.5).</param>
+    /// <param name="activate">Whether the window becomes the active tool window.</param>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
     public static LayoutState Open(this LayoutState state, string id, bool activate = true)
     {
+        // TW-5.1 (eviction of the own layer), TW-5.2 (reopen = activation), TW-5.13 (icon).
         var target = state.Require(id);
         if (target.IsOpen)
         {
@@ -41,13 +40,14 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Closes (hides) a tool window (spec TW-5.3). Mode, weights and placement are kept; if the
-    /// window was active, <see cref="LayoutState.ActiveToolWindowId"/> becomes null. Closing an
-    /// already closed window is a no-op.
+    /// Closes (hides) a tool window. Mode, weights and placement are kept; if the window was
+    /// active, <see cref="LayoutState.ActiveToolWindowId"/> becomes null. Closing an already
+    /// closed window is a no-op.
     /// </summary>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
     public static LayoutState Close(this LayoutState state, string id)
     {
+        // TW-5.3.
         var target = state.Require(id);
         if (!target.IsOpen)
         {
@@ -61,24 +61,26 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Changes the presentation mode of a tool window (spec TW-5.6). Openness is not affected.
-    /// Entering <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> keeps the saved
-    /// <see cref="ToolWindowState.FloatingBounds"/>, or adopts <paramref name="screenBounds"/> when none
-    /// are saved. Entering any internal mode records it in <see cref="ToolWindowState.LastInternalMode"/>
-    /// (INV-7). When the window is open, the destination layer is evicted per TW-5.1.
+    /// Changes the presentation mode of a tool window. Openness is not affected. Entering
+    /// <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> keeps the saved
+    /// <see cref="ToolWindowState.FloatingBounds"/>, or adopts <paramref name="screenBounds"/>
+    /// when none are saved. Entering any internal mode records it in
+    /// <see cref="ToolWindowState.LastInternalMode"/>. When the window is open, the destination
+    /// layer is evicted.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of a tool window present in the layout.</param>
     /// <param name="mode">Target mode.</param>
     /// <param name="screenBounds">
-    /// Current on-screen content bounds supplied by the UI; used only when moving to a floating mode
-    /// with no saved bounds (spec TW-5.6). The core never invents pixels (ADR-0002).
+    /// Current on-screen content bounds supplied by the UI; used only when moving to a floating
+    /// mode with no saved bounds. The core never invents pixels.
     /// </param>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="mode"/> is outside its enum domain, or a component of <paramref name="screenBounds"/> is not a finite number (TW-5.9).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="mode"/> is outside its enum domain, or a component of <paramref name="screenBounds"/> is not a finite number.</exception>
     public static LayoutState SetMode(
         this LayoutState state, string id, ToolWindowMode mode, FloatingBounds? screenBounds = null)
     {
+        // TW-5.6; INV-7: an internal mode is recorded as LastInternalMode.
         var target = state.Require(id);
         EnumDomain.Require(mode, nameof(mode));
         screenBounds?.ThrowIfNotFinite(nameof(screenBounds));
@@ -100,18 +102,19 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Moves a tool window to <paramref name="slot"/> at position <paramref name="index"/>, renumbering
-    /// the orders of both the source and destination slots to a dense sequence (spec TW-5.7, INV-3).
-    /// The index is clamped into range. A window open in a docked/overlay mode stays open in the new slot
-    /// and evicts the window of its layer there («the mover wins», TW-5.1); a
-    /// <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> window only changes its
-    /// placement (TW-5.7). Moving into the current slot is a reorder. Side geometry and
-    /// <see cref="ToolWindowState.PairRatio"/> are untouched (TW-5.8).
+    /// Moves a tool window to <paramref name="slot"/> at position <paramref name="index"/>,
+    /// renumbering the orders of both the source and destination slots to a dense sequence.
+    /// The index is clamped into range. A window open in a docked/overlay mode stays open in
+    /// the new slot and evicts the window of its layer there («the mover wins»); a
+    /// <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> window only
+    /// changes its placement. Moving into the current slot is a reorder. Side geometry and
+    /// <see cref="ToolWindowState.PairRatio"/> are untouched.
     /// </summary>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A member of <paramref name="slot"/> is outside its enum domain (section 5).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A member of <paramref name="slot"/> is outside its enum domain.</exception>
     public static LayoutState Move(this LayoutState state, string id, ToolWindowSlot slot, int index)
     {
+        // TW-5.7 («the mover wins» eviction), TW-5.8 (geometry untouched), INV-3 (dense orders).
         var oldSlot = state.Require(id).Slot;
         EnumDomain.Require(slot, nameof(slot));
 
@@ -155,14 +158,15 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Shows or hides the stripe icon of a tool window (spec TW-5.10, TW-5.11). Hiding also closes the
-    /// window in any mode — including <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/>
-    /// — and clears activation if it was active; the window keeps its place in the slot order (INV-3), so
+    /// Shows or hides the stripe icon of a tool window. Hiding also closes the window in any
+    /// mode — including <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> —
+    /// and clears activation if it was active; the window keeps its place in the slot order, so
     /// showing the icon again restores its position without any bookkeeping.
     /// </summary>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
     public static LayoutState SetIconVisible(this LayoutState state, string id, bool visible)
     {
+        // TW-5.10 (hide closes, the order survives), TW-5.11 (show restores the position).
         var target = state.Require(id);
         if (visible)
         {
@@ -178,11 +182,12 @@ public static class LayoutOperations
     /// <summary>
     /// Closes every open tool window in an internal mode ({<see cref="ToolWindowMode.DockPinned"/>,
     /// <see cref="ToolWindowMode.DockUnpinned"/>, <see cref="ToolWindowMode.Undock"/>}); open
-    /// <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> windows are left alone
-    /// (spec TW-5.12). Clears activation only if the active window was closed.
+    /// <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> windows are left
+    /// alone. Clears activation only if the active window was closed.
     /// </summary>
     public static LayoutState HideAll(this LayoutState state)
     {
+        // TW-5.12: internal modes only — floating windows were placed deliberately.
         ArgumentNullException.ThrowIfNull(state);
 
         var windows = state.ToolWindows.Select(w =>
@@ -196,8 +201,8 @@ public static class LayoutOperations
             : result;
     }
 
-    /// <summary>Moves the quick access «⋯» button to the given stripe (spec TW-5.15, TW-8.1).</summary>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="side"/> is outside its enum domain (section 5).</exception>
+    /// <summary>Moves the quick access «⋯» button to the given stripe.</summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="side"/> is outside its enum domain.</exception>
     public static LayoutState SetQuickAccessSide(this LayoutState state, QuickAccessSide side)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -206,10 +211,10 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Sets the <see cref="SideState.Weight"/> of a side — its fraction of the workspace (spec TW-5.9,
-    /// TW-2.6). Written only by resizing the side's outer edge; opening, closing and switching windows
-    /// leave it untouched, so a window inherits the side's current width (TW-2.6, E18). The pair ratio
-    /// and per-window geometry are not affected.
+    /// Sets the <see cref="SideState.Weight"/> of a side — its fraction of the workspace.
+    /// Written only by resizing the side's outer edge; opening, closing and switching windows
+    /// leave it untouched, so a window inherits the side's current width. The pair ratio and
+    /// per-window geometry are not affected.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="side">Side to resize.</param>
@@ -217,6 +222,7 @@ public static class LayoutOperations
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="side"/> is outside its enum domain, or <paramref name="weight"/> is not in (0, 1).</exception>
     public static LayoutState SetSideSize(this LayoutState state, ToolWindowSide side, double weight)
     {
+        // TW-5.9, TW-2.6: only the edge resize writes the side weight.
         ArgumentNullException.ThrowIfNull(state);
         EnumDomain.Require(side, nameof(side));
         ValidateFraction(weight, nameof(weight));
@@ -224,13 +230,12 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Applies rule R2 of the pair ratio (spec TW-5.9, TW-2.7): a pair splitter dragged to
-    /// <paramref name="primaryShare"/> (the Primary content's share) «teaches both» — the open
-    /// docked Primary window learns <see cref="ToolWindowState.PairRatio"/> =
-    /// <paramref name="primaryShare"/>, the open docked Secondary window learns
-    /// 1 − <paramref name="primaryShare"/> — making the pair consistent, so the derived rule R1
-    /// (<see cref="LayoutState.GetPairRatio"/>) reproduces the dragged position exactly.
-    /// Windows of the overlay/floating layers do not participate (TW-3.3).
+    /// Applies a pair resize: a pair splitter dragged to <paramref name="primaryShare"/> (the
+    /// Primary content's share) «teaches both» — the open docked Primary window learns
+    /// <see cref="ToolWindowState.PairRatio"/> = <paramref name="primaryShare"/>, the open
+    /// docked Secondary window learns 1 − <paramref name="primaryShare"/> — making the pair
+    /// consistent, so the derived ratio (<see cref="LayoutState.GetPairRatio"/>) reproduces
+    /// the dragged position exactly. Windows of the overlay/floating layers do not participate.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="side">Side whose pair was resized.</param>
@@ -238,6 +243,7 @@ public static class LayoutOperations
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="side"/> is outside its enum domain, or <paramref name="primaryShare"/> is not in (0, 1).</exception>
     public static LayoutState SetSideRatio(this LayoutState state, ToolWindowSide side, double primaryShare)
     {
+        // TW-5.9, TW-2.7 rule R2: teach both members of the open docked pair.
         ArgumentNullException.ThrowIfNull(state);
         EnumDomain.Require(side, nameof(side));
         ValidateFraction(primaryShare, nameof(primaryShare));
@@ -257,16 +263,16 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Sets the saved <see cref="ToolWindowState.FloatingBounds"/> of a tool window (spec TW-5.9). The UI
-    /// calls this while a <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/> window is
-    /// moved or resized (throttling is allowed); the bounds are screen coordinates, not layout geometry,
-    /// and are reused when the window next enters a floating mode (TW-5.6).
+    /// Sets the saved <see cref="ToolWindowState.FloatingBounds"/> of a tool window. The UI
+    /// calls this while a <see cref="ToolWindowMode.Float"/>/<see cref="ToolWindowMode.Window"/>
+    /// window is moved or resized (throttling is allowed); the bounds are screen coordinates,
+    /// not layout geometry, and are reused when the window next enters a floating mode.
     /// </summary>
     /// <param name="state">Current layout.</param>
     /// <param name="id">Id of a tool window present in the layout.</param>
     /// <param name="bounds">New screen bounds to remember.</param>
     /// <exception cref="ArgumentException">No tool window with the given id exists in the layout.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number (TW-5.9).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A component of <paramref name="bounds"/> is not a finite number.</exception>
     public static LayoutState SetFloatingBounds(this LayoutState state, string id, FloatingBounds bounds)
     {
         _ = state.Require(id);
@@ -275,8 +281,8 @@ public static class LayoutOperations
     }
 
     /// <summary>
-    /// Closes the open window (if any) of the given layer in the given slot, leaving its other fields
-    /// untouched (spec TW-5.1). The floating layer is never evicted — floating windows coexist (INV-2).
+    /// Closes the open window (if any) of the given layer in the given slot, leaving its other
+    /// fields untouched. The floating layer is never evicted — floating windows coexist.
     /// </summary>
     private static LayoutState EvictLayer(
         this LayoutState state, ToolWindowSlot slot, ToolWindowLayer layer, string exceptId)

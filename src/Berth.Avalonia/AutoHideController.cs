@@ -8,35 +8,17 @@ using Avalonia.VisualTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// Focus and click wiring of auto-hiding tool windows (spec TW-6.1, TW-6.2, TW-6.6), attached
-/// to every TopLevel of the workspace — the main window plus each materialized floating
-/// window (a Float/Window tool window, a document window): keyboard focus is global across
-/// the application's windows, so a focus move between the workspace's own windows is an
-/// ordinary focus loss and closes the auto-hiding loser (TW-6.1); only deactivation of the
-/// whole application — focus leaving every attached TopLevel — raises no GotFocus here and
-/// keeps the windows open. Two complementary close paths: the focus path closes the
-/// DockUnpinned/Undock window that keyboard focus actually left — the focus loser, so an open
-/// window that never had focus survives foreign focus moves and a restored layout is not
-/// reaped by the initial focus placement (TW-6.1) — and the pointer path closes open
-/// auto-hide windows on a click that moves no focus: the click's containment is captured at
-/// the press and the close applies on the release, keeping the press/release pair whole
-/// while commands of the gesture rebuild leaf chrome underneath (TW-6.2, TW-9.13, DA-9.6). The focus path also activates the window whose content gained focus
-/// (TW-6.6). Popups are neutral on both paths: events inside popup roots bubble in their own
-/// visual root and never reach these handlers, and the containment predicate walks the
-/// logical tree, so elements of a popup owned by the window or its stripe icon count as
-/// inside (TW-6.1); activation checks the visual tree only, keeping popup focus
-/// activation-neutral (TW-6.6). Splitter drags are resize gestures, not clicks — excluded
-/// from the pointer path (TW-6.2); DnD gestures likewise (TW-5.17) — a release that finished
-/// or cancelled a drag closes nothing, and the drag exception of TW-6.1 holds structurally
-/// because the drag capture never moves focus. Application deactivation and modal dialogs are
-/// covered structurally: focus leaving the TopLevel raises no GotFocus here.
-///
-/// The same focus path carries the activity wiring (DA-6.4): a focus gain inside a
-/// <see cref="DockTabHost"/> of any materialized tree reduces to ActivateTab — a dock tab
-/// activates the document and clears the active tool window (TW-6.5), a panel tab activates
-/// its owner panel (DA-5.3); Esc inside a tool window moves focus into the current tab of the
-/// effective active dock host (TW-6.3) — the auto-hide close then follows from the ordinary
-/// focus loss.
+/// Focus and click wiring of auto-hiding tool windows (TW-6.1, TW-6.2, TW-6.6), attached to
+/// every TopLevel of the workspace. Two complementary close paths: the focus path closes the
+/// DockUnpinned/Undock window that keyboard focus actually left — so an open window that
+/// never had focus survives foreign focus moves — and the pointer path closes open auto-hide
+/// windows on a click that moves no focus, with the click's containment captured at the press
+/// and the close applied on the release. Popups, splitter drags and DnD releases are neutral
+/// on both paths; application deactivation and modal dialogs are covered structurally —
+/// focus leaving every attached TopLevel raises no GotFocus here. The same focus path carries
+/// the activity wiring (DA-6.4): a focus gain inside a <see cref="DockTabHost"/> reduces to
+/// ActivateTab, focus in panel chrome reduces to the panel activation, and Esc inside a tool
+/// window moves focus into the current tab of the effective active dock host (TW-6.3).
 /// </summary>
 internal sealed class AutoHideController
 {
@@ -88,7 +70,7 @@ internal sealed class AutoHideController
 
     /// <summary>
     /// Whether the element belongs to the tool window: its host subtree or its stripe icon,
-    /// walked over the logical tree so popups owned inside count as within (spec TW-6.1).
+    /// walked over the logical tree so popups owned inside count as within (TW-6.1).
     /// </summary>
     public static bool IsWithinPanel(ILogical? element, string toolWindowId)
     {
@@ -147,7 +129,7 @@ internal sealed class AutoHideController
 
     /// <summary>
     /// Esc inside a tool window moves keyboard focus into the current tab of the effective
-    /// active dock host (spec TW-6.3); auto-hiding windows then close by the ordinary focus
+    /// active dock host (TW-6.3); auto-hiding windows then close by the ordinary focus
     /// loss (TW-6.1). Without a target — the empty main window — nothing happens and nothing
     /// closes: Esc without a target is a no-op.
     /// </summary>
@@ -175,7 +157,7 @@ internal sealed class AutoHideController
 
     /// <summary>
     /// The click's containment — and the set of auto-hide windows open at that moment — is
-    /// captured at the press (spec TW-6.2: the close must not tear the press/release pair):
+    /// captured at the press (TW-6.2: the close must not tear the press/release pair):
     /// commands running during the release — a tab activation, a toggle — rebuild leaf chrome
     /// under the still-bubbling event (TW-9.13, DA-9.6), orphaning the target, so a
     /// release-time walk would misread a click inside the window as outside; and they may
@@ -283,7 +265,7 @@ internal sealed class AutoHideController
         }
     }
 
-    /// <summary>The auto-hide set of spec TW-3.2: DockUnpinned and Undock.</summary>
+    /// <summary>The auto-hide set of TW-3.2: DockUnpinned and Undock.</summary>
     private static bool IsAutoHiding(ToolWindowMode mode) =>
         mode is ToolWindowMode.DockUnpinned or ToolWindowMode.Undock;
 

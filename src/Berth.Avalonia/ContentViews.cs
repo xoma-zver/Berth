@@ -9,20 +9,20 @@ namespace Berth.Controls;
 
 /// <summary>
 /// Shared view plumbing of the persistent content hosts — the tool window body and the dock
-/// tab hosts (spec TW-9.13, DA-9.6): building the view once per content object, and locating
+/// tab hosts (TW-9.13, DA-9.6): building the view once per content object, and locating
 /// the focus target of activation (TW-6.6, DA-6.4).
 /// </summary>
 internal static class ContentViews
 {
     /// <summary>
-    /// Builds the view of one content object (spec TW-9.13, DA-9.6): a Control content object
+    /// Builds the view of one content object (TW-9.13, DA-9.6): a Control content object
     /// is its own view — detached from a previously discarded host first; anything else is
     /// opaque to the core (ADR-0003) and gets its view built by the application's data
     /// templates over the logical tree (the MVVM path) — null while the host is detached, to
     /// be retried on attachment. Deliberately not a ContentPresenter, which rebuilds its child
     /// on every reattachment and would defeat view retention. The template is selected once
     /// per content object: a live DataTemplates or theme swap does not re-select the built
-    /// view — a conscious v1 limitation (spec tool-windows section 12); the view's own
+    /// view — a conscious v1 limitation (tool-windows section 12); the view's own
     /// controls theme normally.
     /// </summary>
     public static Control? Build(Control host, object content)

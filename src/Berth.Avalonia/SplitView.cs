@@ -4,11 +4,11 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// One split node of a materialized tree (spec DA-2.1): a Grid laying the reconciled child
+/// One split node of a materialized tree (DA-2.1): a Grid laying the reconciled child
 /// views along the split orientation with a splitter between each adjacent pair. Children are
 /// matched to state nodes by tab overlap and placed by grid index without reordering the
 /// visual children, so inserting or removing a sibling — and even rotating the split
-/// (DA-5.9) — never reattaches the surviving subtrees (spec DA-9.6). Definitions and
+/// (DA-5.9) — never reattaches the surviving subtrees (DA-9.6). Definitions and
 /// splitters are leaf chrome, rebuilt on every update. Star sizes follow the shares (DA-2.2)
 /// with render-time minimums that never touch the state (DA-E24); releasing a splitter drag
 /// after actual movement commits one SetSplitShares changing only the adjacent pair
@@ -24,7 +24,7 @@ internal sealed class SplitView : Grid
 
     public SplitView(TabTreeContext context) => _context = context;
 
-    /// <summary>Tabs of the projected subtree — the reconciliation key (spec DA-1.3).</summary>
+    /// <summary>Tabs of the projected subtree — the reconciliation key (DA-1.3).</summary>
     public HashSet<string> Tabs { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Child views in state order, splitters excluded.</summary>

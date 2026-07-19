@@ -11,22 +11,18 @@ using Avalonia.VisualTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// Materialization of the floating layer on a platform without real windows (spec TW-7.7,
-/// DA-7.5; ADR-0006): open Float tool windows — and Window ones degraded by TW-7.6 — become
-/// pseudo-windows in the workspace overlay canvas, hosting the same cached
-/// <see cref="ToolWindowDecorator"/> (the whitelisted layer-change reattachment of TW-9.13),
-/// and document windows become pseudo-windows projecting their tab trees by the shared
-/// projection over the workspace-wide host cache (DA-9.6). Reconciliation mirrors the desktop
-/// <see cref="FloatingWindowLayer"/>: panels are keyed by id, document windows are matched by
-/// tab-set overlap — they have no identity of their own (DA-1.3). Window gestures reduce to
-/// core commands (ADR-0004): moving and resizing are pure visualization until the release,
-/// which commits one SetFloatingBounds / SetDocumentWindowBounds (TW-5.9, DA-5.8) — Esc
-/// cancels the visual without a command; the document title bar's «×» issues one CloseTab per
-/// tab (DA-7.3). The «screen» is the workspace: bounds live in workspace coordinates, and the
-/// render clamps a pseudo-window into the workspace without touching the state (TW-7.7,
-/// TW-2.8). Z-order is the canvas child order: a press or focus gain inside raises the
-/// pseudo-window (TW-6.6) and is never persisted (DA-7.1). Everything lives in the main
-/// TopLevel, so the auto-hide and activity wiring needs no extra attachment (TW-6.1, DA-6.4).
+/// Materialization of the floating layer on a platform without real windows (TW-7.7,
+/// DA-7.5): open Float tool windows — and Window ones degraded by TW-7.6 — become
+/// pseudo-windows in the workspace overlay canvas hosting the same cached
+/// <see cref="ToolWindowDecorator"/>, and document windows become pseudo-windows projecting
+/// their tab trees over the workspace-wide host cache. Reconciliation mirrors the desktop
+/// <see cref="FloatingWindowLayer"/>: panels by id, document windows by tab-set overlap.
+/// Window gestures reduce to core commands: moving and resizing are pure visualization until
+/// the release, which commits one bounds command — Esc cancels without a command; the
+/// document title bar's «×» issues one CloseTab per tab. The «screen» is the workspace:
+/// bounds live in workspace coordinates, and the render clamps a pseudo-window into the
+/// workspace without touching the state. Z-order is the canvas child order: a press or focus
+/// gain inside raises the pseudo-window and is never persisted.
 /// </summary>
 internal sealed class OverlayWindowLayer : IFloatingLayer
 {
@@ -283,7 +279,7 @@ internal sealed class OverlayWindowLayer : IFloatingLayer
 }
 
 /// <summary>
-/// One pseudo-window of the overlay layer (spec TW-7.7, DA-7.5): an opaque bordered surface
+/// One pseudo-window of the overlay layer (TW-7.7, DA-7.5): an opaque bordered surface
 /// positioned on the overlay canvas. A panel pseudo-window hosts the cached
 /// <see cref="ToolWindowDecorator"/> directly — the decorator header is the move handle
 /// (delegated by the decorator, TW-7.7) and its «—» already closes (TW-7.3), so there is no
@@ -301,7 +297,7 @@ internal sealed class PseudoWindow : Border
     /// <summary>Thickness of the resize band along the edges, overlapping the content margin.</summary>
     private const double ResizeBand = 6;
 
-    /// <summary>Minimum pseudo-window size on resize (render-side constant, spec TW-2.8).</summary>
+    /// <summary>Minimum pseudo-window size on resize (render-side constant, TW-2.8).</summary>
     private const double MinSize = BerthMetrics.MinPaneSize;
 
     /// <summary>Minimum visible part of a pseudo-window kept inside the workspace by the render clamp (TW-7.7).</summary>

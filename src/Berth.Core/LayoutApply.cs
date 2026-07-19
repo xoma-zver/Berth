@@ -3,46 +3,44 @@ using System.Collections.Immutable;
 namespace Berth;
 
 /// <summary>
-/// Snapshot application and defaults (spec TW-5.14, TW-10.3…TW-10.7, DA-9.1…DA-9.4). A snapshot
-/// is any <see cref="LayoutState"/>: the state is immutable, so holding a reference is taking a
-/// snapshot — there is no copying API. <see cref="Apply"/> is the single normalization gate of
-/// persistence: it turns any input into a valid state and reports every fix exactly once
-/// (TW-10.4, DA-9.2); the serialization layer (<see cref="LayoutPersistence"/>) stays free of
-/// repairs. Out-of-domain enum values in a programmatic snapshot are a caller error — on the
-/// file path the domain is guaranteed by <see cref="LayoutPersistence.Deserialize"/> (TW-10.5).
+/// Snapshot application and defaults. A snapshot is any <see cref="LayoutState"/>: the state
+/// is immutable, so holding a reference is taking a snapshot — there is no copying API.
+/// <see cref="Apply"/> is the single normalization gate of persistence: it turns any input
+/// into a valid state and reports every fix exactly once; the serialization layer
+/// (<see cref="LayoutPersistence"/>) stays free of repairs. Out-of-domain enum values in a
+/// programmatic snapshot are a caller error — on the file path the domain is guaranteed by
+/// <see cref="LayoutPersistence.Deserialize"/>.
 /// </summary>
 public static class LayoutApply
 {
     /// <summary>
-    /// Applies a snapshot (spec TW-5.14): an atomic replacement with normalization within the
-    /// given scope. With <see cref="ApplyScope.Full"/> the snapshot replaces the whole state and
-    /// <paramref name="current"/> is ignored; reconciliation with the registry follows TW-10.3
-    /// (saved state wins over the descriptor; registered but not saved windows get descriptor
-    /// defaults after the existing windows of their slot), unknown ids stay as sleeping states
-    /// (TW-10.2) and unknown dock tabs stay as sleeping tabs (DA-9.4). With
-    /// <see cref="ApplyScope.Arrangement"/> only the placement of the tool windows mentioned in
-    /// the snapshot, the side geometry and the quick access side are merged into
-    /// <paramref name="current"/> (TW-10.7); the dock area is not touched at all (DA-9.1) and
-    /// the active tool window resets to null. In the Full scope registered windows with a body
-    /// factory receive their body tab by the seeding rule of TW-9.5 (reconciliation, not
-    /// reported), and a tab with a confirmed foreign owner in a panel tree relocates to the
-    /// main window's current group (INV-D5, DA-9.2); in the Arrangement scope the trees of new
-    /// sleeping records are cleaned instead — duplicates and confirmed-foreign tabs are removed
-    /// with a report, because the dock area cannot receive them (DA-9.1). A conflicted
-    /// ownership claim confirms nothing: the tab stays and the application error surfaces at
-    /// the next operation or materialization (TW-9.11). The report lists every applied fix exactly once
-    /// (TW-10.4, DA-9.2); an application wanting «a proper layout or nothing» rejects the result
-    /// when <see cref="ApplyResult.Fixes"/> is non-empty.
+    /// Applies a snapshot: an atomic replacement with normalization within the given scope.
+    /// With <see cref="ApplyScope.Full"/> the snapshot replaces the whole state and
+    /// <paramref name="current"/> is ignored; the saved state wins over the descriptors,
+    /// registered but not saved windows get descriptor defaults after the existing windows of
+    /// their slot, unknown ids stay as sleeping states and unknown dock tabs stay as sleeping
+    /// tabs. With <see cref="ApplyScope.Arrangement"/> only the placement of the tool windows
+    /// mentioned in the snapshot, the side geometry and the quick access side are merged into
+    /// <paramref name="current"/>; the dock area is not touched at all and the active tool
+    /// window resets to null. In the Full scope registered windows with a body factory receive
+    /// their body tab, and a tab with a confirmed foreign owner in a panel tree relocates to
+    /// the main window's current group; in the Arrangement scope the trees of new sleeping
+    /// records are cleaned instead — duplicates and confirmed-foreign tabs are removed with a
+    /// report, because the dock area cannot receive them. A conflicted ownership claim
+    /// confirms nothing: the tab stays and the application error surfaces at the next
+    /// operation or materialization. The report lists every applied fix exactly once; an
+    /// application wanting «a proper layout or nothing» rejects the result when
+    /// <see cref="ApplyResult.Fixes"/> is non-empty.
     /// </summary>
     /// <param name="current">The live state; the merge base for <see cref="ApplyScope.Arrangement"/>, ignored for <see cref="ApplyScope.Full"/>.</param>
     /// <param name="snapshot">The snapshot to apply — saved, constructed or held earlier.</param>
-    /// <param name="scope">Which part of the state the snapshot governs (TW-10.6).</param>
-    /// <param name="registry">Registered descriptors for reconciliation (TW-10.3).</param>
+    /// <param name="scope">Which part of the state the snapshot governs.</param>
+    /// <param name="registry">Registered descriptors for reconciliation.</param>
     /// <param name="validateBounds">
-    /// Optional UI validation of saved screen bounds (TW-7.4, DA-7.4). In the Full scope it runs
-    /// over every saved floating bounds and every document window; in the Arrangement scope —
-    /// only over new sleeping records created from the snapshot (existing windows keep their
-    /// live, already valid bounds, TW-10.7). Null accepts all bounds as saved.
+    /// Optional UI validation of saved screen bounds. In the Full scope it runs over every
+    /// saved floating bounds and every document window; in the Arrangement scope — only over
+    /// new sleeping records created from the snapshot (existing windows keep their live,
+    /// already valid bounds). Null accepts all bounds as saved.
     /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The scope is not a defined value.</exception>
     public static ApplyResult Apply(
@@ -55,6 +53,8 @@ public static class LayoutApply
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(registry);
+        // TW-5.14; reconciliation TW-10.3, normalization TW-10.4/DA-9.2, scopes TW-10.6/TW-10.7,
+        // bounds validation TW-7.4/DA-7.4.
         return scope switch
         {
             ApplyScope.Full => ApplyFull(snapshot, registry, validateBounds),
@@ -64,14 +64,14 @@ public static class LayoutApply
     }
 
     /// <summary>
-    /// Builds the default layout from the registration descriptors (spec TW-5.14, TW-10.3):
-    /// every tool window closed in its default slot, mode and pair ratio; orders are dense per
-    /// slot — explicit <see cref="ToolWindowDescriptor.DefaultOrder"/> first, then registration
-    /// order; default side geometry and an empty dock area; tool windows with a body factory
-    /// receive their body tab (the seeding rule of TW-9.5). To reset the placement without
-    /// closing open documents, apply the result with the Arrangement scope:
+    /// Builds the default layout from the registration descriptors: every tool window closed
+    /// in its default slot, mode and pair ratio; orders are dense per slot — explicit
+    /// <see cref="ToolWindowDescriptor.DefaultOrder"/> first, then registration order; default
+    /// side geometry and an empty dock area; tool windows with a body factory receive their
+    /// body tab. To reset the placement without closing open documents, apply the result with
+    /// the Arrangement scope:
     /// <c>current.Apply(LayoutApply.ResetToDefaults(registry), ApplyScope.Arrangement, registry)</c>
-    /// — the dock area and content trees stay current (TW-10.6).
+    /// — the dock area and content trees stay current.
     /// </summary>
     /// <param name="registry">Registered descriptors to build the layout from.</param>
     public static LayoutState ResetToDefaults(ToolWindowRegistry registry)
@@ -337,7 +337,7 @@ public static class LayoutApply
         return added is null ? snapshot : snapshot with { ToolWindows = snapshot.ToolWindows.AddRange(added) };
     }
 
-    /// <summary>The default state of a freshly registered tool window (spec TW-10.3); shared with the live registration path (<see cref="ContentLifecycle.Register"/>).</summary>
+    /// <summary>The default state of a freshly registered tool window (TW-10.3); shared with the live registration path (<see cref="ContentLifecycle.Register"/>).</summary>
     internal static ToolWindowState FromDescriptor(ToolWindowDescriptor descriptor, int order) =>
         new ToolWindowState(descriptor.Id, descriptor.DefaultSlot, order) with
         {

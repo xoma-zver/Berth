@@ -3,25 +3,25 @@ using System.Collections.Immutable;
 namespace Berth;
 
 /// <summary>
-/// Normalization of tab-group trees and the dock area to canonical form (spec DA-3.1, DA-3.2).
-/// Runs after every core operation and on Apply; idempotent. Beyond the spec, normalization
-/// preserves instances: a canonical node or state is returned as the same reference, so callers
-/// can use reference equality as a «nothing changed» check.
+/// Normalization of tab-group trees and the dock area to canonical form — rules N1–N5 of the
+/// document-area specification. Runs after every core operation and on Apply; idempotent.
+/// Beyond the rules, normalization preserves instances: a canonical node or state is returned
+/// as the same reference, so callers can use reference equality as a «nothing changed» check.
 /// </summary>
 public static class TabTreeNormalization
 {
     /// <summary>
-    /// Numeric tolerance of the share sum of a split (INV-D3): a sum within the tolerance of 1
-    /// is canonical, a larger deviation is renormalized by rule N4 (spec DA-3.1).
+    /// Numeric tolerance of the share sum of a split: a sum within the tolerance of 1 is
+    /// canonical, a larger deviation is renormalized by rule N4.
     /// </summary>
     public const double ShareSumTolerance = 1e-9;
 
     /// <summary>
-    /// Normalizes a tree by rules N1–N5 (spec DA-3.1): empty non-root groups are removed (N1),
-    /// degenerate splits are collapsed (N2), a child split of its parent's orientation is merged
-    /// into the parent with share multiplication (N3), invalid shares are replaced with equal
-    /// ones and every share vector is renormalized to sum 1 (N4), and an invalid active tab of a
-    /// group is replaced by its first tab (N5). The root group survives even empty (spec DA-2.3).
+    /// Normalizes a tree by rules N1–N5: empty non-root groups are removed (N1), degenerate
+    /// splits are collapsed (N2), a child split of its parent's orientation is merged into the
+    /// parent with share multiplication (N3), invalid shares are replaced with equal ones and
+    /// every share vector is renormalized to sum 1 (N4), and an invalid active tab of a group
+    /// is replaced by its first tab (N5). The root group survives even empty.
     /// </summary>
     public static TabTreeNode Normalize(TabTreeNode root)
     {
@@ -35,13 +35,13 @@ public static class TabTreeNormalization
     }
 
     /// <summary>
-    /// Normalizes the dock area: the trees of all hosts by N1–N5, plus the zone level of spec
-    /// DA-3.1 — document windows whose tree holds no tabs are removed (INV-D6) and a surviving
-    /// active host keeps its identity under its new index, while an active host pointing at a
-    /// removed or missing window falls back to the main window. Invalid current tabs are
-    /// reassigned within their host (N5): a tab that exists but is not active in its group is
-    /// replaced by that group's active tab; an unknown id falls back to the active tab of the
-    /// first non-empty group in depth-first order (null for a tab-less main window tree).
+    /// Normalizes the dock area: the trees of all hosts by N1–N5, plus the zone level —
+    /// document windows whose tree holds no tabs are removed, and a surviving active host
+    /// keeps its identity under its new index, while an active host pointing at a removed or
+    /// missing window falls back to the main window. Invalid current tabs are reassigned
+    /// within their host (N5): a tab that exists but is not active in its group is replaced by
+    /// that group's active tab; an unknown id falls back to the active tab of the first
+    /// non-empty group in depth-first order (null for a tab-less main window tree).
     /// </summary>
     public static DockAreaState Normalize(DockAreaState area)
     {
@@ -105,9 +105,9 @@ public static class TabTreeNormalization
     }
 
     /// <summary>
-    /// Normalizes the whole layout: the dock area by <see cref="Normalize(DockAreaState)"/> plus
-    /// every tool window's content tree by N1–N5 (spec TW-9.5, DA-3.1); an empty panel tree is
-    /// legal and survives (DA-8.4, DA-2.3). Instance-preserving like the other overloads.
+    /// Normalizes the whole layout: the dock area by <see cref="Normalize(DockAreaState)"/>
+    /// plus every tool window's content tree by N1–N5; an empty panel tree is legal and
+    /// survives. Instance-preserving like the other overloads.
     /// </summary>
     internal static LayoutState Normalize(LayoutState state)
     {

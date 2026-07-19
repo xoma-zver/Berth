@@ -3,18 +3,18 @@ using System.Collections.Immutable;
 namespace Berth;
 
 /// <summary>
-/// Validation of the layout invariants: INV-1…INV-7 of tool windows (spec tool-windows,
-/// section 4) and INV-D1…INV-D6 of the dock area (spec document-area, section 4).
+/// Validation of the layout invariants: INV-1…INV-7 of the tool windows and INV-D1…INV-D6 of
+/// the dock area — the rule ids reported by <see cref="InvariantViolation.InvariantId"/>.
 /// Checked after every operation; a violation is a core bug, not a user error. The tree
-/// invariants INV-D1…INV-D4 cover every tab tree, including the content trees of tool windows
-/// (spec TW-9.5); INV-D5 confirms tab ownership in panel trees against the registry claims
-/// with a non-throwing resolve — a conflicted claim confirms nothing (spec TW-9.11).
+/// invariants cover every tab tree, including the content trees of tool windows; tab ownership
+/// in panel trees is confirmed against the registry claims with a non-throwing resolve — a
+/// conflicted claim confirms nothing.
 /// </summary>
 public static class LayoutInvariants
 {
     /// <summary>
     /// Validates the layout against the invariants. Returns an empty array for a valid layout.
-    /// Sleeping states — ids without a registered descriptor — are legal (spec TW-10.2).
+    /// Sleeping states — ids without a registered descriptor — are legal.
     /// </summary>
     public static ImmutableArray<InvariantViolation> Validate(LayoutState state, ToolWindowRegistry registry)
     {
@@ -366,7 +366,7 @@ public static class LayoutInvariants
     /// <summary>
     /// INV-D5: a panel tree only holds tabs whose confirmed owner is that panel or whose owner
     /// is unconfirmed — an unclaimed id sleeps in the tree of its presumed owner, and a
-    /// conflicted claim confirms nothing (spec TW-9.11). Dock-area hosts accept every tab.
+    /// conflicted claim confirms nothing (TW-9.11). Dock-area hosts accept every tab.
     /// </summary>
     private static void CheckPanelTabOwnership(
         LayoutState state, ToolWindowRegistry registry, ImmutableArray<InvariantViolation>.Builder violations)

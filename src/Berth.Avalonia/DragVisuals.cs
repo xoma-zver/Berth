@@ -7,7 +7,7 @@ using Avalonia.Styling;
 namespace Berth.Controls;
 
 /// <summary>
-/// Coordinate space of a drag gesture (spec TW-5.17, task 6.2). On a platform with real
+/// Coordinate space of a drag gesture (TW-5.17, task 6.2). On a platform with real
 /// windows the gesture lives in screen coordinates and these helpers convert between a
 /// window's local space and the shared screen space; on the overlay platform the gesture
 /// space is the workspace itself — one TopLevel, no conversion. Rectangles map both corners,
@@ -60,7 +60,7 @@ internal static class GestureSpace
 }
 
 /// <summary>
-/// The ghost passport of one drag gesture (spec TW-5.17 v0.26, DA-9.7 v0.18), assembled once
+/// The ghost passport of one drag gesture (TW-5.17 v0.26, DA-9.7 v0.18), assembled once
 /// at the gesture start: the light face shown over any target — the stripe icon face of a
 /// panel (the same face as the stripe button), the title chip of a tab — and the optional
 /// content miniature shown outside every target, the herald of the take-out (TW-7.8, DA-9.7).
@@ -89,7 +89,7 @@ internal sealed class GhostPassport
 
     /// <summary>
     /// Width of the source tab header at the gesture start — the width of the strip reorder
-    /// preview's insertion placeholder (spec DA-9.7 v0.18: the place the tab takes is sized
+    /// preview's insertion placeholder (DA-9.7 v0.18: the place the tab takes is sized
     /// off the header the user grabbed, never re-measured mid-gesture). Null for non-tab
     /// subjects, whose gestures meet no strip zones.
     /// </summary>
@@ -99,7 +99,7 @@ internal sealed class GhostPassport
 /// <summary>
 /// Shared chrome of the gesture visuals: opaque, theme-aware chips for the ghost faces and
 /// the hint label, and the framed view of a content miniature. Transient per-gesture leaf
-/// chrome (spec TW-9.13).
+/// chrome (TW-9.13).
 /// </summary>
 internal static class GhostChrome
 {
@@ -126,7 +126,7 @@ internal static class GhostChrome
         return Chip(text, new Thickness(8, 4));
     }
 
-    /// <summary>The tab ghost face: the familiar title chip (spec DA-9.7).</summary>
+    /// <summary>The tab ghost face: the familiar title chip (DA-9.7).</summary>
     public static Border TitleChip(string title)
     {
         var chip = Chip(out var text);
@@ -134,12 +134,12 @@ internal static class GhostChrome
         return chip;
     }
 
-    /// <summary>The panel ghost face: the stripe icon face on an opaque chip (spec TW-5.17 v0.26).</summary>
+    /// <summary>The panel ghost face: the stripe icon face on an opaque chip (TW-5.17 v0.26).</summary>
     public static Border IconChip(string? iconKey, string title) =>
         Chip(new StripeIconFace(iconKey, title), new Thickness(2));
 
     /// <summary>
-    /// The insertion placeholder of the strip reorder preview (spec DA-9.7 v0.18): the
+    /// The insertion placeholder of the strip reorder preview (DA-9.7 v0.18): the
     /// framed translucent fill of the gap the strip's headers opened — the place the tab
     /// takes on release, sized to the captured source-header width. Carries no text: the
     /// title rides on the pointer chip, which stays visible over the strip.
@@ -166,7 +166,7 @@ internal static class GhostChrome
         visual.IsVisible = true;
     }
 
-    /// <summary>The framed miniature view of the ghost outside every target (spec TW-5.17 v0.26).</summary>
+    /// <summary>The framed miniature view of the ghost outside every target (TW-5.17 v0.26).</summary>
     public static Control MiniatureView(IImage image, Size size) => new Border
     {
         BorderBrush = BerthBrushes.Separator,
@@ -187,7 +187,7 @@ internal static class GhostChrome
 }
 
 /// <summary>
-/// Visualization of one drag gesture behind the narrow contract of spec TW-5.17: the ghost at
+/// Visualization of one drag gesture behind the narrow contract of TW-5.17: the ghost at
 /// the pointer and the visuals of the active target — the marker, the post-drop zone preview
 /// and the hint — addressed in gesture coordinates and updated as one through
 /// <see cref="UpdateTarget"/>. One instance lives per gesture; <see cref="HideAll"/> is also
@@ -216,11 +216,11 @@ internal interface IDragVisual
     public void MoveGhost(Point gesturePoint);
 
     /// <summary>
-    /// Updates every target visual at once (spec TW-5.17 v0.26): over a target — the marker,
+    /// Updates every target visual at once (TW-5.17 v0.26): over a target — the marker,
     /// the zone preview and the hint show, and the ghost switches to its light face; outside
     /// every target (null) they hide and the ghost switches to the miniature when one was
     /// captured at the start. A strip insertion zone carrying a reorder payload swaps the
-    /// marker for the live strip reorder preview (spec DA-9.7 v0.18): the headers move apart
+    /// marker for the live strip reorder preview (DA-9.7 v0.18): the headers move apart
     /// around the framed insertion placeholder — the place the tab takes on release — while
     /// the pointer ghost keeps riding at the cursor, the single gesture language of every
     /// target kind.
@@ -232,7 +232,7 @@ internal interface IDragVisual
 }
 
 /// <summary>
-/// The overlay-platform visual (spec TW-7.7): gesture space is the workspace, so the existing
+/// The overlay-platform visual (TW-7.7): gesture space is the workspace, so the existing
 /// <see cref="DragLayer"/> — which paints above the pseudo-window canvas — hosts the ghost,
 /// the marker, the zone preview and the hint directly.
 /// </summary>
@@ -536,7 +536,7 @@ internal sealed class WindowedDragVisual : IDragVisual
 }
 
 /// <summary>
-/// The OS-window ghost of a windowed-platform drag (spec TW-5.17; = the reference's
+/// The OS-window ghost of a windowed-platform drag (TW-5.17; = the reference's
 /// DialogDragImageView, opacity 0.85): an undecorated, non-activating, topmost window
 /// positioned next to the pointer in screen coordinates, stacking the subject's face — the
 /// light face over targets, the content miniature outside them (v0.26) — above the optional
@@ -606,7 +606,7 @@ internal sealed class GhostWindow : Window
 }
 
 /// <summary>
-/// Marker overlay of one floating window (spec TW-5.17, task 6.2): a thin non-hit-testable
+/// Marker overlay of one floating window (TW-5.17, task 6.2): a thin non-hit-testable
 /// canvas above the window's content, hosting the insertion line or area preview of a drop
 /// target inside that window. Part of the window's permanent chrome; shown and hidden by the
 /// gesture visual.
@@ -638,7 +638,7 @@ internal sealed class MarkerOverlay : Canvas
     /// <summary>Hides the marker.</summary>
     public void Hide() => _marker.IsVisible = false;
 
-    /// <summary>Shows the strip reorder preview's insertion placeholder, in the window's local coordinates (spec DA-9.7 v0.18).</summary>
+    /// <summary>Shows the strip reorder preview's insertion placeholder, in the window's local coordinates (DA-9.7 v0.18).</summary>
     public void ShowStripPlaceholder(Rect rect) => GhostChrome.PlaceOnCanvas(_stripPlaceholder, rect);
 
     /// <summary>Hides the insertion placeholder.</summary>

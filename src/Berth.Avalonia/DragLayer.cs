@@ -4,7 +4,7 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// Overlay layer of a drag gesture (spec TW-5.17): the ghost following the pointer — the light
+/// Overlay layer of a drag gesture (TW-5.17): the ghost following the pointer — the light
 /// face of the dragged subject over a target, its content miniature outside every target
 /// (v0.26) — plus the target visuals: the insertion marker, the translucent post-drop zone
 /// preview, the «Move to {slot}» hint label and the insertion placeholder of the strip
@@ -68,14 +68,14 @@ internal sealed class DragLayer : Canvas
     /// <summary>Whether the ghost is currently shown.</summary>
     public bool GhostVisible => _ghost.IsVisible;
 
-    /// <summary>The hint text currently shown, or null — the test observation point (spec TW-5.17).</summary>
+    /// <summary>The hint text currently shown, or null — the test observation point (TW-5.17).</summary>
     public string? HintText => _hint.IsVisible ? _hintText.Text : null;
 
-    /// <summary>Whether the ghost currently shows the content miniature (spec TW-5.17, v0.26).</summary>
+    /// <summary>Whether the ghost currently shows the content miniature (TW-5.17, v0.26).</summary>
     public bool GhostShowsMiniature =>
         _ghost.IsVisible && _miniatureView is not null && ReferenceEquals(_ghost.Child, _miniatureView);
 
-    /// <summary>Shows the ghost with the passport's light face (spec TW-5.17).</summary>
+    /// <summary>Shows the ghost with the passport's light face (TW-5.17).</summary>
     public void ShowGhost(GhostPassport passport)
     {
         _lightFace = passport.LightFace;
@@ -97,7 +97,7 @@ internal sealed class DragLayer : Canvas
 
     /// <summary>
     /// Switches the ghost between the light face (over a target) and the content miniature
-    /// (outside every target, spec TW-5.17 v0.26); without a captured miniature the light
+    /// (outside every target, TW-5.17 v0.26); without a captured miniature the light
     /// face stays.
     /// </summary>
     public void SetGhostMiniature(bool miniature)
@@ -118,7 +118,7 @@ internal sealed class DragLayer : Canvas
     /// <summary>
     /// Shows the marker over the active drop target, in workspace coordinates: the position
     /// fill of a stripe zone or the area preview of a wedge/center (both translucent), or the
-    /// opaque insertion line of a tab strip (spec TW-5.17, DA-9.7).
+    /// opaque insertion line of a tab strip (TW-5.17, DA-9.7).
     /// </summary>
     public void ShowMarker(Rect rect, bool isArea = false)
     {
@@ -131,7 +131,7 @@ internal sealed class DragLayer : Canvas
     /// <summary>Hides the insertion marker — the pointer is over no target.</summary>
     public void HideMarker() => _marker.IsVisible = false;
 
-    /// <summary>Shows the translucent post-drop zone preview, in workspace coordinates (spec TW-5.17 v0.26).</summary>
+    /// <summary>Shows the translucent post-drop zone preview, in workspace coordinates (TW-5.17 v0.26).</summary>
     public void ShowZone(Rect rect) => GhostChrome.PlaceOnCanvas(_zone, rect);
 
     /// <summary>Hides the zone preview.</summary>
@@ -139,7 +139,7 @@ internal sealed class DragLayer : Canvas
 
     /// <summary>
     /// Shows the insertion placeholder of the strip reorder preview, in workspace
-    /// coordinates (spec DA-9.7 v0.18): the framed fill of the gap the strip's headers
+    /// coordinates (DA-9.7 v0.18): the framed fill of the gap the strip's headers
     /// opened — the place the tab takes on release — already clipped into the band by the
     /// override engine.
     /// </summary>
@@ -149,7 +149,7 @@ internal sealed class DragLayer : Canvas
     public void HideStripPlaceholder() => _stripPlaceholder.IsVisible = false;
 
     /// <summary>
-    /// Shows or hides (null) the target hint label (spec TW-5.17 v0.26): anchored under the
+    /// Shows or hides (null) the target hint label (TW-5.17 v0.26): anchored under the
     /// ghost while one is shown, else next to the marker — the ghost-less path of the panel
     /// dock guide (TW-7.7, TW-7.1).
     /// </summary>

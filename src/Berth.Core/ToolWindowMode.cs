@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Berth;
 
-/// <summary>Presentation mode of a tool window (spec TW-3.2).</summary>
+/// <summary>Presentation mode of a tool window.</summary>
 public enum ToolWindowMode
 {
     /// <summary>Docked, takes layout space, stays open on focus loss.</summary>

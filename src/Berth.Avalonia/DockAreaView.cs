@@ -3,7 +3,7 @@ using Avalonia.Controls;
 namespace Berth.Controls;
 
 /// <summary>
-/// Projection of the main window's dock-area tree (spec TW-2.1, DA-9.6): the main-window
+/// Projection of the main window's dock-area tree (TW-2.1, DA-9.6): the main-window
 /// <see cref="TabTreeContext"/> materialized into the workspace grid. Tab hosts come from the
 /// workspace-wide <see cref="TabHostCache"/> — shared with the panel trees, so a move between
 /// hosts reattaches the same host with its built view; group and split views are matched by
@@ -23,7 +23,7 @@ internal sealed class DockAreaView : Decorator
         Name = "PART_DockTree";
     }
 
-    /// <summary>The incremental projection pass (spec DA-9.6): hosts update in place, containers relay around them.</summary>
+    /// <summary>The incremental projection pass (DA-9.6): hosts update in place, containers relay around them.</summary>
     public void Update(LayoutState state, ToolWindowRegistry registry) =>
         _context.ReconcileRoot(this, state.DockArea.Root, state, registry);
 }

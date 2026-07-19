@@ -1,18 +1,18 @@
 namespace Berth;
 
 /// <summary>
-/// Fluent assembly of an application's initial composition (task 7.1) — a declarative facade
-/// over the existing bricks, introducing no behaviour of its own: registrations run through
+/// Fluent assembly of an application's initial composition — a declarative facade over the
+/// existing bricks, introducing no behaviour of its own: registrations run through
 /// <see cref="ContentLifecycle.Register"/>/<see cref="ContentLifecycle.RegisterDockContent"/>
-/// (atomic reconciliation, eager creation, body seeding — spec TW-9.2, TW-9.5, TW-10.3), the
-/// default arrangement follows the rule of <see cref="LayoutApply.ResetToDefaults"/>
-/// (<see cref="ToolWindowBuilder.Order"/> is honoured like <see cref="ToolWindowDescriptor.DefaultOrder"/>),
-/// and the initial openness is expressed by the ordinary commands — one
-/// <see cref="ContentLifecycle.NotifyTransition"/> per command (ADR-0004; openness is not a
-/// descriptor field, spec E15). <see cref="Build"/> runs in two phases: every registration
-/// first, then the open commands in call order — so calls may be chained in any order, and
-/// errors (an unknown id, an unclaimed panel tab) surface at <see cref="Build"/>. The builder
-/// is single-use: the registry and the coordinator it produces are mutable.
+/// (atomic reconciliation, eager creation, body seeding), the default arrangement follows the
+/// rule of <see cref="LayoutApply.ResetToDefaults"/> (<see cref="ToolWindowBuilder.Order"/> is
+/// honoured like <see cref="ToolWindowDescriptor.DefaultOrder"/>), and the initial openness is
+/// expressed by the ordinary commands — one <see cref="ContentLifecycle.NotifyTransition"/>
+/// per command; openness is not a descriptor field. <see cref="Build"/> runs in two phases:
+/// every registration first, then the open commands in call order — so calls may be chained in
+/// any order, and errors (an unknown id, an unclaimed panel tab) surface at
+/// <see cref="Build"/>. The builder is single-use: the registry and the coordinator it
+/// produces are mutable.
 /// </summary>
 public sealed class LayoutCompositionBuilder
 {
@@ -28,7 +28,7 @@ public sealed class LayoutCompositionBuilder
     private readonly List<(InitialCommand Kind, string Id)> _commands = [];
     private bool _built;
 
-    /// <summary>Registers a tool window from a ready descriptor (spec TW-9.1).</summary>
+    /// <summary>Registers a tool window from a ready descriptor.</summary>
     /// <param name="descriptor">The registration descriptor.</param>
     /// <exception cref="ArgumentException">A descriptor with the same id was already added.</exception>
     public LayoutCompositionBuilder AddToolWindow(ToolWindowDescriptor descriptor)
@@ -57,7 +57,7 @@ public sealed class LayoutCompositionBuilder
         return AddToolWindow(builder.BuildDescriptor());
     }
 
-    /// <summary>Registers dock-area content: the factory's claimed tabs are documents (spec TW-9.11).</summary>
+    /// <summary>Registers dock-area content: the factory's claimed tabs are documents.</summary>
     /// <param name="factory">The dock content factory.</param>
     public LayoutCompositionBuilder AddDockContent(ITabContentFactory factory)
     {
@@ -66,9 +66,9 @@ public sealed class LayoutCompositionBuilder
         return this;
     }
 
-    /// <summary>Registers dock-area content by delegates — a claim predicate plus creation (spec TW-9.11, DA-9.3).</summary>
-    /// <param name="ownsTab">The ownership claim; must be pure and stable (spec TW-9.11).</param>
-    /// <param name="createContent">Creates the content of a claimed tab; null refuses the tab (spec DA-9.3).</param>
+    /// <summary>Registers dock-area content by delegates — a claim predicate plus creation.</summary>
+    /// <param name="ownsTab">The ownership claim; must be pure and stable.</param>
+    /// <param name="createContent">Creates the content of a claimed tab; null refuses the tab.</param>
     /// <param name="releaseContent">Releases created content; null when nothing needs releasing.</param>
     public LayoutCompositionBuilder AddDockContent(
         Func<string, bool> ownsTab,
@@ -81,9 +81,9 @@ public sealed class LayoutCompositionBuilder
     }
 
     /// <summary>
-    /// Opens a tool window in the initial state (spec TW-5.1, with activation). Openness is a
-    /// command, not a descriptor field (spec E15): the built <see cref="LayoutComposition.State"/>
-    /// carries it, and later applies of that state restore it.
+    /// Opens a tool window in the initial state, with activation. Openness is a command, not a
+    /// descriptor field: the built <see cref="LayoutComposition.State"/> carries it, and later
+    /// applies of that state restore it.
     /// </summary>
     /// <param name="toolWindowId">Id of a tool window added to this composition.</param>
     public LayoutCompositionBuilder Open(string toolWindowId)
@@ -93,7 +93,7 @@ public sealed class LayoutCompositionBuilder
         return this;
     }
 
-    /// <summary>Opens a document in the initial state (spec DA-5.1).</summary>
+    /// <summary>Opens a document in the initial state.</summary>
     /// <param name="tabId">Id of the document tab.</param>
     public LayoutCompositionBuilder OpenDocument(string tabId)
     {
@@ -102,7 +102,7 @@ public sealed class LayoutCompositionBuilder
         return this;
     }
 
-    /// <summary>Opens a panel tab in the tree of its claimed owner in the initial state (spec TW-9.12).</summary>
+    /// <summary>Opens a panel tab in the tree of its claimed owner in the initial state.</summary>
     /// <param name="tabId">Id of the panel tab; its owner must be claimed by a tool window of this composition.</param>
     public LayoutCompositionBuilder OpenPanelTab(string tabId)
     {
@@ -115,9 +115,8 @@ public sealed class LayoutCompositionBuilder
     /// Builds the composition: registers everything through a fresh
     /// <see cref="ContentLifecycle"/>, derives the default arrangement by the
     /// <see cref="LayoutApply.ResetToDefaults"/> rule, then applies the open commands in call
-    /// order — each one core command with one transition report (ADR-0004). The result always
-    /// satisfies the invariants of both specs and passes Apply without a single fix
-    /// (TW-10.4) — guarded by tests.
+    /// order — each one core command with one transition report. The result always satisfies
+    /// the layout invariants and passes Apply without a single fix — guarded by tests.
     /// </summary>
     /// <exception cref="InvalidOperationException">The builder was already built.</exception>
     /// <exception cref="ArgumentException">An open command references an id the composition cannot resolve.</exception>
@@ -146,7 +145,7 @@ public sealed class LayoutCompositionBuilder
         // The registration chain ordered slots by call order (the live-session rule of
         // TW-10.3); the canonical default arrangement honours DefaultOrder instead — rebuild
         // the placement by the single defaults rule, so the built state and a later
-        // ResetToDefaults agree (spec TW-5.14).
+        // ResetToDefaults agree (TW-5.14).
         state = LayoutApply.ResetToDefaults(registry);
 
         foreach (var (kind, id) in _commands)
@@ -192,35 +191,35 @@ public sealed class ToolWindowBuilder
         _title = title;
     }
 
-    /// <summary>Default placement slot (spec TW-1.1); unset — Left.Primary.</summary>
+    /// <summary>Default placement slot; unset — Left.Primary.</summary>
     public ToolWindowBuilder Slot(ToolWindowSide side, ToolWindowGroup group)
     {
         _slot = new ToolWindowSlot(side, group);
         return this;
     }
 
-    /// <summary>Default position within the slot — <see cref="ToolWindowDescriptor.DefaultOrder"/>; unset — after the windows added earlier (spec TW-10.3).</summary>
+    /// <summary>Default position within the slot — <see cref="ToolWindowDescriptor.DefaultOrder"/>; unset — after the windows added earlier.</summary>
     public ToolWindowBuilder Order(int order)
     {
         _order = order;
         return this;
     }
 
-    /// <summary>Default presentation mode (spec TW-3.2).</summary>
+    /// <summary>Default presentation mode.</summary>
     public ToolWindowBuilder Mode(ToolWindowMode mode)
     {
         _mode = mode;
         return this;
     }
 
-    /// <summary>Default share preference within a side pair (spec TW-2.5).</summary>
+    /// <summary>Default share preference within a side pair.</summary>
     public ToolWindowBuilder PairRatio(double pairRatio)
     {
         _pairRatio = pairRatio;
         return this;
     }
 
-    /// <summary>Icon key resolved by the materialization layer or the application (ADR-0003).</summary>
+    /// <summary>Icon key resolved by the materialization layer or the application.</summary>
     public ToolWindowBuilder Icon(string iconKey)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(iconKey);
@@ -228,21 +227,21 @@ public sealed class ToolWindowBuilder
         return this;
     }
 
-    /// <summary>Body content is created at registration instead of on first materialization (spec TW-9.2).</summary>
+    /// <summary>Body content is created at registration instead of on first materialization.</summary>
     public ToolWindowBuilder Eager()
     {
         _creationPolicy = ContentCreationPolicy.Eager;
         return this;
     }
 
-    /// <summary>Body content is released on every transition out of openness and recreated on the next one (spec TW-9.2).</summary>
+    /// <summary>Body content is released on every transition out of openness and recreated on the next one.</summary>
     public ToolWindowBuilder DisposeOnClose()
     {
         _retentionPolicy = ContentRetentionPolicy.DisposeOnClose;
         return this;
     }
 
-    /// <summary>Factory of the body content (spec TW-9.1, TW-9.5).</summary>
+    /// <summary>Factory of the body content.</summary>
     public ToolWindowBuilder Content(IToolWindowContentFactory factory)
     {
         ArgumentNullException.ThrowIfNull(factory);
@@ -250,7 +249,7 @@ public sealed class ToolWindowBuilder
         return this;
     }
 
-    /// <summary>Body content by delegates: creation plus optional release (spec TW-9.1, TW-9.2).</summary>
+    /// <summary>Body content by delegates: creation plus optional release.</summary>
     /// <param name="createContent">Creates the body content.</param>
     /// <param name="releaseContent">Releases created content; null when nothing needs releasing.</param>
     public ToolWindowBuilder Content(Func<string, object> createContent, Action<string, object>? releaseContent = null)
@@ -259,7 +258,7 @@ public sealed class ToolWindowBuilder
         return Content(new DelegateToolWindowContentFactory(createContent, releaseContent));
     }
 
-    /// <summary>Tab content factory claiming this window's tabs (spec TW-9.11).</summary>
+    /// <summary>Tab content factory claiming this window's tabs.</summary>
     public ToolWindowBuilder Tabs(ITabContentFactory factory)
     {
         ArgumentNullException.ThrowIfNull(factory);
@@ -267,9 +266,9 @@ public sealed class ToolWindowBuilder
         return this;
     }
 
-    /// <summary>Tab claims by delegates: an ownership predicate plus creation (spec TW-9.11, DA-9.3).</summary>
-    /// <param name="ownsTab">The ownership claim; must be pure and stable (spec TW-9.11).</param>
-    /// <param name="createContent">Creates the content of a claimed tab; null refuses the tab (spec DA-9.3).</param>
+    /// <summary>Tab claims by delegates: an ownership predicate plus creation.</summary>
+    /// <param name="ownsTab">The ownership claim; must be pure and stable.</param>
+    /// <param name="createContent">Creates the content of a claimed tab; null refuses the tab.</param>
     /// <param name="releaseContent">Releases created content; null when nothing needs releasing.</param>
     public ToolWindowBuilder Tabs(
         Func<string, bool> ownsTab,

@@ -4,7 +4,7 @@ using Avalonia.Threading;
 namespace Berth.Controls;
 
 /// <summary>
-/// The single tab-host cache of a workspace (spec DA-9.6): one <see cref="DockTabHost"/> per
+/// The single tab-host cache of a workspace (DA-9.6): one <see cref="DockTabHost"/> per
 /// tab id across every materialized tree — the dock area of the main window and the content
 /// trees of open tool windows. Tab ids are unique across the whole layout (INV-D2), so the id
 /// is a global key and a move between a panel and the dock area reattaches the same host with
@@ -24,7 +24,7 @@ internal sealed class TabHostCache
     public TabHostCache(BerthWorkspace workspace) => _workspace = workspace;
 
     /// <summary>
-    /// Host of a tab, created on first need (spec DA-9.6). The placeholder title follows the
+    /// Host of a tab, created on first need (DA-9.6). The placeholder title follows the
     /// fallback chain: the application's <see cref="BerthWorkspace.TabTitleProvider"/>, then —
     /// for a body tab, whose id names its tool window (TW-9.5) — the descriptor's title, then
     /// the id itself.
@@ -41,11 +41,11 @@ internal sealed class TabHostCache
         return host;
     }
 
-    /// <summary>The cached host of a tab, or null — never creates one (the ghost passport peek of spec TW-5.17 v0.26).</summary>
+    /// <summary>The cached host of a tab, or null — never creates one (the ghost passport peek of TW-5.17 v0.26).</summary>
     public DockTabHost? TryPeek(string id) => _hosts.TryGetValue(id, out var host) ? host : null;
 
     /// <summary>
-    /// The tab title fallback chain of spec DA-9.6: the application's
+    /// The tab title fallback chain of DA-9.6: the application's
     /// <see cref="BerthWorkspace.TabTitleProvider"/>, then — for a body tab, whose id names
     /// its tool window (TW-9.5) — the descriptor's title, then the id itself. Shared by the
     /// host placeholder and the tab headers.
@@ -62,7 +62,7 @@ internal sealed class TabHostCache
     }
 
     /// <summary>
-    /// Moves keyboard focus into the tab's content (spec TW-6.6, DA-6.4): false when the tab
+    /// Moves keyboard focus into the tab's content (TW-6.6, DA-6.4): false when the tab
     /// has no attached host — closed, away in a non-materialized host, or a null id; focus
     /// already inside the host is left alone.
     /// </summary>
@@ -89,7 +89,7 @@ internal sealed class TabHostCache
         return true;
     }
 
-    /// <summary>Drops the host's content and view without touching the cache entry (spec DA-9.6).</summary>
+    /// <summary>Drops the host's content and view without touching the cache entry (DA-9.6).</summary>
     public void ResetContent(string id)
     {
         if (_hosts.TryGetValue(id, out var host))
@@ -147,7 +147,7 @@ internal sealed class TabHostCache
 
     // ---- lazy materialization outside the projection pass ----
 
-    /// <summary>Schedules the pull pass when something visible lacks content (spec TW-9.3, DA-9.3).</summary>
+    /// <summary>Schedules the pull pass when something visible lacks content (TW-9.3, DA-9.3).</summary>
     public void ScheduleMaterialization()
     {
         if (_materializationScheduled
@@ -163,7 +163,7 @@ internal sealed class TabHostCache
     }
 
     /// <summary>
-    /// The pull pass (spec DA-9.3, DA-9.4): materializes active tabs of visible groups —
+    /// The pull pass (DA-9.3, DA-9.4): materializes active tabs of visible groups —
     /// the main window's and those of open panels' trees — from the current state, re-read
     /// after every step (DA-1.3). A refusal closed the tab inside the coordinator — the
     /// produced state is assigned without a lifecycle report (the coordinator-transition

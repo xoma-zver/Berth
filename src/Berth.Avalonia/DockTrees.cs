@@ -4,11 +4,11 @@ namespace Berth.Controls;
 
 /// <summary>
 /// Read-only tree walks over the public node model, shared by the dock-area projection, the
-/// tab menus and the focus wiring. Paths are child indices from the root (spec DA-1.3).
+/// tab menus and the focus wiring. Paths are child indices from the root (DA-1.3).
 /// </summary>
 internal static class DockTrees
 {
-    /// <summary>Groups of the tree in depth-first, left-to-right order (spec DA-6.3, DA-9.2).</summary>
+    /// <summary>Groups of the tree in depth-first, left-to-right order (DA-6.3, DA-9.2).</summary>
     public static IEnumerable<TabGroupNode> Groups(TabTreeNode root)
     {
         switch (root)
@@ -60,7 +60,7 @@ internal static class DockTrees
         return false;
     }
 
-    /// <summary>Tab ids of the subtree — the reconciliation key of the projection (groups have no identity, spec DA-1.3).</summary>
+    /// <summary>Tab ids of the subtree — the reconciliation key of the projection (groups have no identity, DA-1.3).</summary>
     public static HashSet<string> TabsOf(TabTreeNode node)
     {
         var tabs = new HashSet<string>(StringComparer.Ordinal);

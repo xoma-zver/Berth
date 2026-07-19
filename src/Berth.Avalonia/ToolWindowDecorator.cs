@@ -9,23 +9,17 @@ using Avalonia.VisualTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// Chrome of one tool window — the persistent host of spec TW-9.13: created once per id,
-/// updated in place on every state change, reattached only when the window actually moves to
-/// another slot or layer, and living detached in the workspace cache while the window is
-/// closed. A header with the title, the tab strip of the tree's root group (TW-9.5: the strip
-/// lives in the header row, like the reference embedding the title into the top-left cell's
-/// strip; hidden for the degenerate solitary body, DA-8.4) and the menu and hide buttons; the
-/// content area below materializes the window's tab tree — groups, splits and splitters — by
-/// the shared projection of spec DA-9.6: tab hosts come from the workspace-wide cache, their
-/// content is pulled lazily by the workspace's materialization pass while the window is open
-/// (TW-9.3), and the built views survive updates, reattachment and, under KeepWhileRegistered,
-/// closing and reopening. A closed DisposeOnClose window drops the body view together with the
-/// released content (TW-9.2, DA-9.6) — unless the body lives in a dock host, which shields it
-/// from the panel's openness (DA-8.3). The «—» button closes the window (spec TW-5.3); the «⋮»
-/// button and the title-bar context menu open the full menu of TW-5.16 — every gesture reduces
-/// to a core command (ADR-0004); menus and the header strip are leaf chrome, rebuilt per
-/// update so they reflect the state they were built from. The title is not otherwise regulated
-/// by the spec (TW-6.4).
+/// Chrome of one tool window — the persistent host: created once per id, updated in place on
+/// every state change, reattached only when the window actually moves to another slot or
+/// layer, and living detached in the workspace cache while the window is closed. A header
+/// with the title, the root group's tab strip (hidden for the degenerate solitary body) and
+/// the menu and hide buttons; the content area below materializes the window's tab tree by
+/// the shared projection over the workspace-wide host cache. Built views survive updates,
+/// reattachment and — under KeepWhileRegistered — closing and reopening; a closed
+/// DisposeOnClose window drops the body view together with the released content, unless the
+/// body lives in a dock host. The «—» button closes the window; the «⋮» button and the
+/// title-bar context menu open the full window menu — every gesture reduces to a core
+/// command; menus and the header strip are leaf chrome, rebuilt per update.
 /// </summary>
 public sealed class ToolWindowDecorator : Decorator
 {
@@ -114,7 +108,7 @@ public sealed class ToolWindowDecorator : Decorator
     /// <summary>Displayed title: the registered <see cref="ToolWindowDescriptor.Title"/>, or the id for a sleeping window.</summary>
     public string Title { get; private set; }
 
-    /// <summary>Projects one window state into the persistent chrome (spec TW-9.13): the title, the active accent, the menus and the content tree.</summary>
+    /// <summary>Projects one window state into the persistent chrome (TW-9.13): the title, the active accent, the menus and the content tree.</summary>
     internal void Update(
         ToolWindowState window,
         ToolWindowDescriptor? descriptor,
@@ -135,7 +129,7 @@ public sealed class ToolWindowDecorator : Decorator
     }
 
     /// <summary>
-    /// Adopts keyboard focus for activation (spec TW-6.6): the first focusable element of the
+    /// Adopts keyboard focus for activation (TW-6.6): the first focusable element of the
     /// materialized content, with the decorator itself as the fallback that keeps the
     /// focus-loss semantics of TW-6.1 reachable for content without focusable elements.
     /// </summary>

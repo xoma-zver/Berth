@@ -6,19 +6,18 @@ public enum TabMaterializationKind
     /// <summary>The tab has live content — just created or created earlier.</summary>
     Materialized,
 
-    /// <summary>The tab's owner has no live registration: the tab sleeps, nothing changed (spec DA-9.4); the UI shows a placeholder.</summary>
+    /// <summary>The tab's owner has no live registration: the tab sleeps, nothing changed; the UI shows a placeholder.</summary>
     Sleeping,
 
-    /// <summary>The factory refused the tab: it was closed by a regular CloseTab (spec DA-9.3).</summary>
+    /// <summary>The factory refused the tab: it was closed by a regular CloseTab.</summary>
     Refused,
 }
 
 /// <summary>
 /// Result of <see cref="ContentLifecycle.MaterializeTab"/>: the outcome kind, the live content
 /// for a materialized tab, and the resulting layout. After a refusal the layout is the state
-/// after the regular CloseTab (spec DA-9.3) — re-read node paths and any planned
-/// materializations from it, as after every operation (spec DA-1.3); otherwise it is the input
-/// state unchanged.
+/// after the regular CloseTab — re-read node paths and any planned materializations from it,
+/// as after every operation; otherwise it is the input state unchanged.
 /// </summary>
 public sealed class TabMaterialization
 {

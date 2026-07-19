@@ -3,12 +3,11 @@ using System.Diagnostics.CodeAnalysis;
 namespace Berth;
 
 /// <summary>
-/// Registry of tool window descriptors and tab ownership claims (spec TW-9.1, TW-9.11).
-/// Each tool window id is registered at most once (INV-1). <see cref="Register"/> and
-/// <see cref="Unregister"/> are the low-level primitives for assembling the registry before a
-/// layout exists; in a live session use <see cref="ContentLifecycle.Register"/> and
-/// <see cref="ContentLifecycle.Unregister"/>, which atomically reconcile the layout state
-/// (spec TW-10.3, TW-9.4). Single-threaded by design.
+/// Registry of tool window descriptors and tab ownership claims. Each tool window id is
+/// registered at most once. <see cref="Register"/> and <see cref="Unregister"/> are the
+/// low-level primitives for assembling the registry before a layout exists; in a live session
+/// use <see cref="ContentLifecycle.Register"/> and <see cref="ContentLifecycle.Unregister"/>,
+/// which atomically reconcile the layout state. Single-threaded by design.
 /// </summary>
 public sealed class ToolWindowRegistry
 {
@@ -30,9 +29,9 @@ public sealed class ToolWindowRegistry
     }
 
     /// <summary>
-    /// Removes a registration; the tool window's saved state becomes sleeping (spec TW-9.4,
-    /// TW-10.2). Low-level: in a live session use <see cref="ContentLifecycle.Unregister"/>,
-    /// which also closes the window, releases content and closes the owner's tabs.
+    /// Removes a registration; the tool window's saved state becomes sleeping. Low-level: in a
+    /// live session use <see cref="ContentLifecycle.Unregister"/>, which also closes the
+    /// window, releases content and closes the owner's tabs.
     /// </summary>
     /// <exception cref="ArgumentException">No descriptor with the given id is registered.</exception>
     public void Unregister(string id)
@@ -52,11 +51,11 @@ public sealed class ToolWindowRegistry
     }
 
     /// <summary>
-    /// Registers a dock-area content factory: its claimed tabs are documents (spec TW-9.11,
-    /// DA-1). Several dock-area registrations are allowed as long as their claims do not
-    /// overlap — an overlap is an application error detected at owner resolution. Low-level:
-    /// in a live session use <see cref="ContentLifecycle.RegisterDockContent"/>, which also
-    /// reconciles the layout state (spec TW-10.3, DA-9.2).
+    /// Registers a dock-area content factory: its claimed tabs are documents. Several
+    /// dock-area registrations are allowed as long as their claims do not overlap — an overlap
+    /// is an application error detected at owner resolution. Low-level: in a live session use
+    /// <see cref="ContentLifecycle.RegisterDockContent"/>, which also reconciles the layout
+    /// state.
     /// </summary>
     public void RegisterDockContent(ITabContentFactory factory)
     {
@@ -68,7 +67,7 @@ public sealed class ToolWindowRegistry
     /// Removes a dock-area content registration; the exact factory instance passed to
     /// <see cref="RegisterDockContent"/> must be given. Low-level: in a live session use
     /// <see cref="ContentLifecycle.UnregisterDockContent"/>, which also closes the factory's
-    /// documents in the dock-area hosts and releases their content (spec DA-9.4, TW-9.10).
+    /// documents in the dock-area hosts and releases their content.
     /// </summary>
     /// <param name="factory">A dock-area content factory previously registered.</param>
     /// <exception cref="ArgumentException">The factory is not registered.</exception>
@@ -82,14 +81,14 @@ public sealed class ToolWindowRegistry
     }
 
     /// <summary>
-    /// Resolves the owner of a tab id over the current claims (spec TW-9.7, TW-9.11): the dock
-    /// area, a tool window, or null when no live registration claims the id — the tab sleeps
-    /// (spec DA-9.4). A tool window's registration with a body factory implicitly claims the
-    /// window's own id — its body tab (spec TW-9.5).
+    /// Resolves the owner of a tab id over the current claims: the dock area, a tool window,
+    /// or null when no live registration claims the id — the tab sleeps. A tool window's
+    /// registration with a body factory implicitly claims the window's own id — its body tab.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Two live registrations claim the id (spec TW-9.11).</exception>
+    /// <exception cref="InvalidOperationException">Two live registrations claim the id.</exception>
     public TabOwner? ResolveTabOwner(string tabId)
     {
+        // TW-9.7/TW-9.11 (single live claimant; the implicit body claim of TW-9.5).
         var found = ResolveTabClaim(tabId, out var claim, out var conflict);
         if (conflict is not null)
         {
@@ -100,13 +99,13 @@ public sealed class ToolWindowRegistry
     }
 
     /// <summary>
-    /// The claim resolution behind <see cref="ResolveTabOwner"/> (spec TW-9.11). Returns true
-    /// with the single confirmed claim; false with a null <paramref name="conflictMessage"/>
-    /// when nothing claims the id (a sleeping owner), and false with a message when several
-    /// live registrations claim it — the caller decides whether to throw (operations,
+    /// The claim resolution behind <see cref="ResolveTabOwner"/> (TW-9.11). Returns true with
+    /// the single confirmed claim; false with a null <paramref name="conflictMessage"/> when
+    /// nothing claims the id (a sleeping owner), and false with a message when several live
+    /// registrations claim it — the caller decides whether to throw (operations,
     /// materialization) or to treat the owner as unconfirmed (Apply, invariant validation).
     /// Claims of one registration — the implicit body claim and its own tab predicate — unite
-    /// into a single claim with the body bridge taking precedence (spec TW-9.5).
+    /// into a single claim with the body bridge taking precedence (TW-9.5).
     /// </summary>
     internal bool ResolveTabClaim(string tabId, out TabClaim claim, out string? conflictMessage)
     {
@@ -159,5 +158,5 @@ public sealed class ToolWindowRegistry
 
     private static string ConflictMessage(string tabId, string first, string second) =>
         $"Tab '{tabId}' is claimed by both {first} and {second}; " +
-        "ownership must be unique across live registrations (spec TW-9.11).";
+        "ownership must be unique across live registrations.";
 }

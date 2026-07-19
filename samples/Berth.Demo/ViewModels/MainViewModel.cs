@@ -14,10 +14,10 @@ namespace Berth.Demo.ViewModels;
 /// <see cref="LayoutCompositionBuilder"/> (task 7.1): demo tool windows exercising both content
 /// paths (a view model resolved by the ViewLocator, and factory-built controls) and both
 /// lifecycle axes (Eager/OnFirstOpen creation, KeepWhileRegistered/DisposeOnClose retention),
-/// dock-area content claimed by the "doc:" prefix (spec TW-9.11), and the initial openness —
+/// dock-area content claimed by the "doc:" prefix (TW-9.11), and the initial openness —
 /// two open panels, two documents and two terminal tabs — expressed as build-time commands
-/// (spec E15: openness is not a descriptor field). The built state doubles as the default
-/// snapshot the «Reset Layout» command applies (spec TW-5.14). The workspace binds State
+/// (E15: openness is not a descriptor field). The built state doubles as the default
+/// snapshot the «Reset Layout» command applies (TW-5.14). The workspace binds State
 /// two-way, so user gestures flow back into this property.
 ///
 /// The view model is also the reference sample of application-side persistence (task 7.0): the
@@ -27,7 +27,7 @@ namespace Berth.Demo.ViewModels;
 /// (<see cref="ILayoutStore"/>, injected by the host), when to write it (a debounced autosave
 /// plus an explicit save on window closing, TW-7.5), and how to react to a bad document
 /// (<see cref="LayoutFormatException"/> → stay on the default composition; the migration chain
-/// arrives with the first real SchemaVersion bump — spec TW-10.5, section 12). Gestures are
+/// arrives with the first real SchemaVersion bump — TW-10.5, section 12). Gestures are
 /// pure visualization until their commit (ADR-0004), so the debounced autosave can never
 /// observe a half-dragged state.
 /// </summary>
@@ -119,19 +119,18 @@ public partial class MainViewModel : ViewModelBase
 
     public ContentLifecycle Lifecycle { get; }
 
-    /// <summary>Report of the last restore (spec TW-10.4): the fixes Apply performed on the stored document.</summary>
+    /// <summary>Report of the last restore (TW-10.4): the fixes Apply performed on the stored document.</summary>
     public ImmutableArray<AppliedFix> LastRestoreFixes { get; private set; } = [];
 
-    /// <summary>Why the last restore fell back to the default composition, or null (spec TW-10.5).</summary>
+    /// <summary>Why the last restore fell back to the default composition, or null (TW-10.5).</summary>
     public string? LastRestoreError { get; private set; }
 
     /// <summary>
     /// Attaches the host-supplied store: restores the stored layout — an unreadable or
-    /// unsupported document keeps the default composition (TW-10.5; the strict reaction the
-    /// spec suggests, ResetToDefaults, is what the constructor already built) — and enables
-    /// the debounced autosave. The optional validator heals saved screen bounds (TW-7.4,
-    /// DA-7.4): the desktop host passes <see cref="FloatingBoundsValidation.CreateValidator"/>,
-    /// the browser one — <see cref="FloatingBoundsValidation.CreateOverlayValidator"/>.
+    /// unsupported document keeps the default composition the constructor already built — and
+    /// enables the debounced autosave. The optional validator heals saved screen bounds: the
+    /// desktop host passes <see cref="FloatingBoundsValidation.CreateValidator"/>, the
+    /// browser one — <see cref="FloatingBoundsValidation.CreateOverlayValidator"/>.
     /// </summary>
     public void AttachPersistence(ILayoutStore store, BoundsValidator? validateBounds)
     {
@@ -208,8 +207,8 @@ public partial class MainViewModel : ViewModelBase
         catch (LayoutFormatException exception)
         {
             // The explicit load error of TW-10.5: an unparseable document or an unsupported
-            // SchemaVersion (the migration chain arrives with SchemaVersion 2 — spec section
-            // 12). The demo stays on the default composition the constructor built.
+            // SchemaVersion (the migration chain arrives with SchemaVersion 2). The demo
+            // stays on the default composition the constructor built.
             LastRestoreError = exception.Message;
             Trace.TraceWarning("Berth.Demo: stored layout rejected, starting from defaults: {0}", exception.Message);
             return;

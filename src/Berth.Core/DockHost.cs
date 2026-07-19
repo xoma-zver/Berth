@@ -1,9 +1,9 @@
 namespace Berth;
 
 /// <summary>
-/// Reference to a host of the dock area: the main window or one of the document windows
-/// (spec DA-2.5, DA-6.1). Document windows are identified by their index in
-/// <see cref="DockAreaState.Windows"/>; the default value is the main window.
+/// Reference to a host of the dock area: the main window or one of the document windows.
+/// Document windows are identified by their index in <see cref="DockAreaState.Windows"/>;
+/// the default value is the main window.
 /// </summary>
 public readonly record struct DockHost
 {

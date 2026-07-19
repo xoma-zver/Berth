@@ -7,7 +7,7 @@ namespace Berth.Demo.Browser;
 /// Layout store of the browser host: the browser sandbox has no real file system, and its
 /// counterpart of the layout file is web storage — localStorage, a synchronous per-origin
 /// key-value store surviving restarts, ideal for one JSON document (task 7.0, owner decision).
-/// Bounds stored here are workspace coordinates (spec TW-7.7); a layout carried over from the
+/// Bounds stored here are workspace coordinates (TW-7.7); a layout carried over from the
 /// desktop is healed by the overlay validator on restore (TW-7.4).
 /// </summary>
 internal sealed partial class LocalStorageLayoutStore : ILayoutStore

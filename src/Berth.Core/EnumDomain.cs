@@ -1,15 +1,14 @@
 namespace Berth;
 
 /// <summary>
-/// Domain guard for enum values entering the core through programmatic inputs — commands and the
-/// state/descriptor constructors (spec tool-windows, section 5). An out-of-domain value (cast
-/// past the enum's defined members) is a caller error thrown as
-/// <see cref="ArgumentOutOfRangeException"/>, the same precedent as the finite-bounds guard of
-/// TW-5.9: without it the value survives to serialization and breaks
-/// <see cref="LayoutPersistence.Serialize"/> on a state produced by a regular operation. The file
-/// path is domain-checked by <see cref="LayoutPersistence.Deserialize"/> (TW-10.5); a value
-/// injected into the immutable model through <c>with</c>, bypassing these entry points, remains
-/// the caller's responsibility (spec section 5).
+/// Domain guard for enum values entering the core through programmatic inputs — commands and
+/// the state/descriptor constructors. An out-of-domain value (cast past the enum's defined
+/// members) is a caller error thrown as <see cref="ArgumentOutOfRangeException"/>: without the
+/// guard the value would survive to serialization and break
+/// <see cref="LayoutPersistence.Serialize"/> on a state produced by a regular operation. The
+/// file path is domain-checked by <see cref="LayoutPersistence.Deserialize"/>; a value injected
+/// into the immutable model through <c>with</c>, bypassing these entry points, remains the
+/// caller's responsibility.
 /// </summary>
 internal static class EnumDomain
 {
@@ -27,7 +26,7 @@ internal static class EnumDomain
         }
     }
 
-    /// <summary>Guards both members of a slot against their domains (spec TW-1.1).</summary>
+    /// <summary>Guards both members of a slot against their domains.</summary>
     /// <param name="slot">The slot to validate.</param>
     /// <param name="paramName">Name of the offending parameter, for the exception.</param>
     /// <exception cref="ArgumentOutOfRangeException">A member of <paramref name="slot"/> is outside its enum domain.</exception>

@@ -5,14 +5,14 @@ using Avalonia.Styling;
 namespace Berth.Controls;
 
 /// <summary>
-/// Overlay layer of the open Undock tool windows (spec TW-3.3): each entry hugs the side of
+/// Overlay layer of the open Undock tool windows (TW-3.3): each entry hugs the side of
 /// its placement at full extent — a side overlay takes the whole workspace height, including
 /// the bottom pane area; the bottom overlay takes the whole width between the stripes — with
 /// the thickness given by the side's <see cref="SideState.Weight"/> (the docked layer and the
 /// overlay share one side width), clamped to the render minimum (TW-2.8). The overlay paints
 /// above the docked layout on an opaque backdrop — the panels underneath must not show
 /// through — and never affects their sizes. Entries are keyed by window id and reconciled in
-/// place (spec TW-9.13): toggling one overlay never touches the other entries or the docked
+/// place (TW-9.13): toggling one overlay never touches the other entries or the docked
 /// layer beneath.
 /// </summary>
 internal sealed class UndockOverlay : Panel
@@ -123,7 +123,7 @@ internal sealed class UndockOverlay : Panel
         Math.Min(extent, Math.Max(BerthMetrics.MinPaneSize, weight * extent));
 
     /// <summary>
-    /// Opaque backdrop of one overlay entry (spec TW-3.3): the skeleton brushes are
+    /// Opaque backdrop of one overlay entry (TW-3.3): the skeleton brushes are
     /// translucent, so without a backdrop the panels underneath would show through the
     /// overlay. The surface color follows the theme variant; real theming is a later concern.
     /// </summary>
@@ -137,10 +137,10 @@ internal sealed class UndockOverlay : Panel
             UpdateBackground();
         }
 
-        /// <summary>Side the entry hugs (spec TW-3.3).</summary>
+        /// <summary>Side the entry hugs (TW-3.3).</summary>
         public ToolWindowSide Side { get; set; }
 
-        /// <summary>The side weight giving the entry its thickness (spec TW-3.3).</summary>
+        /// <summary>The side weight giving the entry its thickness (TW-3.3).</summary>
         public double Weight { get; set; }
 
         private void UpdateBackground() => Background = ActualThemeVariant == ThemeVariant.Dark

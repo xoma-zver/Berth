@@ -8,58 +8,32 @@ using Avalonia.VisualTree;
 namespace Berth.Controls;
 
 /// <summary>
-/// Root control materializing a <see cref="LayoutState"/> (spec TW-2.1): the stripes at the
-/// left and right edges; between them the side panes and the dock area above the bottom pane,
-/// which spans the full width between the stripes; open Undock windows overlay the workspace
-/// (TW-3.3). The dock area and the content trees of open tool windows materialize their tab
-/// trees by one shared projection (TW-2.1, TW-9.5, DA-9.6): tab groups with strips — a panel
-/// root group's strip lives in the decorator header row, hidden for the degenerate solitary
-/// body (DA-8.4) — splits with splitters, the active tab's content per group; tab hosts come
-/// from a single workspace-wide cache keyed by tab id, so a move between a panel and the dock
-/// area reattaches the same host with its built view. Tab clicks, tab menus, split drags and
-/// tab drag-and-drop reduce to the dock commands (DA-5.2…DA-5.9, DA-9.7, ADR-0004), focus
-/// gains in tab content reduce to ActivateTab (DA-6.4), and Esc inside a tool window returns
-/// focus to the current tab of the active host (TW-6.3). The floating layer materializes on
-/// every attached platform: under a <see cref="Window"/> TopLevel (the desktop, task 6.0) open
-/// Float/Window tool windows become OS windows hosting the same cached decorators (TW-7.1,
-/// TW-7.2) and document windows become independent OS windows projecting their trees over the
-/// same tab-host cache (DA-7.1, DA-9.6); under any other TopLevel (the browser, task 6.1) they
-/// become pseudo-windows in the workspace overlay canvas (TW-7.7, DA-7.5) — a stored Window
-/// mode degrades to an effective Float there (TW-7.6), the stored value never changing. Window
-/// gestures reduce to core commands either way (TW-7.3, DA-7.3, TW-5.9, DA-5.8) and closing
-/// the main window — or detaching the workspace — tears the layer down without commands
-/// (TW-7.5, DA-7.6). The public <see cref="CanFloat"/>/<see cref="CanUseWindowed"/> expose the
-/// platform capabilities of TW-7.6 the menus are built from (TW-5.16).
-/// The control is a pure projection of the state (ADR-0002):
-/// fractions become pixels here and render-time minimums clamp without touching the state
-/// (TW-2.8). Input reduces to core commands (ADR-0004): a stripe icon click toggles openness
-/// (TW-5.4), the decorator buttons close the window and open its menu (TW-5.3, TW-5.16), the
-/// menus change modes and placement (TW-5.16), the «⋯» flyout restores hidden windows
-/// (TW-8.3), and splitter drags are pure visuals until the release commits one resize command
-/// (TW-5.9, TW-2.7 R2). Every command assigns its result back to <see cref="State"/> —
-/// observe user-driven changes with <c>GetObservable(StateProperty)</c>. Activation transfers
-/// keyboard focus into the activated window's content and focus gains inside a window
-/// activate it (TW-6.6); DockUnpinned/Undock windows auto-hide on focus loss and on outside
-/// clicks (TW-6.1, TW-6.2) — wired by an <see cref="AutoHideController"/> on the TopLevel
-/// while the workspace is attached. The application binds its keymap to
-/// <see cref="ActivateToolWindow"/> — the tri-state activation shortcut of TW-5.5 — and may
-/// supply <see cref="ShortcutHintProvider"/> to show the shortcuts in stripe icon tooltips
-/// (TW-6.4).
+/// Root control materializing a <see cref="LayoutState"/>: the stripes at the left and right
+/// edges, the side panes and the dock area between them, the Undock overlay above the docked
+/// layout, and the floating layer — real OS windows under a desktop <see cref="Window"/>,
+/// pseudo-windows in the workspace overlay elsewhere (the browser). The dock area and the
+/// content trees of open tool windows materialize their tab trees by one shared projection
+/// over a single workspace-wide tab-host cache, so a move between a panel and the dock area
+/// reattaches the same host with its built view.
 ///
-/// Materialization is incremental (spec TW-9.13): the visual skeleton is built once, and each
-/// state change is projected as a diff. Tool window hosts (<see cref="ToolWindowDecorator"/>)
-/// are cached per id, updated in place and reattached only when the window actually moves to
-/// another slot or layer, so keyboard focus and view-state are never lost to materialization
-/// itself; sides and pairs collapse and expand around the remaining hosts, and a closed
-/// KeepWhileRegistered host retains its built view until reopening or unregistration. Leaf
-/// chrome — stripe buttons, tab headers, menus, splitters — is rebuilt per update. With a
-/// <see cref="Lifecycle"/> attached, tab content materializes through the coordinator's pull
-/// pass and every gesture command reports its transition to it (TW-9.3). Registry
-/// mutations are invisible to the property system — and the live registration operations of
-/// <see cref="ContentLifecycle"/> may return a value-equal state, which assignment
-/// deduplicates — so call <see cref="Refresh"/> after them. Replacing <see cref="Registry"/>
-/// or <see cref="Lifecycle"/> is a full reconfiguration: the skeleton and the host cache are
-/// rebuilt from scratch and retained views are dropped.
+/// The control is a pure projection of the state: fractions become pixels here, render-time
+/// minimums clamp without touching the state, and materialization is incremental — hosts of
+/// surviving windows and tabs update in place, so keyboard focus and view-state are never
+/// lost to materialization itself; leaf chrome (stripe buttons, tab headers, menus,
+/// splitters) is rebuilt per update. Input reduces to core commands: every completed gesture
+/// applies one command and assigns the result back to <see cref="State"/> — observe
+/// user-driven changes with <c>GetObservable(StateProperty)</c>. Activation transfers
+/// keyboard focus into the activated window's content, focus gains inside a window activate
+/// it, and DockUnpinned/Undock windows auto-hide on focus loss and on outside clicks. The
+/// application binds its keymap to <see cref="ActivateToolWindow"/> and may supply
+/// <see cref="ShortcutHintProvider"/> to show the shortcuts in stripe icon tooltips.
+///
+/// With a <see cref="Lifecycle"/> attached, tab content materializes lazily through the
+/// coordinator's pull pass and every gesture command reports its transition to it. Registry
+/// mutations are invisible to the property system — call <see cref="Refresh"/> after live
+/// registrations. Replacing <see cref="Registry"/> or <see cref="Lifecycle"/> is a full
+/// reconfiguration: the skeleton and the host cache are rebuilt from scratch and retained
+/// views are dropped.
 /// </summary>
 public sealed class BerthWorkspace : Decorator
 {
@@ -107,16 +81,16 @@ public sealed class BerthWorkspace : Decorator
     private bool _definitionApplied;
 
     /// <summary>
-    /// The single tab-host cache of the workspace (spec DA-9.6): shared by the dock area and
+    /// The single tab-host cache of the workspace (DA-9.6): shared by the dock area and
     /// the panel trees, so a move between hosts reattaches the same host with its built view.
     /// </summary>
     internal TabHostCache TabHosts => _tabHosts ??= new TabHostCache(this);
 
-    /// <summary>The drag gesture controller (spec TW-5.17); null until the skeleton is built.</summary>
+    /// <summary>The drag gesture controller (TW-5.17); null until the skeleton is built.</summary>
     internal DragController? Drag => _drag;
 
     /// <summary>
-    /// TopLevels of the workspace in approximate z-order, topmost first (spec TW-5.17, task
+    /// TopLevels of the workspace in approximate z-order, topmost first (TW-5.17, task
     /// 6.2): floating windows above the main window, ordered among themselves by their last
     /// activations, a newly shown one on top — the approximation of the OS z-order, which
     /// the platform does not expose (a v1 assumption). The drag hit-test resolves the top
@@ -147,7 +121,7 @@ public sealed class BerthWorkspace : Decorator
         set => SetValue(StateProperty, value);
     }
 
-    /// <summary>Registrations supplying titles and icons (spec TW-9.1); null renders nothing.</summary>
+    /// <summary>Registrations supplying titles, icons and content factories; null renders nothing.</summary>
     public ToolWindowRegistry? Registry
     {
         get => GetValue(RegistryProperty);
@@ -156,15 +130,14 @@ public sealed class BerthWorkspace : Decorator
 
     /// <summary>
     /// Optional content coordinator. When set, tab content — documents, panel tabs and panel
-    /// bodies via the factory bridge of TW-9.5 — materializes lazily through
-    /// <see cref="ContentLifecycle.MaterializeTab"/> in a pull pass outside the projection
-    /// (spec TW-9.3, DA-9.3): a <see cref="Control"/> content object is hosted directly,
-    /// anything else gets its view built once by the application's data templates and hosted
-    /// for the content's lifetime (TW-9.13, DA-9.6). Every gesture command reports its
-    /// transition to <see cref="ContentLifecycle.NotifyTransition"/> — exactly one call per
-    /// command (ADR-0004); transitions the application performs itself — direct
-    /// <see cref="State"/> assignments, Apply, ResetToDefaults — remain the application's to
-    /// report. Null keeps the static skeleton: tabs stay placeholders.
+    /// bodies — materializes lazily through <see cref="ContentLifecycle.MaterializeTab"/> in a
+    /// pull pass outside the projection: a <see cref="Control"/> content object is hosted
+    /// directly, anything else gets its view built once by the application's data templates
+    /// and hosted for the content's lifetime. Every gesture command reports its transition to
+    /// <see cref="ContentLifecycle.NotifyTransition"/> — exactly one call per command;
+    /// transitions the application performs itself — direct <see cref="State"/> assignments,
+    /// Apply, ResetToDefaults — remain the application's to report. Null keeps the static
+    /// skeleton: tabs stay placeholders.
     /// </summary>
     public ContentLifecycle? Lifecycle
     {
@@ -173,7 +146,7 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Optional markup-declared default composition (task 7.1): when set while
+    /// Optional markup-declared default composition: when set while
     /// <see cref="Registry"/> and <see cref="Lifecycle"/> are unset, the workspace builds the
     /// definition on its first attach and assigns the resulting composition to its own
     /// <see cref="Registry"/>, <see cref="Lifecycle"/> and <see cref="State"/> — the zero-code
@@ -190,11 +163,11 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Optional application-supplied shortcut hints (spec TW-5.5, TW-6.4): maps a tool window
-    /// id to the display string of its activation shortcut, which extends the stripe icon
-    /// tooltip beyond the title. The shortcuts themselves are the application's keymap — bind
-    /// them to <see cref="ActivateToolWindow"/>; the provider only supplies what to display.
-    /// Null — the provider or its result for an id — leaves the tooltip as the bare title.
+    /// Optional application-supplied shortcut hints: maps a tool window id to the display
+    /// string of its activation shortcut, which extends the stripe icon tooltip beyond the
+    /// title. The shortcuts themselves are the application's keymap — bind them to
+    /// <see cref="ActivateToolWindow"/>; the provider only supplies what to display. Null —
+    /// the provider or its result for an id — leaves the tooltip as the bare title.
     /// </summary>
     public Func<string, string?>? ShortcutHintProvider
     {
@@ -203,11 +176,11 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Optional application-supplied tab titles (spec DA-9.6): maps a tab id to the display
-    /// string of its header and placeholder. The layout stores identifiers only (ADR-0003),
-    /// and a title must exist before content materializes and for sleeping tabs (DA-9.4), so
-    /// titles come from the application, not from the content. Null — the provider or its
-    /// result for an id — falls back to the id itself.
+    /// Optional application-supplied tab titles: maps a tab id to the display string of its
+    /// header and placeholder. The layout stores identifiers only, and a title must exist
+    /// before content materializes and for sleeping tabs, so titles come from the application,
+    /// not from the content. Null — the provider or its result for an id — falls back to the
+    /// id itself.
     /// </summary>
     public Func<string, string?>? TabTitleProvider
     {
@@ -216,12 +189,12 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Optional application-supplied suffix of independent window titles (spec TW-7.2,
-    /// DA-7.3): appended as «{Title} - {suffix}» to Window-mode tool windows and to document
-    /// windows — the independent top-levels living in the OS taskbar and Alt-Tab (= IDEA:
-    /// «Title - Project»). The library has no notion of a project (ADR-0003), so the name
-    /// comes from the application — typically the open project or solution. Owned Float
-    /// windows never carry the suffix; null or empty leaves every title bare.
+    /// Optional application-supplied suffix of independent window titles: appended as
+    /// «{Title} - {suffix}» to Window-mode tool windows and to document windows — the
+    /// independent top-levels living in the OS taskbar and Alt-Tab. The library has no notion
+    /// of a project, so the name comes from the application — typically the open project or
+    /// solution. Owned Float windows never carry the suffix; null or empty leaves every title
+    /// bare.
     /// </summary>
     public string? WindowTitleSuffix
     {
@@ -230,22 +203,22 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// The activation shortcut of one tool window (spec TW-5.5) — the public entry the
-    /// application binds its keymap to: a closed window opens and activates, an open inactive
-    /// one activates, an open active one closes. «Active» is decided by keyboard focus lying
-    /// logically within the window or its stripe icon — the equivalent of the reference, whose
-    /// active id derives from focus; the stored <see cref="LayoutState.ActiveToolWindowId"/>
-    /// lags behind focus (TW-6.6: with focus in another window it still names the previous
-    /// active) and a check against it would close a window without focus. Runs through the
-    /// command channel: activation
-    /// transfers focus into the content (TW-6.6) and the transition is reported to
-    /// <see cref="Lifecycle"/> once (ADR-0004). A no-op without a state; an id absent from
-    /// the layout is a caller error, as in the core operations.
+    /// The activation shortcut of one tool window — the public entry the application binds
+    /// its keymap to: a closed window opens and activates, an open inactive one activates, an
+    /// open active one closes. «Active» is decided by keyboard focus lying logically within
+    /// the window or its stripe icon, not by the stored
+    /// <see cref="LayoutState.ActiveToolWindowId"/> — the field lags behind focus, and a check
+    /// against it would close a window without focus. Runs through the command channel:
+    /// activation transfers focus into the content and the transition is reported to
+    /// <see cref="Lifecycle"/> once. A no-op without a state; an id absent from the layout is
+    /// a caller error, as in the core operations.
     /// </summary>
     /// <param name="id">Id of a tool window present in the layout.</param>
     /// <exception cref="ArgumentException">The id is empty, or no such tool window exists in the layout.</exception>
     public void ActivateToolWindow(string id)
     {
+        // TW-5.5 (tri-state logic by focus), TW-6.6 (focus transfer), TW-6.1 (auto-hide stays
+        // reachable through the command channel).
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         if (State is not { } state)
         {
@@ -271,8 +244,8 @@ public sealed class BerthWorkspace : Decorator
     /// return a state value-equal to the current one while titles, icons and claims changed,
     /// and the property system deduplicates equal assignments. Sleeping dock tabs re-resolve
     /// their owners on every projection, so a refresh after a live registration also wakes
-    /// them up (DA-9.4). Core layout commands need no explicit refresh beyond assigning their
-    /// result to <see cref="State"/>.
+    /// them up. Core layout commands need no explicit refresh beyond assigning their result
+    /// to <see cref="State"/>.
     /// </summary>
     public void Refresh() => Sync();
 
@@ -327,7 +300,7 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// The dock side of the focus contract (spec DA-9.6, DA-E21, TW-6.3): when the command
+    /// The dock side of the focus contract (DA-9.6, DA-E21, TW-6.3): when the command
     /// left keyboard focus dangling — the focused element was detached together with its
     /// host — the command channel restores it: into the same tab's content after a legal
     /// reattachment (the mirror of TW-6.6), or into the current tab of the effective active
@@ -388,7 +361,7 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Focuses the current tab of the effective active host (spec TW-6.3, DA-E21): the active
+    /// Focuses the current tab of the effective active host (TW-6.3, DA-E21): the active
     /// dock host when its window is materialized — a real window or a pseudo-window — else
     /// the main window: a stored ActiveDockHost pointing at a document window degrades in
     /// presentation only on a platform where document windows never materialize (DA-6.4).
@@ -399,7 +372,7 @@ public sealed class BerthWorkspace : Decorator
         State is { } state && _tabHosts?.TryFocusTab(CurrentTabOfActiveHost(state)) == true;
 
     /// <summary>
-    /// Current tab of the effective active host (spec DA-6.4): the active dock host's own
+    /// Current tab of the effective active host (DA-6.4): the active dock host's own
     /// current tab when document windows are materialized (real or pseudo, tasks 6.0/6.1),
     /// else the main window's — the presentation degradation of a platform without either.
     /// </summary>
@@ -414,7 +387,7 @@ public sealed class BerthWorkspace : Decorator
     internal void FocusTab(string id) => _tabHosts?.TryFocusTab(id);
 
     /// <summary>
-    /// The focus transfer of a completed float take-out (spec TW-7.8): the same rules as
+    /// The focus transfer of a completed float take-out (TW-7.8): the same rules as
     /// command activation (TW-6.6) — a no-op when the focus is already inside the window or
     /// the host is not attached. Needed explicitly because the activating Open of an already
     /// active window does not change the stored active id, so the command funnel alone would
@@ -424,7 +397,7 @@ public sealed class BerthWorkspace : Decorator
 
     /// <summary>
     /// Whether the command factually reattached the window's host: open before and after with
-    /// the slot or the layer changed — the reattachment whitelist of spec TW-9.13
+    /// the slot or the layer changed — the reattachment whitelist of TW-9.13
     /// (DockPinned ↔ DockUnpinned changes neither and never touches the host).
     /// </summary>
     private static bool WasReattached(LayoutState before, LayoutState after, string id)
@@ -444,7 +417,7 @@ public sealed class BerthWorkspace : Decorator
 
     /// <summary>
     /// Whether the window's content is hosted in the workspace layout: open in a docked or
-    /// overlay mode (spec TW-3.2) — or in a floating mode while the floating layer is
+    /// overlay mode (TW-3.2) — or in a floating mode while the floating layer is
     /// materialized (real windows or overlay pseudo-windows, tasks 6.0/6.1). The shared gate
     /// of the decorator projection, its tree materialization and the pull pass.
     /// </summary>
@@ -452,21 +425,20 @@ public sealed class BerthWorkspace : Decorator
         window.IsOpen && (window.Mode.GetLayer() != ToolWindowLayer.Floating || _floating is not null);
 
     /// <summary>
-    /// Whether the platform hosts the Float mode (spec TW-7.6): true while the workspace is
-    /// attached — as a real owned window on the desktop (TW-7.1, task 6.0) or as a
-    /// pseudo-window in the workspace overlay elsewhere (TW-7.7, task 6.1). Document windows
-    /// materialize under the same condition (DA-7.3, DA-7.5). Read-only: the value reflects
-    /// the platform, not a configuration (owner decision, task 6.1). Menus are built from the
-    /// capabilities (TW-5.16); the stored <see cref="ToolWindowMode"/> never degrades — only
-    /// the effective presentation does (<see cref="ToolWindowModeExtensions.GetEffectiveMode"/>).
+    /// Whether the platform hosts the Float mode: true while the workspace is attached — as a
+    /// real owned window on the desktop or as a pseudo-window in the workspace overlay
+    /// elsewhere. Document windows materialize under the same condition. Read-only: the value
+    /// reflects the platform, not a configuration. Menus are built from the capabilities; the
+    /// stored <see cref="ToolWindowMode"/> never degrades — only the effective presentation
+    /// does (<see cref="ToolWindowModeExtensions.GetEffectiveMode"/>).
     /// </summary>
-    public bool CanFloat => _floating is not null;
+    public bool CanFloat => _floating is not null; // TW-7.6/TW-7.7 capabilities
 
     /// <summary>
-    /// Whether the platform hosts the Window mode — an independent top-level window (spec
-    /// TW-7.2, TW-7.6): true while the workspace is attached under a real
-    /// <see cref="Window"/> TopLevel; false in the browser, where a stored Window presents as
-    /// an effective Float pseudo-window (TW-7.7). Read-only, like <see cref="CanFloat"/>.
+    /// Whether the platform hosts the Window mode — an independent top-level window: true
+    /// while the workspace is attached under a real <see cref="Window"/> TopLevel; false in
+    /// the browser, where a stored Window presents as an effective Float pseudo-window.
+    /// Read-only, like <see cref="CanFloat"/>.
     /// </summary>
     public bool CanUseWindowed => _floating?.IsWindowed == true;
 
@@ -478,7 +450,7 @@ public sealed class BerthWorkspace : Decorator
     internal bool ForceOverlayFloating { get; set; }
 
     /// <summary>
-    /// Test seam: forces the frameless Float presentation of spec TW-7.1 off Windows — the
+    /// Test seam: forces the frameless Float presentation of TW-7.1 off Windows — the
     /// platform gate is unreachable in cross-platform headless runs. Read when the floating
     /// layer is created (attach, Reset); set before attaching.
     /// </summary>
@@ -490,7 +462,7 @@ public sealed class BerthWorkspace : Decorator
     /// <summary>
     /// Current bounds of a hosted tool window's content — what the UI passes to
     /// <see cref="LayoutOperations.SetMode"/> when a window enters Float/Window without saved
-    /// bounds (spec TW-5.6): the core never invents pixels (ADR-0002). Screen coordinates on
+    /// bounds (TW-5.6): the core never invents pixels (ADR-0002). Screen coordinates on
     /// a platform with real windows; workspace coordinates on the overlay platform, whose
     /// «screen» is the workspace itself (TW-7.7). Null for a detached host.
     /// </summary>
@@ -541,7 +513,7 @@ public sealed class BerthWorkspace : Decorator
     /// <summary>
     /// The docked center area — the workspace between the stripes, holding the side panes,
     /// the dock area and the Undock overlay — in workspace coordinates; the geometry base of
-    /// the post-drop zone preview (spec TW-5.17 v0.26, <see cref="DockZonePreview"/>). Null
+    /// the post-drop zone preview (TW-5.17 v0.26, <see cref="DockZonePreview"/>). Null
     /// until the skeleton is built and laid out.
     /// </summary>
     internal Rect? DockedAreaRect()
@@ -557,7 +529,7 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// Builds the dock assist of a panel window's live move gesture (spec TW-7.7 extension,
+    /// Builds the dock assist of a panel window's live move gesture (TW-7.7 extension,
     /// TW-7.1): the stripe drop targets the panel may dock into, over the gesture space of the
     /// current floating layer — the workspace for a <see cref="PseudoWindow"/> header move on
     /// the overlay platform, screen coordinates for the frameless Float window of the windowed
@@ -653,7 +625,7 @@ public sealed class BerthWorkspace : Decorator
 
     /// <summary>
     /// Activates the window hosting the visual, when it is a floating window of the workspace
-    /// (spec TW-6.6, DA-6.4): a focus target in another OS window activates that window first
+    /// (TW-6.6, DA-6.4): a focus target in another OS window activates that window first
     /// (inert in headless runs, where every window reports active); a target inside a
     /// pseudo-window raises it in z-order — the overlay equivalent (TW-7.7).
     /// </summary>
@@ -672,7 +644,7 @@ public sealed class BerthWorkspace : Decorator
     }
 
     /// <summary>
-    /// The focus transfer of spec TW-6.6: keyboard focus moves into the activated window's
+    /// The focus transfer of TW-6.6: keyboard focus moves into the activated window's
     /// content — unless it is already inside (activation never re-arranges focus within the
     /// window) or the window has no attached host (a floating-mode record on a platform
     /// without real windows). A host living in a floating window activates its OS window
@@ -780,7 +752,7 @@ public sealed class BerthWorkspace : Decorator
 
     /// <summary>
     /// Detaches a host from its current parent — the step before a legitimate reattachment
-    /// (spec TW-9.13: another slot or layer). On a platform with real windows the old
+    /// (TW-9.13: another slot or layer). On a platform with real windows the old
     /// window's layout queue is drained right here, while the control is detached: the
     /// detach/attach transition itself leaves entries for the moving control in the old
     /// root's LayoutManager, and a manager whose queue still names a control that meanwhile
@@ -841,7 +813,7 @@ public sealed class BerthWorkspace : Decorator
         }
     }
 
-    /// <summary>The incremental projection of spec TW-9.13: hosts update in place, geometry relays around them.</summary>
+    /// <summary>The incremental projection of TW-9.13: hosts update in place, geometry relays around them.</summary>
     private void Sync()
     {
         if (State is not { } state || Registry is not { } registry)
@@ -907,7 +879,7 @@ public sealed class BerthWorkspace : Decorator
         _drag?.OnProjectionUpdated(state);
     }
 
-    /// <summary>The cached persistent host of one tool window (spec TW-9.13), created on first need.</summary>
+    /// <summary>The cached persistent host of one tool window (TW-9.13), created on first need.</summary>
     internal ToolWindowDecorator GetHost(string id)
     {
         if (!_hosts.TryGetValue(id, out var host))

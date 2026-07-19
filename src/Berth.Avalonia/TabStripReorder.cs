@@ -5,11 +5,11 @@ using Avalonia.Media;
 
 namespace Berth.Controls;
 
-/// <summary>One tab header of a strip band as the target catalog captured it: the live control plus its natural bounds in gesture coordinates (spec DA-9.7 v0.18).</summary>
+/// <summary>One tab header of a strip band as the target catalog captured it: the live control plus its natural bounds in gesture coordinates (DA-9.7 v0.18).</summary>
 internal readonly record struct StripHeaderView(DockTabHeader Header, Rect Rect);
 
 /// <summary>
-/// One strip band of the target catalog (spec DA-9.7 v0.18): the band control — a group's
+/// One strip band of the target catalog (DA-9.7 v0.18): the band control — a group's
 /// tab bar or the decorator header row hosting a panel root group's strip (TW-9.5) — with
 /// its rectangle in gesture coordinates and its headers in visual order. Captured per
 /// catalog build; an external re-projection rebuilds the catalog over fresh leaf chrome,
@@ -19,7 +19,7 @@ internal readonly record struct StripHeaderView(DockTabHeader Header, Rect Rect)
 internal sealed record StripBandView(Control Band, Rect Rect, ImmutableArray<StripHeaderView> Headers);
 
 /// <summary>
-/// The live reorder-preview payload of one strip insertion zone (spec DA-9.7 v0.18): the
+/// The live reorder-preview payload of one strip insertion zone (DA-9.7 v0.18): the
 /// receiving band with the encoded insertion predecessor, plus the donor band holding the
 /// dragged tab's header when that is a different band — its collapse travels with every
 /// strip zone of a cross-strip hover. Pure catalog data; applying and clearing the visual
@@ -29,7 +29,7 @@ internal sealed record StripReorderPreview(
     string DraggedId, StripBandView Receiver, string? PredecessorId, StripBandView? Donor);
 
 /// <summary>
-/// Override engine of the live strip reorder preview (spec DA-9.7 v0.18): over a strip
+/// Override engine of the live strip reorder preview (DA-9.7 v0.18): over a strip
 /// insertion zone the headers move apart and the dragged header's place collapses — in the
 /// receiving band, and in the donor band of a cross-strip hover alike. Everything is a pure
 /// visual override of leaf chrome (the section 12 contract of tool-windows): shifts are

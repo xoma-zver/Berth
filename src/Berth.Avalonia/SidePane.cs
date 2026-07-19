@@ -5,10 +5,10 @@ namespace Berth.Controls;
 /// <summary>
 /// Persistent docked pane of one workspace side: hosts the open docked-layer tool windows of
 /// the side — at most one per group (INV-2) — in two fixed cells with a pair splitter between
-/// them, stacked vertically on the left/right sides (Primary on top, spec TW-2.3) and
+/// them, stacked vertically on the left/right sides (Primary on top, TW-2.3) and
 /// horizontally on the bottom (Primary on the left, TW-2.4). A closed group's cell collapses to
 /// zero instead of leaving the tree, so forming or dissolving the pair never reattaches the
-/// remaining window's host (spec TW-9.13); an open pair splits at the derived ratio of rule R1
+/// remaining window's host (TW-9.13); an open pair splits at the derived ratio of rule R1
 /// (<see cref="LayoutState.GetPairRatio"/>, TW-2.7). Minimum sizes clamp at render only
 /// (TW-2.8); releasing a pair splitter drag commits rule R2 as one SetSideRatio (TW-5.9).
 /// </summary>

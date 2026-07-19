@@ -6,19 +6,18 @@ using System.Text.Json;
 namespace Berth;
 
 /// <summary>
-/// JSON serialization of <see cref="LayoutState"/> (spec TW-10.1, TW-10.5, DA-9.5). The wire
-/// format is hand-mapped over the System.Text.Json reader and writer — no binding layer — so
-/// it is pinned here explicitly, never follows C# refactorings, and is guarded by golden tests.
-/// <see cref="Deserialize"/> returns the raw state without repairs: value-level defects the
-/// model can represent — a non-numeric number (→ NaN), a dangling reference, a negative
-/// order — load as-is and are repaired by <see cref="LayoutApply.Apply"/> with a report, while
-/// values outside the domain of the typed model raise <see cref="LayoutFormatException"/>
-/// (TW-10.5). Unknown fields are ignored on read (the schema evolution rule of TW-10.5);
-/// unknown entities round-trip as sleeping states and sleeping tabs (TW-10.2, DA-9.4).
+/// JSON serialization of <see cref="LayoutState"/>. The wire format is hand-mapped over the
+/// System.Text.Json reader and writer — no binding layer — so it is pinned here explicitly,
+/// never follows C# refactorings, and is guarded by golden tests. <see cref="Deserialize"/>
+/// returns the raw state without repairs: value-level defects the model can represent — a
+/// non-numeric number (→ NaN), a dangling reference, a negative order — load as-is and are
+/// repaired by <see cref="LayoutApply.Apply"/> with a report, while values outside the domain
+/// of the typed model raise <see cref="LayoutFormatException"/>. Unknown fields are ignored on
+/// read; unknown entities round-trip as sleeping states and sleeping tabs.
 /// </summary>
 public static class LayoutPersistence
 {
-    /// <summary>Version of the document schema written by <see cref="Serialize"/> and required by <see cref="Deserialize"/> (spec TW-10.1, TW-10.5).</summary>
+    /// <summary>Version of the document schema written by <see cref="Serialize"/> and required by <see cref="Deserialize"/>.</summary>
     public const int SchemaVersion = 1;
 
     private static readonly JsonWriterOptions WriterOptions = new()
@@ -61,7 +60,7 @@ public static class LayoutPersistence
         ["column"] = SplitOrientation.Column,
     };
 
-    /// <summary>Serializes a layout to the versioned JSON document (spec TW-10.1). The output is deterministic: fixed property order, two-space indentation, LF line endings, culture-invariant numbers (golden tests).</summary>
+    /// <summary>Serializes a layout to the versioned JSON document. The output is deterministic: fixed property order, two-space indentation, LF line endings, culture-invariant numbers.</summary>
     /// <param name="state">The layout to serialize; core-produced states are always serializable, non-finite numbers in a hand-constructed state are a caller error.</param>
     public static string Serialize(LayoutState state)
     {
@@ -76,10 +75,9 @@ public static class LayoutPersistence
     }
 
     /// <summary>
-    /// Parses the versioned JSON document into a raw <see cref="LayoutState"/> (spec TW-10.5,
-    /// DA-9.5). The result is not repaired — pass it through <see cref="LayoutApply.Apply"/>,
-    /// the single normalization gate. Fields absent from the document take their defaults;
-    /// unknown fields are ignored.
+    /// Parses the versioned JSON document into a raw <see cref="LayoutState"/>. The result is
+    /// not repaired — pass it through <see cref="LayoutApply.Apply"/>, the single normalization
+    /// gate. Fields absent from the document take their defaults; unknown fields are ignored.
     /// </summary>
     /// <param name="json">The document text.</param>
     /// <exception cref="LayoutFormatException">The document is not parseable JSON, its root is not an object, the schema version is missing or unsupported, or a value lies outside the domain of the typed model.</exception>
