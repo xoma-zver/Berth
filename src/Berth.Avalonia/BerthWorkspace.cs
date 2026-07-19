@@ -257,14 +257,44 @@ public sealed class BerthWorkspace : Decorator
     public void Refresh() => Sync();
 
     /// <summary>
+    /// Cap on the synchronous nesting depth of <see cref="Execute"/> (TW-9.14). Commands nest
+    /// through the focus reactions of activation — Execute → focus transfer (TW-6.6) →
+    /// GotFocus → Execute (DA-6.4, TW-6.1) — legally two or three levels deep; each level
+    /// runs its own bounded projection, so <see cref="MaxProjectionPasses"/> does not bound
+    /// this stack. The wiring keeps the recursion finite (nested commands never activate
+    /// another window), but only by discipline: a wiring regression would die as an
+    /// uncatchable stack overflow, and the cap turns it into a diagnosable failure.
+    /// </summary>
+    private const int MaxCommandDepth = 8;
+
+    private int _executeDepth;
+
+    /// <summary>
     /// Applies one core command to the live <see cref="State"/> and assigns the result back —
     /// the single funnel of every completed input gesture (ADR-0004). A no-op without a state.
     /// One gesture is one command, so the transition report satisfies the one-call-per-operation
     /// contract of <see cref="ContentLifecycle.NotifyTransition"/> by construction (TW-9.2).
+    /// Commands nesting through focus reactions deeper than <see cref="MaxCommandDepth"/>
+    /// fail loudly (TW-9.14).
     /// </summary>
+    /// <exception cref="InvalidOperationException">The nesting exceeded <see cref="MaxCommandDepth"/>.</exception>
     internal void Execute(Func<LayoutState, LayoutState> command)
     {
-        if (State is { } state)
+        if (State is not { } state)
+        {
+            return;
+        }
+
+        if (_executeDepth == MaxCommandDepth)
+        {
+            throw new InvalidOperationException(
+                $"Commands nested deeper than {MaxCommandDepth} levels: a focus-reaction cycle keeps issuing "
+                + "commands (TW-9.14) — e.g. an activation whose focus transfer re-activates what another "
+                + "reaction keeps deactivating.");
+        }
+
+        _executeDepth++;
+        try
         {
             // Captured before the command: the whitelisted reattachment of TW-9.13 below
             // loses keyboard focus as a side effect, so only the pre-command position can
@@ -284,7 +314,8 @@ public sealed class BerthWorkspace : Decorator
             // The focus transfer of activation (TW-6.6) runs last: a nested command raised
             // by the focus change — the auto-hide close of the focus loser (TW-6.1) — then
             // reports its own transition after this one, in gesture order. Recursion is
-            // finite: the nested commands never activate another window.
+            // finite by wiring — the nested commands never activate another window — and
+            // bounded by MaxCommandDepth either way (TW-9.14).
             if (result.ActiveToolWindowId is { } active)
             {
                 if (!string.Equals(active, state.ActiveToolWindowId, StringComparison.Ordinal))
@@ -303,6 +334,10 @@ public sealed class BerthWorkspace : Decorator
             }
 
             RestoreDockFocus(focusedBefore, tabHostBefore, panelBefore, state, result);
+        }
+        finally
+        {
+            _executeDepth--;
         }
     }
 

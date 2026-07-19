@@ -147,6 +147,70 @@ public class ProjectionReentrancyTests
         Assert.Contains("TW-9.14", oscillation.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>Panel body that answers its own focus gain by activating the rival panel — the DA-6.4-style reaction gone cyclic.</summary>
+    private sealed class ActivateRivalOnFocus : TextBox
+    {
+        public BerthWorkspace? Workspace { get; set; }
+
+        public string? Rival { get; set; }
+
+        protected override void OnGotFocus(Avalonia.Input.FocusChangedEventArgs e)
+        {
+            base.OnGotFocus(e);
+            if (Workspace is { } workspace && Rival is { } rival)
+            {
+                workspace.Execute(s => s.Open(rival));
+            }
+        }
+    }
+
+    private sealed class BodyFactory(Func<string, object> create) : IToolWindowContentFactory
+    {
+        public object CreateContent(string toolWindowId) => create(toolWindowId);
+
+        public void ReleaseContent(string toolWindowId, object content)
+        {
+        }
+    }
+
+    [AvaloniaFact]
+    public void TW_9_14_focus_reaction_ping_pong_on_the_command_stack_fails_loudly()
+    {
+        var registry = new ToolWindowRegistry();
+        var lifecycle = new ContentLifecycle(registry);
+        var bodies = new Dictionary<string, ActivateRivalOnFocus>(StringComparer.Ordinal);
+        var factory = new BodyFactory(id => bodies[id] = new ActivateRivalOnFocus());
+        var state = lifecycle.Register(LayoutState.Empty, new ToolWindowDescriptor(
+            "a", "Alpha", new ToolWindowSlot(ToolWindowSide.Left, ToolWindowGroup.Primary))
+        {
+            ContentFactory = factory,
+        });
+        state = lifecycle.Register(state, new ToolWindowDescriptor(
+            "b", "Beta", new ToolWindowSlot(ToolWindowSide.Right, ToolWindowGroup.Primary))
+        {
+            ContentFactory = factory,
+        });
+        state = state with { ToolWindows = [.. state.ToolWindows.Select(w => w with { IsOpen = true })] };
+        var main = Show(state, registry, lifecycle: lifecycle);
+        var workspace = Workspace(main);
+        // The two-stroke cycle on the Execute stack, past the projection funnel: activation
+        // transfers focus into the panel content (TW-6.6), whose focus gain activates the
+        // rival — every nesting level runs its own bounded projection, so the pass cap
+        // bounds nothing here; only the command-depth cap can stop the recursion before it
+        // dies as an uncatchable stack overflow.
+        bodies["a"].Workspace = workspace;
+        bodies["a"].Rival = "b";
+        bodies["b"].Workspace = workspace;
+        bodies["b"].Rival = "a";
+
+        var pingPong = Assert.Throws<InvalidOperationException>(() => workspace.Execute(s => s.Open("a")));
+
+        // The command-depth cap fired, not the pass cap: the recursion runs past the
+        // projection funnel, one complete bounded pass per nesting level.
+        Assert.Contains("Commands nested deeper", pingPong.Message, StringComparison.Ordinal);
+        Assert.Contains("TW-9.14", pingPong.Message, StringComparison.Ordinal);
+    }
+
     [AvaloniaFact]
     public void TW_9_14_registry_swap_during_projection_defers_the_cache_teardown()
     {
