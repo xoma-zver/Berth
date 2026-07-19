@@ -1,4 +1,1 @@
 #nullable enable
-Berth.Controls.BerthWorkspace.WindowTitleSuffix.get -> string?
-Berth.Controls.BerthWorkspace.WindowTitleSuffix.set -> void
-static readonly Berth.Controls.BerthWorkspace.WindowTitleSuffixProperty -> Avalonia.StyledProperty<string?>!

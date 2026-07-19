@@ -9,6 +9,9 @@ tab groups, floating windows, and layout save/restore.
 Deliberately **not** free-form docking: strict rules → an enumerable
 state space → reliability.
 
+[![NuGet](https://img.shields.io/nuget/v/Berth.Avalonia.svg?logo=nuget&label=Berth.Avalonia)](https://www.nuget.org/packages/Berth.Avalonia)
+[![Downloads](https://img.shields.io/nuget/dt/Berth.Avalonia.svg)](https://www.nuget.org/packages/Berth.Avalonia)
+[![CI](https://github.com/xoma-zver/Berth/actions/workflows/ci.yml/badge.svg)](https://github.com/xoma-zver/Berth/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Avalonia](https://img.shields.io/badge/Avalonia-12.0-8b44ac.svg)](https://avaloniaui.net)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512bd4.svg)](https://dotnet.microsoft.com)

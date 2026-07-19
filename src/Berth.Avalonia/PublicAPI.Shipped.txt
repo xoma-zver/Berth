@@ -85,3 +85,6 @@ Berth.Controls.ToolWindowDefinition.Title.get -> string?
 Berth.Controls.ToolWindowDefinition.Title.set -> void
 Berth.Controls.ToolWindowDefinition.ToolWindowDefinition() -> void
 static readonly Berth.Controls.BerthWorkspace.DefinitionProperty -> Avalonia.StyledProperty<Berth.Controls.BerthLayoutDefinition?>!
+Berth.Controls.BerthWorkspace.WindowTitleSuffix.get -> string?
+Berth.Controls.BerthWorkspace.WindowTitleSuffix.set -> void
+static readonly Berth.Controls.BerthWorkspace.WindowTitleSuffixProperty -> Avalonia.StyledProperty<string?>!
