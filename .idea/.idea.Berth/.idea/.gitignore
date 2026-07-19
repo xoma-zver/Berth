@@ -19,3 +19,5 @@
 /deploymentTargetSelector.xml
 /deviceManager.xml
 /libraries/
+# Name
+/.name
