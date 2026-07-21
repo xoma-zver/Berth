@@ -1,5 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Styling;
@@ -142,6 +145,62 @@ public class ThemingTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.Same(BerthBrushes.DarkOverlaySurface, backdrop.Background);
+    }
+
+    [AvaloniaFact]
+    public void A_transient_drop_marker_resolves_its_token_at_show_time()
+    {
+        // The drop marker is a transient gesture visual: its brush alternates per show
+        // (area vs. line), so it resolves the token one-shot through ThemeTokens.Brush
+        // (TryFindResource) rather than a binding — a distinct path from the bound tokens.
+        // A stripe zone paints the area marker with DropAreaPreview; DropMarker (the line)
+        // rides the identical one-shot mechanism, only the key differs.
+        var state = LayoutState.Empty with
+        {
+            ToolWindows = [Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true }],
+        };
+        var window = ShowConfigured(state, Registry("a"), w => w.Resources[BerthThemeKeys.DropAreaPreview] = Red);
+
+        // Drag the icon to the empty Right.Primary stripe zone — the area marker shows there.
+        var start = Center(Button(window, "a"), window);
+        var stripe = BoundsIn(Part(window, "PART_RightStripe"), window);
+        window.MouseDown(start, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        window.MouseMove(new Point(stripe.Center.X, stripe.Top + 5));
+        Dispatcher.UIThread.RunJobs();
+
+        var marker = (Border)Part(window, "PART_DropMarker");
+        Assert.True(marker.IsVisible);
+        Assert.Same(Red, marker.Background); // the override is honored at show time
+
+        window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        window.MouseUp(new Point(stripe.Center.X, stripe.Top + 5), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void A_transient_drop_marker_defaults_to_the_built_in_brush()
+    {
+        var state = LayoutState.Empty with
+        {
+            ToolWindows = [Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true }],
+        };
+        var window = Show(state, Registry("a"));
+
+        var start = Center(Button(window, "a"), window);
+        var stripe = BoundsIn(Part(window, "PART_RightStripe"), window);
+        window.MouseDown(start, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        window.MouseMove(new Point(stripe.Center.X, stripe.Top + 5));
+        Dispatcher.UIThread.RunJobs();
+
+        var marker = (Border)Part(window, "PART_DropMarker");
+        Assert.True(marker.IsVisible);
+        Assert.Same(BerthBrushes.DropAreaPreview, marker.Background);
+
+        window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        window.MouseUp(new Point(stripe.Center.X, stripe.Top + 5), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]
