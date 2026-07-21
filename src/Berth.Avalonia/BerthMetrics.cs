@@ -62,8 +62,11 @@ internal static class BerthMetrics
 }
 
 /// <summary>
-/// Theme-agnostic brushes of the static skeleton: translucent grays legible on light and dark
-/// backgrounds alike. Real theming is a later concern — nothing here is public.
+/// Built-in defaults of the design tokens (<see cref="BerthThemeKeys"/>): theme-agnostic
+/// translucent grays legible on light and dark backgrounds alike, plus the per-variant opaque
+/// overlay surfaces. Controls never read these directly — they resolve the token resources
+/// through <see cref="ThemeTokens"/>, and these values apply only as fallbacks when the
+/// application defines no resource under the key.
 /// </summary>
 internal static class BerthBrushes
 {

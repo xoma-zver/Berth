@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Styling;
 
 namespace Berth.Controls;
 
@@ -123,9 +122,9 @@ internal sealed class UndockOverlay : Panel
         Math.Min(extent, Math.Max(BerthMetrics.MinPaneSize, weight * extent));
 
     /// <summary>
-    /// Opaque backdrop of one overlay entry (TW-3.3): the skeleton brushes are
-    /// translucent, so without a backdrop the panels underneath would show through the
-    /// overlay. The surface color follows the theme variant; real theming is a later concern.
+    /// Opaque backdrop of one overlay entry (TW-3.3): the default brushes are translucent,
+    /// so without a backdrop the panels underneath would show through the overlay. The
+    /// surface follows the token with a theme-variant default (<see cref="ThemeTokens.BindSurface"/>).
     /// </summary>
     private sealed class OverlayBackdrop : Border
     {
@@ -133,8 +132,7 @@ internal sealed class UndockOverlay : Panel
         {
             Name = "PART_OverlayBackdrop";
             Child = child;
-            ActualThemeVariantChanged += (_, _) => UpdateBackground();
-            UpdateBackground();
+            ThemeTokens.BindSurface(this);
         }
 
         /// <summary>Side the entry hugs (TW-3.3).</summary>
@@ -142,9 +140,5 @@ internal sealed class UndockOverlay : Panel
 
         /// <summary>The side weight giving the entry its thickness (TW-3.3).</summary>
         public double Weight { get; set; }
-
-        private void UpdateBackground() => Background = ActualThemeVariant == ThemeVariant.Dark
-            ? BerthBrushes.DarkOverlaySurface
-            : BerthBrushes.LightOverlaySurface;
     }
 }

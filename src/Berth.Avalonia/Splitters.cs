@@ -16,12 +16,13 @@ internal static class Splitters
         var splitter = new GridSplitter
         {
             Name = name,
-            Background = BerthBrushes.Separator,
             ResizeDirection = direction,
             Focusable = false, // keyboard resize would bypass the release commit
             MinWidth = 0, // theme minimums would widen the 4px separator
             MinHeight = 0,
         };
+        ThemeTokens.BindBrush(
+            splitter, GridSplitter.BackgroundProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
         if (direction == GridResizeDirection.Rows)
         {
             splitter.Height = BerthMetrics.SplitterThickness;

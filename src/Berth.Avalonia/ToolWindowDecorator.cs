@@ -30,6 +30,7 @@ public sealed class ToolWindowDecorator : Decorator
     private readonly Button _menuButton;
     private readonly Border _headerBorder;
     private readonly Border _content;
+    private IDisposable? _headerBackground;
     private bool _headerPressed;
 
     internal ToolWindowDecorator(string id, BerthWorkspace workspace)
@@ -82,10 +83,10 @@ public sealed class ToolWindowDecorator : Decorator
         {
             Name = "PART_Header",
             Child = header,
-            Background = BerthBrushes.Pane,
-            BorderBrush = BerthBrushes.Separator,
             BorderThickness = new Thickness(0, 0, 0, 1),
         };
+        ThemeTokens.BindBrush(
+            _headerBorder, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
         DockPanel.SetDock(_headerBorder, Dock.Top);
 
         _content = new Border { Name = "PART_Content" };
@@ -93,13 +94,14 @@ public sealed class ToolWindowDecorator : Decorator
         root.Children.Add(_headerBorder);
         root.Children.Add(_content);
 
-        Child = new Border
+        var outer = new Border
         {
             Child = root,
-            Background = BerthBrushes.Pane,
-            BorderBrush = BerthBrushes.Separator,
             BorderThickness = new Thickness(1),
         };
+        ThemeTokens.BindBrush(outer, Border.BackgroundProperty, BerthThemeKeys.Pane, BerthBrushes.Pane);
+        ThemeTokens.BindBrush(outer, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
+        Child = outer;
     }
 
     /// <summary>Id of the hosted tool window.</summary>
@@ -119,9 +121,15 @@ public sealed class ToolWindowDecorator : Decorator
         Title = descriptor?.Title ?? window.Id;
         _titleText.Text = Title;
         // The active-window accent is the theme-discretion indication of TW-6.4; the
-        // pseudo-class is the theming hook.
+        // pseudo-class is the theming hook. The decorator is persistent chrome, so the
+        // conditional token binding is replaced per update — the previous one is disposed.
         PseudoClasses.Set(":active", isActive);
-        _headerBorder.Background = isActive ? BerthBrushes.ActiveHeader : BerthBrushes.Pane;
+        _headerBackground?.Dispose();
+        _headerBackground = isActive
+            ? ThemeTokens.BindBrush(
+                _headerBorder, Border.BackgroundProperty, BerthThemeKeys.ActiveHeader, BerthBrushes.ActiveHeader)
+            : ThemeTokens.BindBrush(
+                _headerBorder, Border.BackgroundProperty, BerthThemeKeys.Pane, BerthBrushes.Pane);
         var menu = ToolWindowMenus.BuildWindowMenu(window, _workspace);
         _menuButton.Flyout = menu;
         _headerBorder.ContextFlyout = menu;

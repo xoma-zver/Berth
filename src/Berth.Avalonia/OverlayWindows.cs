@@ -4,7 +4,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -323,11 +322,12 @@ internal sealed class PseudoWindow : Border
     {
         _workspace = workspace;
         Name = "PART_PseudoWindow";
-        BorderBrush = BerthBrushes.Separator;
         BorderThickness = new Thickness(1);
         Padding = new Thickness(ResizeBand - 1);
-        ActualThemeVariantChanged += (_, _) => UpdateSurface();
-        UpdateSurface();
+        ThemeTokens.BindBrush(this, BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
+        // The default brushes are translucent; a pseudo-window needs an opaque surface
+        // (TW-7.7: nothing shows through) — the token with a theme-variant default.
+        ThemeTokens.BindSurface(this);
         // handledEventsToo: the workspace drag controller marks bare tab-header presses
         // handled earlier on the same tunnel (the press-focus deferral of DA-9.7), and such a
         // press must still raise the pseudo-window (TW-6.6, task 6.2).
@@ -374,10 +374,10 @@ internal sealed class PseudoWindow : Border
         {
             Name = "PART_PseudoWindowTitle",
             Child = titleRow,
-            Background = BerthBrushes.Pane,
-            BorderBrush = BerthBrushes.Separator,
             BorderThickness = new Thickness(0, 0, 0, 1),
         };
+        ThemeTokens.BindBrush(titleBar, Border.BackgroundProperty, BerthThemeKeys.Pane, BerthBrushes.Pane);
+        ThemeTokens.BindBrush(titleBar, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
         // The title bar is the move handle (DA-7.5); the «×» keeps its own press.
         titleBar.AddHandler(PointerPressedEvent, (_, e) =>
         {
@@ -690,9 +690,4 @@ internal sealed class PseudoWindow : Border
 
         return false;
     }
-
-    /// <summary>The skeleton brushes are translucent; a pseudo-window needs an opaque surface (TW-7.7: nothing shows through).</summary>
-    private void UpdateSurface() => Background = ActualThemeVariant == ThemeVariant.Dark
-        ? BerthBrushes.DarkOverlaySurface
-        : BerthBrushes.LightOverlaySurface;
 }

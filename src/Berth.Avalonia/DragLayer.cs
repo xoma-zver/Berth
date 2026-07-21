@@ -43,15 +43,15 @@ internal sealed class DragLayer : Canvas
         _marker = new Border
         {
             Name = "PART_DropMarker",
-            Background = BerthBrushes.DropMarker,
             IsVisible = false,
         };
         _zone = new Border
         {
             Name = "PART_DropZonePreview",
-            Background = BerthBrushes.DropAreaPreview,
             IsVisible = false,
         };
+        ThemeTokens.BindBrush(
+            _zone, Border.BackgroundProperty, BerthThemeKeys.DropAreaPreview, BerthBrushes.DropAreaPreview);
         _hint = GhostChrome.Chip(out _hintText);
         _hint.Name = "PART_DropHint";
         _hint.IsVisible = false;
@@ -122,7 +122,10 @@ internal sealed class DragLayer : Canvas
     /// </summary>
     public void ShowMarker(Rect rect, bool isArea = false)
     {
-        _marker.Background = isArea ? BerthBrushes.DropAreaPreview : BerthBrushes.DropMarker;
+        // Resolved at show time — the marker is a transient gesture visual (ThemeTokens.Brush).
+        _marker.Background = isArea
+            ? ThemeTokens.Brush(this, BerthThemeKeys.DropAreaPreview, BerthBrushes.DropAreaPreview)
+            : ThemeTokens.Brush(this, BerthThemeKeys.DropMarker, BerthBrushes.DropMarker);
         GhostChrome.PlaceOnCanvas(_marker, rect);
         _markerRect = rect;
         PlaceHint();

@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Styling;
 
 namespace Berth.Controls;
 
@@ -109,13 +108,12 @@ internal static class GhostChrome
         var chip = new Border
         {
             Child = child,
-            BorderBrush = BerthBrushes.Separator,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
             Padding = padding,
         };
-        chip.ActualThemeVariantChanged += (_, _) => UpdateSurface(chip);
-        UpdateSurface(chip);
+        ThemeTokens.BindBrush(chip, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
+        ThemeTokens.BindSurface(chip);
         return chip;
     }
 
@@ -144,12 +142,15 @@ internal static class GhostChrome
     /// takes on release, sized to the captured source-header width. Carries no text: the
     /// title rides on the pointer chip, which stays visible over the strip.
     /// </summary>
-    public static Border StripPlaceholder() => new()
+    public static Border StripPlaceholder()
     {
-        Background = BerthBrushes.DropAreaPreview,
-        BorderBrush = BerthBrushes.DropMarker,
-        BorderThickness = new Thickness(1),
-    };
+        var placeholder = new Border { BorderThickness = new Thickness(1) };
+        ThemeTokens.BindBrush(
+            placeholder, Border.BackgroundProperty, BerthThemeKeys.DropAreaPreview, BerthBrushes.DropAreaPreview);
+        ThemeTokens.BindBrush(
+            placeholder, Border.BorderBrushProperty, BerthThemeKeys.DropMarker, BerthBrushes.DropMarker);
+        return placeholder;
+    }
 
     /// <summary>
     /// Sizes and positions one canvas-hosted gesture visual over the given rectangle and
@@ -167,23 +168,22 @@ internal static class GhostChrome
     }
 
     /// <summary>The framed miniature view of the ghost outside every target (TW-5.17 v0.26).</summary>
-    public static Control MiniatureView(IImage image, Size size) => new Border
+    public static Control MiniatureView(IImage image, Size size)
     {
-        BorderBrush = BerthBrushes.Separator,
-        BorderThickness = new Thickness(1),
-        Child = new Image
+        var frame = new Border
         {
-            Source = image,
-            Width = size.Width,
-            Height = size.Height,
-            Stretch = Stretch.Uniform,
-        },
-    };
-
-    private static void UpdateSurface(Border chip) => chip.Background =
-        chip.ActualThemeVariant == ThemeVariant.Dark
-            ? BerthBrushes.DarkOverlaySurface
-            : BerthBrushes.LightOverlaySurface;
+            BorderThickness = new Thickness(1),
+            Child = new Image
+            {
+                Source = image,
+                Width = size.Width,
+                Height = size.Height,
+                Stretch = Stretch.Uniform,
+            },
+        };
+        ThemeTokens.BindBrush(frame, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
+        return frame;
+    }
 }
 
 /// <summary>
@@ -631,7 +631,10 @@ internal sealed class MarkerOverlay : Canvas
     /// <summary>Shows the marker, in the window's local coordinates.</summary>
     public void Show(Rect rect, bool isArea)
     {
-        _marker.Background = isArea ? BerthBrushes.DropAreaPreview : BerthBrushes.DropMarker;
+        // Resolved at show time — the marker is a transient gesture visual (ThemeTokens.Brush).
+        _marker.Background = isArea
+            ? ThemeTokens.Brush(this, BerthThemeKeys.DropAreaPreview, BerthBrushes.DropAreaPreview)
+            : ThemeTokens.Brush(this, BerthThemeKeys.DropMarker, BerthBrushes.DropMarker);
         GhostChrome.PlaceOnCanvas(_marker, rect);
     }
 

@@ -35,13 +35,13 @@ internal sealed class TabGroupView : DockPanel
             Name = "PART_TabStrip",
             Height = BerthMetrics.TabStripHeight,
             Child = _strip,
-            Background = BerthBrushes.Pane,
-            BorderBrush = BerthBrushes.Separator,
             BorderThickness = new Thickness(0, 0, 0, 1),
             // Overflowing headers stay inside the group (document-area, section 11): they
             // must not paint over or steal clicks from the neighbouring split cell.
             ClipToBounds = true,
         };
+        ThemeTokens.BindBrush(_stripBar, Border.BackgroundProperty, BerthThemeKeys.Pane, BerthBrushes.Pane);
+        ThemeTokens.BindBrush(_stripBar, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
         SetDock(_stripBar, Dock.Top);
         _content = new Decorator { Name = "PART_GroupContent" };
         Children.Add(_stripBar);
@@ -167,9 +167,18 @@ internal sealed class DockTabHeader : Border
             && string.Equals(state.DockArea.CurrentTabId, tabId, StringComparison.Ordinal);
         PseudoClasses.Set(":active", isActive);
         PseudoClasses.Set(":current", isCurrentDocument);
-        Background = isCurrentDocument
-            ? BerthBrushes.ActiveHeader
-            : isActive ? BerthBrushes.OpenIcon : Brushes.Transparent;
+        if (isCurrentDocument)
+        {
+            ThemeTokens.BindBrush(this, BackgroundProperty, BerthThemeKeys.ActiveHeader, BerthBrushes.ActiveHeader);
+        }
+        else if (isActive)
+        {
+            ThemeTokens.BindBrush(this, BackgroundProperty, BerthThemeKeys.OpenIcon, BerthBrushes.OpenIcon);
+        }
+        else
+        {
+            Background = Brushes.Transparent;
+        }
 
         var close = new Button
         {

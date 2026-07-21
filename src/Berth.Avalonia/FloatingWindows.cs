@@ -546,14 +546,16 @@ internal sealed class FloatingWindowLayer : IFloatingLayer
                 // The frame band sits inside the marker stack: the marker overlay must stay
                 // at the window origin — WindowedDragVisual addresses it in window-local
                 // coordinates, and a band-inset overlay would shift every marker by the band.
-                Content = WithMarkers(new Border
+                var frame = new Border
                 {
-                    BorderBrush = BerthBrushes.Separator,
                     BorderThickness = new Thickness(1),
                     Padding = new Thickness(ResizeBand - 1),
                     Background = Brushes.Transparent, // the band must stay hit-testable
                     Child = HostSlot,
-                });
+                };
+                ThemeTokens.BindBrush(
+                    frame, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
+                Content = WithMarkers(frame);
                 AddHandler(PointerPressedEvent, OnFramelessPressed, RoutingStrategies.Tunnel);
             }
             else

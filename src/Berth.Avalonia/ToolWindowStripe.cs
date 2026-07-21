@@ -33,13 +33,14 @@ internal sealed class ToolWindowStripe : Decorator
         var root = new DockPanel { Width = BerthMetrics.StripeWidth, LastChildFill = false };
         root.Children.Add(_top);
         root.Children.Add(_bottom);
-        Child = new Border
+        var border = new Border
         {
             Child = root,
-            Background = BerthBrushes.Pane,
-            BorderBrush = BerthBrushes.Separator,
             BorderThickness = stripe == QuickAccessSide.Left ? new Thickness(0, 0, 1, 0) : new Thickness(1, 0, 0, 0),
         };
+        ThemeTokens.BindBrush(border, Border.BackgroundProperty, BerthThemeKeys.Pane, BerthBrushes.Pane);
+        ThemeTokens.BindBrush(border, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
+        Child = border;
     }
 
     /// <summary>Refills the segments from the state and registrations.</summary>
@@ -56,13 +57,15 @@ internal sealed class ToolWindowStripe : Decorator
         _top.Children.AddRange(primary);
         if (primary.Count > 0 && secondary.Count > 0)
         {
-            _top.Children.Add(new Border
+            var separator = new Border
             {
                 Name = "PART_StripeSeparator",
                 Height = 1,
                 Margin = new Thickness(6, 6, 6, 2),
-                Background = BerthBrushes.Separator,
-            });
+            };
+            ThemeTokens.BindBrush(
+                separator, Border.BackgroundProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
+            _top.Children.Add(separator);
         }
 
         _top.Children.AddRange(secondary);

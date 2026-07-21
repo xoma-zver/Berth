@@ -31,11 +31,17 @@ public sealed class StripeButton : Decorator
         IsOpen = window.IsOpen;
         _title = descriptor.Title;
         _workspace = workspace;
-        Child = new StripeIconFace(descriptor.IconKey, descriptor.Title)
+        var face = new StripeIconFace(descriptor.IconKey, descriptor.Title)
         {
             Margin = new Thickness(4, 4, 4, 0),
-            Background = window.IsOpen ? BerthBrushes.OpenIcon : Brushes.Transparent,
+            Background = Brushes.Transparent,
         };
+        if (window.IsOpen)
+        {
+            ThemeTokens.BindBrush(face, Border.BackgroundProperty, BerthThemeKeys.OpenIcon, BerthBrushes.OpenIcon);
+        }
+
+        Child = face;
         var hint = workspace.ShortcutHintProvider?.Invoke(window.Id);
         ToolTip.SetTip(this, string.IsNullOrEmpty(hint) ? descriptor.Title : $"{descriptor.Title}  {hint}");
         PseudoClasses.Set(":open", window.IsOpen);
