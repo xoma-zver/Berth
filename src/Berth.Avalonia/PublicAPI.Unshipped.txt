@@ -3,7 +3,12 @@ Berth.Controls.BerthThemeKeys
 const Berth.Controls.BerthThemeKeys.ActiveHeader = "BerthActiveHeaderBrush" -> string!
 const Berth.Controls.BerthThemeKeys.DropAreaPreview = "BerthDropAreaPreviewBrush" -> string!
 const Berth.Controls.BerthThemeKeys.DropMarker = "BerthDropMarkerBrush" -> string!
+const Berth.Controls.BerthThemeKeys.HeaderHeight = "BerthHeaderHeight" -> string!
 const Berth.Controls.BerthThemeKeys.OpenIcon = "BerthOpenIconBrush" -> string!
 const Berth.Controls.BerthThemeKeys.OverlaySurface = "BerthOverlaySurfaceBrush" -> string!
 const Berth.Controls.BerthThemeKeys.Pane = "BerthPaneBrush" -> string!
 const Berth.Controls.BerthThemeKeys.Separator = "BerthSeparatorBrush" -> string!
+const Berth.Controls.BerthThemeKeys.SplitterThickness = "BerthSplitterThickness" -> string!
+const Berth.Controls.BerthThemeKeys.StripeButtonSize = "BerthStripeButtonSize" -> string!
+const Berth.Controls.BerthThemeKeys.StripeWidth = "BerthStripeWidth" -> string!
+const Berth.Controls.BerthThemeKeys.TabStripHeight = "BerthTabStripHeight" -> string!

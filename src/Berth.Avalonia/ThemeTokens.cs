@@ -41,6 +41,26 @@ public static class BerthThemeKeys
     /// defined per variant in ThemeDictionaries.
     /// </summary>
     public const string OverlaySurface = "BerthOverlaySurfaceBrush";
+
+    // ---- size tokens (resource values are doubles — x:Double in XAML) ----
+
+    /// <summary>Width of a stripe — the vertical icon bar (TW-1.1). Default: 36.</summary>
+    public const string StripeWidth = "BerthStripeWidth";
+
+    /// <summary>
+    /// Square size of a stripe icon button, margins excluded; also sizes the stripe drop
+    /// zones of the drag catalog (TW-5.17). Default: 28.
+    /// </summary>
+    public const string StripeButtonSize = "BerthStripeButtonSize";
+
+    /// <summary>Height of the header row of a tool window decorator and of a document pseudo-window title bar. Default: 28.</summary>
+    public const string HeaderHeight = "BerthHeaderHeight";
+
+    /// <summary>Height of a tab strip — leaf chrome of a tab group (DA-9.6). Default: 28.</summary>
+    public const string TabStripHeight = "BerthTabStripHeight";
+
+    /// <summary>Thickness of a splitter separator between panes. Default: 4.</summary>
+    public const string SplitterThickness = "BerthSplitterThickness";
 }
 
 /// <summary>
@@ -69,6 +89,24 @@ internal static class ThemeTokens
     public static IBrush Brush(Control anchor, string key, IBrush fallback) =>
         anchor.TryFindResource(key, anchor.ActualThemeVariant, out var value) && value is IBrush brush
             ? brush
+            : fallback;
+
+    /// <summary>
+    /// Binds a size property (Width, Height) to a size token with a fallback — the
+    /// counterpart of <see cref="BindBrush"/> for the double-typed tokens. Layout follows the
+    /// value live, like every token binding.
+    /// </summary>
+    public static IDisposable BindSize(Control target, AvaloniaProperty property, string key, double fallback) =>
+        target.Bind(property, target.GetResourceObservable(key, value => value as double? ?? fallback));
+
+    /// <summary>
+    /// One-shot size token resolution — for geometry computed per pass rather than bound to a
+    /// property: the stripe drop zones of the drag catalog, rebuilt over settled layout
+    /// (TW-5.17). The anchor must be attached for overrides above it to be found.
+    /// </summary>
+    public static double Size(Control anchor, string key, double fallback) =>
+        anchor.TryFindResource(key, anchor.ActualThemeVariant, out var value) && value is double size
+            ? size
             : fallback;
 
     /// <summary>

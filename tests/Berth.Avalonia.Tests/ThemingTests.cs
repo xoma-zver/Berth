@@ -147,6 +147,76 @@ public class ThemingTests
         Assert.Same(BerthBrushes.DarkOverlaySurface, backdrop.Background);
     }
 
+    // ---- size tokens ----
+
+    [AvaloniaFact]
+    public void Size_tokens_default_to_the_built_in_metrics()
+    {
+        var window = Show(OpenPanelState(), Registry("a"));
+
+        Assert.Equal(
+            BerthMetrics.SplitterThickness, Part(window, "PART_LeftSideSplitter").Bounds.Width);
+        var headerRow = (Control)((Border)Part(window, "PART_Header")).Child!;
+        Assert.Equal(BerthMetrics.HeaderHeight, headerRow.Bounds.Height);
+    }
+
+    [AvaloniaFact]
+    public void A_size_token_override_resizes_the_chrome()
+    {
+        var window = ShowConfigured(OpenPanelState(), Registry("a"), w =>
+        {
+            w.Resources[BerthThemeKeys.SplitterThickness] = 8.0;
+            w.Resources[BerthThemeKeys.HeaderHeight] = 40.0;
+            w.Resources[BerthThemeKeys.StripeWidth] = 60.0;
+        });
+
+        Assert.Equal(8.0, Part(window, "PART_LeftSideSplitter").Bounds.Width);
+        var headerRow = (Control)((Border)Part(window, "PART_Header")).Child!;
+        Assert.Equal(40.0, headerRow.Bounds.Height);
+        // The stripe border adds its 1px edge around the 60px content column.
+        Assert.Equal(61.0, Part(window, "PART_LeftStripe").Bounds.Width);
+    }
+
+    [AvaloniaFact]
+    public void A_runtime_size_change_relayouts_the_live_chrome()
+    {
+        var window = Show(OpenPanelState(), Registry("a"));
+        var splitter = Part(window, "PART_LeftSideSplitter");
+        Assert.Equal(BerthMetrics.SplitterThickness, splitter.Bounds.Width);
+
+        window.Resources[BerthThemeKeys.SplitterThickness] = 10.0;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(10.0, splitter.Bounds.Width);
+    }
+
+    [AvaloniaFact]
+    public void A_size_token_drives_the_stripe_drop_zone_geometry()
+    {
+        // The stripe drop marker is button-sized (TW-5.17): the catalog resolves the size
+        // token one-shot per build (ThemeTokens.Size) — a distinct path from the bindings.
+        var state = LayoutState.Empty with
+        {
+            ToolWindows = [Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true }],
+        };
+        var window = ShowConfigured(state, Registry("a"), w => w.Resources[BerthThemeKeys.StripeButtonSize] = 44.0);
+
+        var start = Center(Button(window, "a"), window);
+        var stripe = BoundsIn(Part(window, "PART_RightStripe"), window);
+        window.MouseDown(start, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        window.MouseMove(new Point(stripe.Center.X, stripe.Top + 5));
+        Dispatcher.UIThread.RunJobs();
+
+        var marker = (Border)Part(window, "PART_DropMarker");
+        Assert.True(marker.IsVisible);
+        Assert.Equal(44.0, marker.Height); // the position fill is one button tall
+
+        window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        window.MouseUp(new Point(stripe.Center.X, stripe.Top + 5), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+    }
+
     [AvaloniaFact]
     public void A_transient_drop_marker_resolves_its_token_at_show_time()
     {

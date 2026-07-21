@@ -5,26 +5,29 @@ namespace Berth.Controls;
 
 /// <summary>
 /// UI-layer size constants: pixels live at the UI boundary only (ADR-0002); minimum content
-/// sizes are render-time clamps that never touch the state (TW-2.8).
+/// sizes are render-time clamps that never touch the state (TW-2.8). The chrome sizes
+/// (stripe, icon, header, tab strip, splitter) are the built-in defaults of the size tokens
+/// (<see cref="BerthThemeKeys"/>) and apply only as fallbacks — like <see cref="BerthBrushes"/>;
+/// the behavioural constants below them are not tokens by design.
 /// </summary>
 internal static class BerthMetrics
 {
-    /// <summary>Width of a stripe (the vertical icon bar).</summary>
+    /// <summary>Width of a stripe (the vertical icon bar). Default of <see cref="BerthThemeKeys.StripeWidth"/>.</summary>
     public const double StripeWidth = 36;
 
-    /// <summary>Square size of a stripe icon button, margins excluded.</summary>
+    /// <summary>Square size of a stripe icon button, margins excluded. Default of <see cref="BerthThemeKeys.StripeButtonSize"/>.</summary>
     public const double StripeButtonSize = 28;
 
     /// <summary>Minimum rendered extent of a tool window pane and of the dock area (TW-2.8).</summary>
     public const double MinPaneSize = 48;
 
-    /// <summary>Height of a tool window decorator header.</summary>
+    /// <summary>Height of a tool window decorator header. Default of <see cref="BerthThemeKeys.HeaderHeight"/>.</summary>
     public const double HeaderHeight = 28;
 
-    /// <summary>Height of a dock tab strip — leaf chrome of a tab group (DA-9.6).</summary>
+    /// <summary>Height of a dock tab strip — leaf chrome of a tab group (DA-9.6). Default of <see cref="BerthThemeKeys.TabStripHeight"/>.</summary>
     public const double TabStripHeight = 28;
 
-    /// <summary>Thickness of a splitter separator between panes.</summary>
+    /// <summary>Thickness of a splitter separator between panes. Default of <see cref="BerthThemeKeys.SplitterThickness"/>.</summary>
     public const double SplitterThickness = 4;
 
     /// <summary>

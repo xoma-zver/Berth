@@ -74,7 +74,8 @@ public sealed class ToolWindowDecorator : Decorator
             // from — the neighbouring pane.
             ClipToBounds = true,
         };
-        var header = new DockPanel { Height = BerthMetrics.HeaderHeight };
+        var header = new DockPanel();
+        ThemeTokens.BindSize(header, Layoutable.HeightProperty, BerthThemeKeys.HeaderHeight, BerthMetrics.HeaderHeight);
         header.Children.Add(buttons);
         header.Children.Add(_titleText);
         header.Children.Add(_headerTabs);

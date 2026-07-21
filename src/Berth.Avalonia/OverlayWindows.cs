@@ -367,7 +367,9 @@ internal sealed class PseudoWindow : Border
         };
         close.Click += (_, _) => CloseRequested?.Invoke();
         DockPanel.SetDock(close, Dock.Right);
-        var titleRow = new DockPanel { Height = BerthMetrics.HeaderHeight };
+        var titleRow = new DockPanel();
+        ThemeTokens.BindSize(
+            titleRow, Layoutable.HeightProperty, BerthThemeKeys.HeaderHeight, BerthMetrics.HeaderHeight);
         titleRow.Children.Add(close);
         titleRow.Children.Add(_titleText);
         var titleBar = new Border

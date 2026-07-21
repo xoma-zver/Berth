@@ -30,7 +30,8 @@ internal sealed class ToolWindowStripe : Decorator
         Name = stripe == QuickAccessSide.Left ? "PART_LeftStripe" : "PART_RightStripe";
         DockPanel.SetDock(_top, Dock.Top);
         DockPanel.SetDock(_bottom, Dock.Bottom);
-        var root = new DockPanel { Width = BerthMetrics.StripeWidth, LastChildFill = false };
+        var root = new DockPanel { LastChildFill = false };
+        ThemeTokens.BindSize(root, Layoutable.WidthProperty, BerthThemeKeys.StripeWidth, BerthMetrics.StripeWidth);
         root.Children.Add(_top);
         root.Children.Add(_bottom);
         var border = new Border
@@ -110,10 +111,8 @@ internal sealed class QuickAccessButton : Decorator
     public QuickAccessButton(LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace)
     {
         Name = "PART_QuickAccess";
-        Child = new Border
+        var face = new Border
         {
-            Width = BerthMetrics.StripeButtonSize,
-            Height = BerthMetrics.StripeButtonSize,
             Margin = new Thickness(4, 4, 4, 0),
             CornerRadius = new CornerRadius(4),
             Background = Brushes.Transparent, // a null background would defeat hit testing
@@ -124,6 +123,9 @@ internal sealed class QuickAccessButton : Decorator
                 VerticalAlignment = VerticalAlignment.Center,
             },
         };
+        ThemeTokens.BindSize(face, Layoutable.WidthProperty, BerthThemeKeys.StripeButtonSize, BerthMetrics.StripeButtonSize);
+        ThemeTokens.BindSize(face, Layoutable.HeightProperty, BerthThemeKeys.StripeButtonSize, BerthMetrics.StripeButtonSize);
+        Child = face;
         FlyoutBase.SetAttachedFlyout(this, ToolWindowMenus.BuildQuickAccessList(state, registry, workspace));
         ContextFlyout = ToolWindowMenus.BuildQuickAccessSideMenu(state.QuickAccessSide, workspace);
     }

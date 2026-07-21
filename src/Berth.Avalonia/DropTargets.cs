@@ -158,7 +158,11 @@ internal static class StripeDropTargets
         BerthWorkspace workspace, LayoutState state, string draggedId, DropZoneSpace space)
     {
         var targets = new List<DropTarget>();
-        var context = new BuildContext(state, space, draggedId, workspace.DockedAreaRect());
+        // The zone geometry token resolves once per catalog build (TW-5.17): the catalog is
+        // rebuilt over settled layout on every external change, so the value stays fresh.
+        var buttonSize = ThemeTokens.Size(
+            workspace, BerthThemeKeys.StripeButtonSize, BerthMetrics.StripeButtonSize);
+        var context = new BuildContext(state, space, draggedId, workspace.DockedAreaRect(), buttonSize);
         foreach (var stripe in workspace.GetVisualDescendants().OfType<ToolWindowStripe>())
         {
             var isLeft = string.Equals(stripe.Name, "PART_LeftStripe", StringComparison.Ordinal);
@@ -174,9 +178,9 @@ internal static class StripeDropTargets
         return targets;
     }
 
-    /// <summary>Shared inputs of one catalog build: the state the previews run on and the docked center area.</summary>
+    /// <summary>Shared inputs of one catalog build: the state the previews run on, the docked center area and the resolved icon size token.</summary>
     private sealed record BuildContext(
-        LayoutState State, DropZoneSpace Space, string DraggedId, Rect? CenterRect);
+        LayoutState State, DropZoneSpace Space, string DraggedId, Rect? CenterRect, double ButtonSize);
 
     private static void AddStripe(
         List<DropTarget> targets,
@@ -255,7 +259,7 @@ internal static class StripeDropTargets
         }
         else if (primary.Count > 0)
         {
-            boundary = Math.Min(topEnd, primary[^1].Rect.Bottom + BerthMetrics.StripeButtonSize);
+            boundary = Math.Min(topEnd, primary[^1].Rect.Bottom + context.ButtonSize);
         }
         else if (secondary.Count > 0)
         {
@@ -292,7 +296,7 @@ internal static class StripeDropTargets
         if (buttons.Count == 0)
         {
             Add(targets, context, stripeRect, zoneStart, zoneEnd,
-                Math.Min(zoneStart + (BerthMetrics.StripeButtonSize / 2), (zoneStart + zoneEnd) / 2),
+                Math.Min(zoneStart + (context.ButtonSize / 2), (zoneStart + zoneEnd) / 2),
                 windowKey, slot, predecessorId: null);
             return;
         }
@@ -332,7 +336,7 @@ internal static class StripeDropTargets
         if (buttons.Count == 0)
         {
             Add(targets, context, stripeRect, zoneStart, zoneEnd,
-                Math.Max(zoneEnd - (BerthMetrics.StripeButtonSize / 2), (zoneStart + zoneEnd) / 2),
+                Math.Max(zoneEnd - (context.ButtonSize / 2), (zoneStart + zoneEnd) / 2),
                 windowKey, slot, predecessorId: null);
             return;
         }
@@ -372,7 +376,7 @@ internal static class StripeDropTargets
 
         // The marker fills the position rectangle (= the reference; v0.26): a button-sized
         // fill centered on the insertion gap, clamped into the stripe.
-        var markerSize = BerthMetrics.StripeButtonSize;
+        var markerSize = context.ButtonSize;
         var markerY = Math.Clamp(
             markerAnchor - (markerSize / 2), stripeRect.Top, Math.Max(stripeRect.Top, stripeRect.Bottom - markerSize));
         var draggedId = context.DraggedId;

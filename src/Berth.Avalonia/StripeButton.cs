@@ -104,8 +104,8 @@ internal sealed class StripeIconFace : Border
     public StripeIconFace(string? iconKey, string title)
     {
         _iconKey = iconKey;
-        Width = BerthMetrics.StripeButtonSize;
-        Height = BerthMetrics.StripeButtonSize;
+        ThemeTokens.BindSize(this, WidthProperty, BerthThemeKeys.StripeButtonSize, BerthMetrics.StripeButtonSize);
+        ThemeTokens.BindSize(this, HeightProperty, BerthThemeKeys.StripeButtonSize, BerthMetrics.StripeButtonSize);
         CornerRadius = new CornerRadius(4);
         Child = new TextBlock
         {

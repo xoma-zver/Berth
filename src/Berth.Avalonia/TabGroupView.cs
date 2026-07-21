@@ -33,7 +33,6 @@ internal sealed class TabGroupView : DockPanel
         _stripBar = new Border
         {
             Name = "PART_TabStrip",
-            Height = BerthMetrics.TabStripHeight,
             Child = _strip,
             BorderThickness = new Thickness(0, 0, 0, 1),
             // Overflowing headers stay inside the group (document-area, section 11): they
@@ -42,6 +41,8 @@ internal sealed class TabGroupView : DockPanel
         };
         ThemeTokens.BindBrush(_stripBar, Border.BackgroundProperty, BerthThemeKeys.Pane, BerthBrushes.Pane);
         ThemeTokens.BindBrush(_stripBar, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
+        ThemeTokens.BindSize(
+            _stripBar, Layoutable.HeightProperty, BerthThemeKeys.TabStripHeight, BerthMetrics.TabStripHeight);
         SetDock(_stripBar, Dock.Top);
         _content = new Decorator { Name = "PART_GroupContent" };
         Children.Add(_stripBar);

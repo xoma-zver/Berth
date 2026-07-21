@@ -23,15 +23,11 @@ internal static class Splitters
         };
         ThemeTokens.BindBrush(
             splitter, GridSplitter.BackgroundProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
-        if (direction == GridResizeDirection.Rows)
-        {
-            splitter.Height = BerthMetrics.SplitterThickness;
-        }
-        else
-        {
-            splitter.Width = BerthMetrics.SplitterThickness;
-        }
-
+        ThemeTokens.BindSize(
+            splitter,
+            direction == GridResizeDirection.Rows ? GridSplitter.HeightProperty : GridSplitter.WidthProperty,
+            BerthThemeKeys.SplitterThickness,
+            BerthMetrics.SplitterThickness);
         return splitter;
     }
 
