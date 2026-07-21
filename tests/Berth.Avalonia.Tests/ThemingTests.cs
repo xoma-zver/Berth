@@ -178,6 +178,17 @@ public class ThemingTests
     }
 
     [AvaloniaFact]
+    public void A_size_token_honors_an_integer_resource()
+    {
+        // «32» next to «32.0» is a natural slip: an int resource is coerced, not dropped.
+        var window = ShowConfigured(OpenPanelState(), Registry("a"), w =>
+            w.Resources[BerthThemeKeys.HeaderHeight] = 40); // int, not 40.0
+
+        var headerRow = (Control)((Border)Part(window, "PART_Header")).Child!;
+        Assert.Equal(40.0, headerRow.Bounds.Height);
+    }
+
+    [AvaloniaFact]
     public void A_runtime_size_change_relayouts_the_live_chrome()
     {
         var window = Show(OpenPanelState(), Registry("a"));

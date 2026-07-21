@@ -94,20 +94,36 @@ internal static class ThemeTokens
     /// <summary>
     /// Binds a size property (Width, Height) to a size token with a fallback — the
     /// counterpart of <see cref="BindBrush"/> for the double-typed tokens. Layout follows the
-    /// value live, like every token binding.
+    /// value live, like every token binding. An integer resource is honored too
+    /// (see <see cref="AsSize"/>): «32» next to «32.0» is a natural slip, not an error.
     /// </summary>
     public static IDisposable BindSize(Control target, AvaloniaProperty property, string key, double fallback) =>
-        target.Bind(property, target.GetResourceObservable(key, value => value as double? ?? fallback));
+        target.Bind(property, target.GetResourceObservable(key, value => AsSize(value, fallback)));
 
     /// <summary>
     /// One-shot size token resolution — for geometry computed per pass rather than bound to a
-    /// property: the stripe drop zones of the drag catalog, rebuilt over settled layout
-    /// (TW-5.17). The anchor must be attached for overrides above it to be found.
+    /// property: the stripe drop zones of the drag catalog (TW-5.17). The anchor must be
+    /// attached for overrides above it to be found. Honors an integer resource like
+    /// <see cref="BindSize"/>.
     /// </summary>
     public static double Size(Control anchor, string key, double fallback) =>
-        anchor.TryFindResource(key, anchor.ActualThemeVariant, out var value) && value is double size
-            ? size
+        anchor.TryFindResource(key, anchor.ActualThemeVariant, out var value)
+            ? AsSize(value, fallback)
             : fallback;
+
+    /// <summary>
+    /// Coerces a size token resource to a double: a <see cref="double"/> as is, an
+    /// <see cref="int"/> widened — «32» is the natural mistake next to «32.0» and clearly means
+    /// 32 pixels, so it is accepted rather than silently dropped or thrown on (a throw inside a
+    /// resource observable is worse than useless). Any other type — a genuinely wrong resource —
+    /// falls back to the built-in default.
+    /// </summary>
+    private static double AsSize(object? value, double fallback) => value switch
+    {
+        double size => size,
+        int size => size,
+        _ => fallback,
+    };
 
     /// <summary>
     /// Binds an opaque overlay surface background (<see cref="BerthThemeKeys.OverlaySurface"/>)

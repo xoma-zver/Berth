@@ -159,7 +159,10 @@ internal static class StripeDropTargets
     {
         var targets = new List<DropTarget>();
         // The zone geometry token resolves once per catalog build (TW-5.17): the catalog is
-        // rebuilt over settled layout on every external change, so the value stays fresh.
+        // rebuilt on every state/projection change, so it tracks the layout it hit-tests
+        // against. A bare resource change (retheming the token) is neither, so a mid-drag
+        // retheme would not rebuild the catalog until the next state change — cosmetic, and
+        // retheming during a drag is not a real scenario.
         var buttonSize = ThemeTokens.Size(
             workspace, BerthThemeKeys.StripeButtonSize, BerthMetrics.StripeButtonSize);
         var context = new BuildContext(state, space, draggedId, workspace.DockedAreaRect(), buttonSize);
