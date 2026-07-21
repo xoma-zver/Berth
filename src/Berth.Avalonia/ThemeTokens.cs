@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Media;
 using Avalonia.Styling;
 
@@ -77,9 +78,17 @@ internal static class ThemeTokens
     /// when a resource under the key is reachable from the control, else the fallback applies.
     /// The returned disposable removes the binding — needed only when a persistent control
     /// re-binds the same property conditionally; leaf chrome lets bindings die with the control.
+    /// Templated chrome binds its own properties at <see cref="BindingPriority.Template"/>:
+    /// the token stays the live default while a pseudo-class style of the application
+    /// (StyleTrigger priority) overrides it — the selector-styling contract of styling.md.
     /// </summary>
-    public static IDisposable BindBrush(Control target, AvaloniaProperty property, string key, IBrush fallback) =>
-        target.Bind(property, target.GetResourceObservable(key, value => value as IBrush ?? fallback));
+    public static IDisposable BindBrush(
+        Control target,
+        AvaloniaProperty property,
+        string key,
+        IBrush fallback,
+        BindingPriority priority = BindingPriority.LocalValue) =>
+        target.Bind(property, target.GetResourceObservable(key, value => value as IBrush ?? fallback), priority);
 
     /// <summary>
     /// One-shot token resolution against the current tree and theme variant — for transient
@@ -97,8 +106,13 @@ internal static class ThemeTokens
     /// value live, like every token binding. An integer resource is honored too
     /// (see <see cref="AsSize"/>): «32» next to «32.0» is a natural slip, not an error.
     /// </summary>
-    public static IDisposable BindSize(Control target, AvaloniaProperty property, string key, double fallback) =>
-        target.Bind(property, target.GetResourceObservable(key, value => AsSize(value, fallback)));
+    public static IDisposable BindSize(
+        Control target,
+        AvaloniaProperty property,
+        string key,
+        double fallback,
+        BindingPriority priority = BindingPriority.LocalValue) =>
+        target.Bind(property, target.GetResourceObservable(key, value => AsSize(value, fallback)), priority);
 
     /// <summary>
     /// One-shot size token resolution — for geometry computed per pass rather than bound to a

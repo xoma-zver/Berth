@@ -229,6 +229,19 @@ public class StripeTests
     }
 
     [AvaloniaFact]
+    public void StripeIconFace_shows_a_placeholder_for_an_empty_title()
+    {
+        // The icon face is a reusable widget (the stripe button and the drag ghost): it must
+        // render the «?» fallback for an empty title on its own, without relying on the
+        // descriptor's non-empty-title invariant. Setting Title to "" raises no
+        // property-changed (it equals the default), so the initials must be seeded at
+        // construction — the guard this pins.
+        var face = new StripeIconFace(iconKey: null, title: string.Empty);
+
+        Assert.Equal("?", ((TextBlock)face.Child!).Text);
+    }
+
+    [AvaloniaFact]
     public void Stripe_shows_no_button_for_a_sleeping_window()
     {
         // Спящая запись без регистрации не даёт кнопки: без дескриптора нет Title и иконки

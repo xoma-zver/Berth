@@ -355,15 +355,10 @@ internal sealed class PseudoWindow : Border
             Margin = new Thickness(8, 0, 0, 0),
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
-        var close = new Button
+        var close = new BerthChromeButton
         {
             Name = "PART_PseudoWindowClose",
             Content = "×",
-            Focusable = false,
-            Padding = new Thickness(6, 0),
-            Background = Brushes.Transparent,
-            BorderThickness = default,
-            VerticalAlignment = VerticalAlignment.Center,
         };
         close.Click += (_, _) => CloseRequested?.Invoke();
         DockPanel.SetDock(close, Dock.Right);

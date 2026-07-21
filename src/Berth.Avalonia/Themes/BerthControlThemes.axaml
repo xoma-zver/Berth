@@ -1,0 +1,91 @@
+<!-- Built-in ControlThemes of the templated leaf chrome (TW-9.13: leaf chrome may be
+     recreated, so templating it is legal). The dictionary is internal: it is never included
+     by the application — each templated control falls back to it in code when no application
+     theme resource resolves (see BerthControlThemes.EnsureTheme). Token-driven brushes are
+     deliberately absent here: they are code bindings at Template priority on the control
+     itself (ThemeTokens), and the templates surface them via TemplateBinding — a
+     DynamicResource in a theme would have no built-in fallback (docs/styling.md). -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:berth="using:Berth.Controls"
+                    x:Class="Berth.Controls.BerthControlThemes"
+                    x:ClassModifier="internal">
+
+    <!-- Chrome button («⋮», «—», «×»): a flat glyph button. The pointerover/pressed feedback
+         lives on the template's presenter — theme-agnostic translucent grays in the palette
+         of the built-in defaults (BerthBrushes); an application restyles the states with
+         BerthChromeButton:pointerover selectors or replaces the theme. -->
+    <ControlTheme x:Key="{x:Type berth:BerthChromeButton}" TargetType="berth:BerthChromeButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="6,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  Padding="{TemplateBinding Padding}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#20808080"/>
+        </Style>
+        <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#30808080"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Stripe icon: the shared icon face (image by IconKey or the title initials), painted
+         with the control's Background — the open highlight rides there as a token binding at
+         Template priority, so a StripeButton:open style of the application overrides it. -->
+    <ControlTheme x:Key="{x:Type berth:StripeButton}" TargetType="berth:StripeButton">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <berth:StripeIconFace Margin="4,4,4,0"
+                                      IconKey="{TemplateBinding IconKey}"
+                                      Title="{TemplateBinding Title}"
+                                      Background="{TemplateBinding Background}"/>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- Tab header: the title with the «×» close part, painted with the control's
+         Background — the :active/:current highlight rides there as a token binding at
+         Template priority, so a DockTabHeader:active style of the application overrides it.
+         PART_TabClose is optional in a custom template: the middle click and the context
+         menu keep the close reachable. -->
+    <ControlTheme x:Key="{x:Type berth:DockTabHeader}" TargetType="berth:DockTabHeader">
+        <Setter Property="Padding" Value="8,0,2,0"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        Padding="{TemplateBinding Padding}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{TemplateBinding Title}" VerticalAlignment="Center"/>
+                        <berth:BerthChromeButton Name="PART_TabClose" Content="×"/>
+                    </StackPanel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- Splitter: a bare visual bar — the drag logic lives in GridSplitter itself, and the
+         separator brush and thickness ride on the control as token bindings (Template
+         priority), so the template only surfaces the background. -->
+    <ControlTheme x:Key="{x:Type berth:BerthSplitter}" TargetType="berth:BerthSplitter">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"/>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>

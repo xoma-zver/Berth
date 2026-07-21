@@ -302,14 +302,9 @@ public sealed class ToolWindowDecorator : Decorator
         !root.Tabs.IsEmpty
         && !(root.Tabs.Length == 1 && string.Equals(root.Tabs[0], windowId, StringComparison.Ordinal));
 
-    private static Button ChromeButton(string glyph, string name) => new()
+    private static BerthChromeButton ChromeButton(string glyph, string name) => new()
     {
         Name = name,
         Content = glyph,
-        Focusable = false,
-        Padding = new Thickness(6, 0),
-        Background = Brushes.Transparent,
-        BorderThickness = default,
-        VerticalAlignment = VerticalAlignment.Center,
     };
 }

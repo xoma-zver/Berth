@@ -1,4 +1,8 @@
 #nullable enable
+Berth.Controls.BerthChromeButton
+Berth.Controls.BerthChromeButton.BerthChromeButton() -> void
+Berth.Controls.BerthSplitter
+Berth.Controls.BerthSplitter.BerthSplitter() -> void
 Berth.Controls.BerthThemeKeys
 const Berth.Controls.BerthThemeKeys.ActiveHeader = "BerthActiveHeaderBrush" -> string!
 const Berth.Controls.BerthThemeKeys.DropAreaPreview = "BerthDropAreaPreviewBrush" -> string!
@@ -12,3 +16,10 @@ const Berth.Controls.BerthThemeKeys.SplitterThickness = "BerthSplitterThickness"
 const Berth.Controls.BerthThemeKeys.StripeButtonSize = "BerthStripeButtonSize" -> string!
 const Berth.Controls.BerthThemeKeys.StripeWidth = "BerthStripeWidth" -> string!
 const Berth.Controls.BerthThemeKeys.TabStripHeight = "BerthTabStripHeight" -> string!
+Berth.Controls.DockTabHeader
+Berth.Controls.DockTabHeader.Title.get -> string!
+static readonly Berth.Controls.DockTabHeader.TitleProperty -> Avalonia.DirectProperty<Berth.Controls.DockTabHeader!, string!>!
+Berth.Controls.StripeButton.IconKey.get -> string?
+Berth.Controls.StripeButton.Title.get -> string!
+static readonly Berth.Controls.StripeButton.IconKeyProperty -> Avalonia.DirectProperty<Berth.Controls.StripeButton!, string?>!
+static readonly Berth.Controls.StripeButton.TitleProperty -> Avalonia.DirectProperty<Berth.Controls.StripeButton!, string!>!

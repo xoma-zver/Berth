@@ -1,9 +1,13 @@
 using System.Collections.Immutable;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Metadata;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 
@@ -128,26 +132,37 @@ internal sealed class TabGroupView : DockPanel
 
 /// <summary>
 /// Header of one tab in a strip — leaf chrome (DA-9.6), rebuilt on every update so it
-/// always reflects the state it was built from. A left click activates the tab and moves
-/// keyboard focus into its content (DA-5.3, DA-6.4) — committed on release, like every chrome
-/// gesture (TW-6.2); a middle click and the «×» button close it (DA-5.2); the context menu
-/// carries the tab commands (ADR-0004, TW-5.16). The header is also a drag source (DA-9.7): its press arms the workspace drag controller, whose workspace-level tunnel
-/// handler already marked the press handled — deferring the platform press-focus — so the
-/// header's own press handling runs on the tunnel with handledEventsToo, and the click
-/// semantics complete on the release only when the gesture never became a drag. The group's
-/// active tab carries the <c>:active</c> pseudo-class; the active document — the current tab
-/// of the effective active host while no tool window is active (DA-6.2) — additionally
-/// carries <c>:current</c>. Headers share the PART name and are discriminated by <c>Tag</c>
-/// holding the tab id.
+/// always reflects the state it was built from. A templated control: the default template is
+/// the title with the «×» close part, a custom ControlTheme keyed by this type replaces it
+/// (docs/styling.md), and the highlight rides on <see cref="TemplatedControl.Background"/> as
+/// a token binding at Template priority — a pseudo-class style of the application overrides
+/// it. A left click activates the tab and moves keyboard focus into its content (DA-5.3,
+/// DA-6.4) — committed on release, like every chrome gesture (TW-6.2); a middle click and
+/// the «×» button close it (DA-5.2); the context menu carries the tab commands (ADR-0004,
+/// TW-5.16). The header is also a drag source (DA-9.7): its press arms the workspace drag
+/// controller, whose workspace-level tunnel handler already marked the press handled —
+/// deferring the platform press-focus — so the header's own press handling runs on the
+/// tunnel with handledEventsToo, and the click semantics complete on the release only when
+/// the gesture never became a drag. The group's active tab carries the <c>:active</c>
+/// pseudo-class; the active document — the current tab of the effective active host while no
+/// tool window is active (DA-6.2) — additionally carries <c>:current</c>. Headers share the
+/// PART name and are discriminated by <c>Tag</c> holding the tab id.
 /// </summary>
-internal sealed class DockTabHeader : Border
+[TemplatePart("PART_TabClose", typeof(Button))]
+[PseudoClasses(":active", ":current")]
+public sealed class DockTabHeader : TemplatedControl
 {
+    /// <summary>Defines the read-only <see cref="Title"/> property.</summary>
+    public static readonly DirectProperty<DockTabHeader, string> TitleProperty =
+        AvaloniaProperty.RegisterDirect<DockTabHeader, string>(nameof(Title), o => o.Title);
+
     private readonly TabTreeContext _context;
     private readonly string _tabId;
     private bool _leftPressed;
     private bool _middlePressed;
+    private Button? _closePart;
 
-    public DockTabHeader(
+    internal DockTabHeader(
         string tabId,
         TabGroupNode group,
         LayoutState state,
@@ -159,7 +174,7 @@ internal sealed class DockTabHeader : Border
         _context = context;
         Name = "PART_TabHeader";
         Tag = tabId;
-        Padding = new Thickness(8, 0, 2, 0);
+        Title = TabHostCache.TitleOf(context.Workspace, tabId);
         AddHandler(PointerPressedEvent, OnPreviewPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
 
         var workspace = context.Workspace;
@@ -168,42 +183,35 @@ internal sealed class DockTabHeader : Border
             && string.Equals(state.DockArea.CurrentTabId, tabId, StringComparison.Ordinal);
         PseudoClasses.Set(":active", isActive);
         PseudoClasses.Set(":current", isCurrentDocument);
+        // The highlight lives on the control's Background at Template priority: the token
+        // stays the live default, an application pseudo-class style overrides it, and the
+        // default template paints it via TemplateBinding. The inactive header still needs a
+        // transparent brush — a null background defeats hit testing.
         if (isCurrentDocument)
         {
-            ThemeTokens.BindBrush(this, BackgroundProperty, BerthThemeKeys.ActiveHeader, BerthBrushes.ActiveHeader);
+            ThemeTokens.BindBrush(
+                this,
+                BackgroundProperty,
+                BerthThemeKeys.ActiveHeader,
+                BerthBrushes.ActiveHeader,
+                BindingPriority.Template);
         }
         else if (isActive)
         {
-            ThemeTokens.BindBrush(this, BackgroundProperty, BerthThemeKeys.OpenIcon, BerthBrushes.OpenIcon);
+            ThemeTokens.BindBrush(
+                this, BackgroundProperty, BerthThemeKeys.OpenIcon, BerthBrushes.OpenIcon, BindingPriority.Template);
         }
         else
         {
-            Background = Brushes.Transparent;
+            SetValue(BackgroundProperty, Brushes.Transparent, BindingPriority.Template);
         }
 
-        var close = new Button
-        {
-            Name = "PART_TabClose",
-            Content = "×",
-            Focusable = false,
-            Padding = new Thickness(6, 0),
-            Background = Brushes.Transparent,
-            BorderThickness = default,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        close.Click += (_, _) => workspace.Execute(s => s.CloseTab(tabId));
-
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(new TextBlock
-        {
-            Text = TabHostCache.TitleOf(workspace, tabId),
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        row.Children.Add(close);
-        Child = row;
         ContextFlyout = DockTabMenus.BuildTabMenu(
             state, tabId, registry, workspace, canRotate: !path.IsEmpty, context.PanelId);
     }
+
+    /// <summary>Displayed title of the tab — the provider string with the id fallback (DA-9.6).</summary>
+    public string Title { get; }
 
     /// <summary>Id of the tab the header represents.</summary>
     internal string TabId => _tabId;
@@ -234,6 +242,39 @@ internal sealed class DockTabHeader : Border
         return false;
     }
 
+    /// <inheritdoc/>
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        // The no-include theme fallback (docs/styling.md): an application theme resource
+        // wins through the implicit resolution; otherwise the built-in theme applies.
+        BerthControlThemes.EnsureTheme(this);
+    }
+
+    /// <inheritdoc/>
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        // The close part is optional: a custom template without PART_TabClose is legal —
+        // the middle click and the context menu keep the close reachable (ADR-0004).
+        if (_closePart is { } previous)
+        {
+            previous.Click -= OnClosePartClick;
+        }
+
+        _closePart = e.NameScope.Find<Button>("PART_TabClose");
+        if (_closePart is { } close)
+        {
+            close.Click += OnClosePartClick;
+        }
+    }
+
+    private void OnClosePartClick(object? sender, RoutedEventArgs e)
+    {
+        var id = _tabId;
+        _context.Workspace.Execute(s => s.CloseTab(id));
+    }
+
     /// <summary>
     /// Press handling on the tunnel with handledEventsToo: the workspace drag controller marks
     /// bare header presses handled earlier on the same tunnel (the press-focus deferral of
@@ -255,9 +296,7 @@ internal sealed class DockTabHeader : Border
             _leftPressed = true;
             // The press is also a drag candidate (DA-9.7): past the threshold the gesture
             // becomes a drag and this header never sees the release.
-            _context.Workspace.Drag?.Arm(
-                new DragSubject(DragSourceKind.TreeTab, _tabId, TabHostCache.TitleOf(_context.Workspace, _tabId)),
-                e);
+            _context.Workspace.Drag?.Arm(new DragSubject(DragSourceKind.TreeTab, _tabId, Title), e);
         }
         else if (properties.IsMiddleButtonPressed)
         {
