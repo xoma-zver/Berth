@@ -81,7 +81,7 @@ internal sealed class ToolWindowStripe : Decorator
         _bottom.Children.AddRange(Enumerable.Reverse(bottom));
     }
 
-    private static List<StripeButton> Buttons(
+    private List<StripeButton> Buttons(
         LayoutState state, ToolWindowRegistry registry, BerthWorkspace workspace, ToolWindowSlot slot)
     {
         var buttons = new List<StripeButton>();
@@ -92,7 +92,15 @@ internal sealed class ToolWindowStripe : Decorator
                 // The active accent uses the same stored signal as the decorator's :active
                 // (TW-6.4), so the icon and the header agree on which panel is active.
                 var isActive = string.Equals(state.ActiveToolWindowId, window.Id, StringComparison.Ordinal);
-                buttons.Add(new StripeButton(window, descriptor, isActive, workspace));
+                var button = new StripeButton(window, descriptor, isActive, workspace);
+                // The tooltip anchors to the icon, opening inward from the stripe. The
+                // default pointer placement puts it at the cursor, and near the screen edge
+                // the platform flips it under the pointer — entering the tooltip closes it,
+                // leaving reopens it: a flicker loop. An anchored side placement never
+                // covers the pointer.
+                ToolTip.SetPlacement(
+                    button, _stripe == QuickAccessSide.Left ? PlacementMode.Right : PlacementMode.Left);
+                buttons.Add(button);
             }
         }
 

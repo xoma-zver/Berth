@@ -15,6 +15,26 @@ namespace Berth.Controls.Tests;
 public class StripeTests
 {
     [AvaloniaFact]
+    public void A_stripe_tooltip_anchors_to_the_icon_side_never_the_pointer()
+    {
+        // The pointer placement flickers at the screen edge: the platform flips the tip
+        // under the cursor, entering it closes it, leaving reopens it. Anchoring to the
+        // icon's inner side keeps the tip off the pointer; each stripe opens inward.
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true },
+                Win("b", ToolWindowSide.Right, ToolWindowGroup.Primary),
+            ],
+        };
+        var window = Show(state, Registry("a", "b"));
+
+        Assert.Equal(PlacementMode.Right, ToolTip.GetPlacement(Button(window, "a")));
+        Assert.Equal(PlacementMode.Left, ToolTip.GetPlacement(Button(window, "b")));
+    }
+
+    [AvaloniaFact]
     public void TW_1_2_left_stripe_segments_run_top_to_bottom_with_the_bottom_segment_at_the_edge()
     {
         var registry = Registry("lp", "ls", "bp", "hidden");
