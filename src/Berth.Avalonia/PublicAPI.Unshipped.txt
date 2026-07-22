@@ -20,6 +20,7 @@ Berth.Controls.DockTabHeader
 Berth.Controls.DockTabHeader.Title.get -> string!
 static readonly Berth.Controls.DockTabHeader.TitleProperty -> Avalonia.DirectProperty<Berth.Controls.DockTabHeader!, string!>!
 Berth.Controls.StripeButton.IconKey.get -> string?
+Berth.Controls.StripeButton.IsActive.get -> bool
 Berth.Controls.StripeButton.Title.get -> string!
 static readonly Berth.Controls.StripeButton.IconKeyProperty -> Avalonia.DirectProperty<Berth.Controls.StripeButton!, string?>!
 static readonly Berth.Controls.StripeButton.TitleProperty -> Avalonia.DirectProperty<Berth.Controls.StripeButton!, string!>!

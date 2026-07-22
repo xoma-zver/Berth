@@ -89,7 +89,10 @@ internal sealed class ToolWindowStripe : Decorator
         {
             if (registry.TryGet(window.Id, out var descriptor))
             {
-                buttons.Add(new StripeButton(window, descriptor, workspace));
+                // The active accent uses the same stored signal as the decorator's :active
+                // (TW-6.4), so the icon and the header agree on which panel is active.
+                var isActive = string.Equals(state.ActiveToolWindowId, window.Id, StringComparison.Ordinal);
+                buttons.Add(new StripeButton(window, descriptor, isActive, workspace));
             }
         }
 

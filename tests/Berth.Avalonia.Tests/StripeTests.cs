@@ -145,6 +145,37 @@ public class StripeTests
     }
 
     [AvaloniaFact]
+    public void TW_6_4_the_active_tool_window_icon_carries_the_active_pseudo_class()
+    {
+        // The three-state stripe a theme needs (the IDEA New UI accent lives on the icon):
+        // the active panel's icon is :open + :active, an open-but-inactive one is :open only,
+        // a closed one is neither. The signal is the stored active id, as for the decorator.
+        var registry = Registry("active", "openInactive", "closed");
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("active", ToolWindowSide.Left, ToolWindowGroup.Primary, order: 0) with { IsOpen = true },
+                Win("openInactive", ToolWindowSide.Left, ToolWindowGroup.Primary, order: 1) with { IsOpen = true },
+                Win("closed", ToolWindowSide.Left, ToolWindowGroup.Primary, order: 2),
+            ],
+            ActiveToolWindowId = "active",
+        };
+
+        var window = Show(state, registry);
+
+        var active = Button(window, "active");
+        var openInactive = Button(window, "openInactive");
+        var closed = Button(window, "closed");
+        Assert.True(active.IsActive);
+        Assert.Contains(":active", active.Classes);
+        Assert.False(openInactive.IsActive);
+        Assert.Contains(":open", openInactive.Classes);
+        Assert.DoesNotContain(":active", openInactive.Classes);
+        Assert.DoesNotContain(":active", closed.Classes);
+    }
+
+    [AvaloniaFact]
     public void TW_8_1_quick_access_sits_on_the_configured_stripe_after_the_secondary_segment()
     {
         var registry = Registry("rs", "hidden");

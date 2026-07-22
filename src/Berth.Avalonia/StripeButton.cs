@@ -22,13 +22,18 @@ namespace Berth.Controls;
 /// <see cref="TemplatedControl.Background"/> as a token binding at Template priority — a
 /// pseudo-class style of the application (<c>StripeButton:open</c>) overrides it, and a
 /// custom ControlTheme keyed by this type replaces the template; the default template
-/// surfaces the value via TemplateBinding (docs/styling.md). <see cref="Title"/> and
+/// surfaces the value via TemplateBinding (docs/styling.md). The active tool window's icon
+/// additionally carries the <c>:active</c> pseudo-class — decided by the stored
+/// <see cref="LayoutState.ActiveToolWindowId"/>, the same signal as the decorator's
+/// <c>:active</c> (TW-6.4): the pair a theme needs to place the active accent on the icon
+/// rather than the header (the IDEA New UI look). The built-in default draws no distinct
+/// active face — a purely additive styling hook. <see cref="Title"/> and
 /// <see cref="IconKey"/> are the read-only template anchors. A left click toggles openness
 /// regardless of activity; the right-click context menu is the compact icon menu — both
 /// reduce to core commands. The icon face is shared with the drag ghost of the slot gesture:
 /// the user drags what they grabbed.
 /// </summary>
-[PseudoClasses(":open")]
+[PseudoClasses(":open", ":active")]
 public sealed class StripeButton : TemplatedControl
 {
     /// <summary>Defines the read-only <see cref="Title"/> property.</summary>
@@ -42,10 +47,12 @@ public sealed class StripeButton : TemplatedControl
     private readonly BerthWorkspace _workspace;
     private bool _pressed;
 
-    internal StripeButton(ToolWindowState window, ToolWindowDescriptor descriptor, BerthWorkspace workspace)
+    internal StripeButton(
+        ToolWindowState window, ToolWindowDescriptor descriptor, bool isActive, BerthWorkspace workspace)
     {
         ToolWindowId = window.Id;
         IsOpen = window.IsOpen;
+        IsActive = isActive;
         Title = descriptor.Title;
         IconKey = descriptor.IconKey;
         _workspace = workspace;
@@ -66,6 +73,7 @@ public sealed class StripeButton : TemplatedControl
         var hint = workspace.ShortcutHintProvider?.Invoke(window.Id);
         ToolTip.SetTip(this, string.IsNullOrEmpty(hint) ? descriptor.Title : $"{descriptor.Title}  {hint}");
         PseudoClasses.Set(":open", window.IsOpen);
+        PseudoClasses.Set(":active", isActive);
         ContextFlyout = ToolWindowMenus.BuildIconMenu(window, workspace);
     }
 
@@ -74,6 +82,9 @@ public sealed class StripeButton : TemplatedControl
 
     /// <summary>Whether the represented window is open — open icons are highlighted (TW-6.4).</summary>
     public bool IsOpen { get; }
+
+    /// <summary>Whether the represented window is the active tool window — carries the <c>:active</c> pseudo-class (TW-6.4).</summary>
+    public bool IsActive { get; }
 
     /// <summary>Displayed title of the represented window — the initials source of the default icon face.</summary>
     public string Title { get; }

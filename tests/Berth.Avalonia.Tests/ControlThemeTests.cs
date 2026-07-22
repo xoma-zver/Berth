@@ -128,6 +128,35 @@ public class ControlThemeTests
     }
 
     [AvaloniaFact]
+    public void A_pseudo_class_style_places_the_active_accent_on_the_stripe_icon()
+    {
+        // The contract extension for the IDEA New UI look: StripeButton:active { Background }
+        // overrides the :open token, so the active accent can live on the icon. An
+        // open-but-inactive icon keeps the token default — the style does not match it.
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with { IsOpen = true },
+                Win("b", ToolWindowSide.Left, ToolWindowGroup.Primary, order: 1) with { IsOpen = true },
+            ],
+            ActiveToolWindowId = "a",
+        };
+        var window = new Window { Width = 800, Height = 600 };
+        window.Styles.Add(new Style(x => x.OfType<StripeButton>().Class(":active"))
+        {
+            Setters = { new Setter(TemplatedControl.BackgroundProperty, Red) },
+        });
+        window.Content = new BerthWorkspace { State = state, Registry = Registry("a", "b") };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Same(Red, Button(window, "a").Background);
+        // The open-but-inactive icon keeps the :open token — :active does not match it.
+        Assert.Same(BerthBrushes.OpenIcon, Button(window, "b").Background);
+    }
+
+    [AvaloniaFact]
     public void Pseudo_class_styles_recolor_the_tab_header_highlights()
     {
         var window = new Window { Width = 800, Height = 600 };
