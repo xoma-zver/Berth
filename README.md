@@ -85,7 +85,9 @@ dotnet add package Berth.Avalonia
 Two packages: **Berth.Core** — the layout model and operations, free of UI-framework
 dependencies (namespace `Berth`); **Berth.Avalonia** — the controls materializing the
 model (namespace `Berth.Controls`). Installing the latter brings the core in as a
-dependency.
+dependency. An optional third, **Berth.Theme.NewUi**, is a ready-made appearance styled
+after the IntelliJ IDEA New UI look (light and dark) — one `<newui:BerthNewUiTheme/>`
+line in application styles.
 
 A layout is composed with the builder and handed to `BerthWorkspace`:
 

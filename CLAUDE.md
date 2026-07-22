@@ -9,7 +9,7 @@
 ## Команды
 
 ```sh
-dotnet build src/Berth.Core && dotnet build src/Berth.Avalonia
+dotnet build src/Berth.Core && dotnet build src/Berth.Avalonia && dotnet build src/Berth.Theme.NewUi
 dotnet build samples/Berth.Demo.Desktop  # демо (walking skeleton) — собирается всегда, в т.ч. в CI
 dotnet test tests/Berth.Core.Tests
 dotnet test tests/Berth.Avalonia.Tests   # headless UI-тесты

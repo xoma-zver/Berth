@@ -1,0 +1,82 @@
+<!-- The New UI appearance of Berth: design tokens (BerthThemeKeys) per theme variant plus
+     pseudo-class styles for the states the tokens cannot express. Reference values are the
+     IntelliJ IDEA New UI palette (docs/reference/idea-tracing-visual.md); deliberate
+     fidelity compromises are documented in docs/styling.md. The active-panel accent lives
+     on the stripe icon (StripeButton:active, the solid blue of the reference), while the
+     header accent is neutralized: BerthActiveHeaderBrush equals BerthPaneBrush — in the
+     reference the colored header is dead old-UI code. Selector styles ride at StyleTrigger
+     priority, above the library's Template-priority token bindings (docs/styling.md). -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:berth="using:Berth.Controls"
+        x:Class="Berth.Themes.NewUi.BerthNewUiTheme">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="BerthPaneBrush" Color="#F7F8FA"/>
+          <SolidColorBrush x:Key="BerthSeparatorBrush" Color="#EBECF0"/>
+          <SolidColorBrush x:Key="BerthOpenIconBrush" Color="#1D000000"/>
+          <!-- Equals BerthPaneBrush: the New UI accent of the active panel is the stripe
+               icon, never the header. -->
+          <SolidColorBrush x:Key="BerthActiveHeaderBrush" Color="#F7F8FA"/>
+          <SolidColorBrush x:Key="BerthDropMarkerBrush" Color="#709CF5"/>
+          <SolidColorBrush x:Key="BerthDropAreaPreviewBrush" Color="#4DA0BDF8"/>
+          <SolidColorBrush x:Key="BerthOverlaySurfaceBrush" Color="#F7F8FA"/>
+          <!-- Implementation keys of this theme's own state styles, not part of the Berth
+               token contract. -->
+          <SolidColorBrush x:Key="BerthNewUiStripeHoverBrush" Color="#12000000"/>
+          <SolidColorBrush x:Key="BerthNewUiTabHoverBrush" Color="#EBECF0"/>
+          <SolidColorBrush x:Key="BerthNewUiTabSelectedBrush" Color="#D0D4D8"/>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="BerthPaneBrush" Color="#2B2D30"/>
+          <SolidColorBrush x:Key="BerthSeparatorBrush" Color="#1E1F22"/>
+          <SolidColorBrush x:Key="BerthOpenIconBrush" Color="#26FFFFFF"/>
+          <SolidColorBrush x:Key="BerthActiveHeaderBrush" Color="#2B2D30"/>
+          <SolidColorBrush x:Key="BerthDropMarkerBrush" Color="#548AF7"/>
+          <SolidColorBrush x:Key="BerthDropAreaPreviewBrush" Color="#4D366ACF"/>
+          <SolidColorBrush x:Key="BerthOverlaySurfaceBrush" Color="#2B2D30"/>
+          <SolidColorBrush x:Key="BerthNewUiStripeHoverBrush" Color="#16FFFFFF"/>
+          <SolidColorBrush x:Key="BerthNewUiTabHoverBrush" Color="#393B40"/>
+          <SolidColorBrush x:Key="BerthNewUiTabSelectedBrush" Color="#343638"/>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <!-- The selected-stripe-icon fill is one hex in both variants (= the reference). -->
+      <SolidColorBrush x:Key="BerthNewUiStripeActiveBrush" Color="#3574F0"/>
+
+      <!-- Size tokens, variant-independent. Splitters: the reference paints a 0 px divider
+           with a 6 px grab zone; a Berth splitter is one entity, so 6 keeps the reference
+           grab at the cost of a visible low-contrast band (owner decision). -->
+      <x:Double x:Key="BerthStripeWidth">40</x:Double>
+      <x:Double x:Key="BerthStripeButtonSize">30</x:Double>
+      <x:Double x:Key="BerthHeaderHeight">41</x:Double>
+      <x:Double x:Key="BerthTabStripHeight">41</x:Double>
+      <x:Double x:Key="BerthSplitterThickness">6</x:Double>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Hover of a closed stripe icon; an open one keeps its stronger token highlight. -->
+  <Style Selector="berth|StripeButton:pointerover:not(:open)">
+    <Setter Property="Background" Value="{DynamicResource BerthNewUiStripeHoverBrush}"/>
+  </Style>
+
+  <!-- The New UI active-panel accent: the solid blue fill of the selected stripe icon. -->
+  <Style Selector="berth|StripeButton:active">
+    <Setter Property="Background" Value="{DynamicResource BerthNewUiStripeActiveBrush}"/>
+  </Style>
+
+  <Style Selector="berth|DockTabHeader:pointerover:not(:active):not(:current)">
+    <Setter Property="Background" Value="{DynamicResource BerthNewUiTabHoverBrush}"/>
+  </Style>
+
+  <!-- Selected tab of its group; :current is declared after :active so the current
+       document tab — which carries both classes — takes the later rule (docs/styling.md). -->
+  <Style Selector="berth|DockTabHeader:active">
+    <Setter Property="Background" Value="{DynamicResource BerthNewUiTabSelectedBrush}"/>
+  </Style>
+  <Style Selector="berth|DockTabHeader:current">
+    <Setter Property="Background" Value="{DynamicResource BerthNewUiTabSelectedBrush}"/>
+  </Style>
+</Styles>

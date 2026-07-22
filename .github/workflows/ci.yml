@@ -19,7 +19,7 @@ jobs:
       - name: Format check
         run: |
           for p in \
-            src/Berth.Core src/Berth.Avalonia \
+            src/Berth.Core src/Berth.Avalonia src/Berth.Theme.NewUi \
             samples/Berth.Demo samples/Berth.Demo.Desktop \
             tests/Berth.Core.Tests tests/Berth.Avalonia.Tests tests/Berth.Demo.Tests; do
             echo "::group::dotnet format $p"
@@ -40,6 +40,7 @@ jobs:
         run: |
           dotnet pack src/Berth.Core/Berth.Core.csproj -c Release -o artifacts
           dotnet pack src/Berth.Avalonia/Berth.Avalonia.csproj -c Release -o artifacts
+          dotnet pack src/Berth.Theme.NewUi/Berth.Theme.NewUi.csproj -c Release -o artifacts
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:

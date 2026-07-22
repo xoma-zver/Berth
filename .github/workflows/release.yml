@@ -44,6 +44,7 @@ jobs:
         run: |
           dotnet pack src/Berth.Core/Berth.Core.csproj -c Release -o artifacts
           dotnet pack src/Berth.Avalonia/Berth.Avalonia.csproj -c Release -o artifacts
+          dotnet pack src/Berth.Theme.NewUi/Berth.Theme.NewUi.csproj -c Release -o artifacts
 
       # Trusted Publishing: обмен OIDC-токена GitHub на временный ключ nuget.org.
       # vars.NUGET_USER — имя аккаунта-владельца политики (переменная репозитория).

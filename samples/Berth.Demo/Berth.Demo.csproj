@@ -23,5 +23,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Berth.Avalonia\Berth.Avalonia.csproj"/>
+        <ProjectReference Include="..\..\src\Berth.Theme.NewUi\Berth.Theme.NewUi.csproj"/>
     </ItemGroup>
 </Project>

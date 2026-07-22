@@ -1,0 +1,3 @@
+#nullable enable
+Berth.Themes.NewUi.BerthNewUiTheme
+Berth.Themes.NewUi.BerthNewUiTheme.BerthNewUiTheme() -> void

@@ -17,5 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Berth.Avalonia/Berth.Avalonia.csproj" />
+    <!-- The ready-made New UI theme package under test (NewUiThemeTests) -->
+    <ProjectReference Include="../../src/Berth.Theme.NewUi/Berth.Theme.NewUi.csproj" />
   </ItemGroup>
 </Project>

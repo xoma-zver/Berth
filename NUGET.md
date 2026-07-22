@@ -15,6 +15,10 @@ and every normative clause is covered by a test carrying the same id.
   transitions. No UI-framework dependency; namespace `Berth`.
 - **Berth.Avalonia** — the Avalonia controls that materialize the model. Depends on
   Berth.Core; namespace `Berth.Controls`.
+- **Berth.Theme.NewUi** — an optional ready-made appearance styled after the IntelliJ
+  IDEA New UI look, light and dark. Depends on Berth.Avalonia; namespace
+  `Berth.Themes.NewUi`; one line to enable: `<newui:BerthNewUiTheme/>` in application
+  styles.
 
 Install the controls (Berth.Core comes transitively):
 

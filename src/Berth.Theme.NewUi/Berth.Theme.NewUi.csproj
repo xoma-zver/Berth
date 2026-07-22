@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Berth.Themes.NewUi</RootNamespace>
+    <Title>Berth.Theme.NewUi — New UI style theme for Berth</Title>
+    <Description>Ready-made light/dark appearance for Berth docking controls, styled after the IntelliJ IDEA New UI look: design tokens and pseudo-class styles on top of Berth.Avalonia.</Description>
+    <PackageTags>avalonia;docking;dock;theme;styles;new-ui;ide;intellij</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Berth.Avalonia/Berth.Avalonia.csproj" />
+  </ItemGroup>
+</Project>
