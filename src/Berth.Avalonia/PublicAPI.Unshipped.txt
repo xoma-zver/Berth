@@ -5,6 +5,7 @@ Berth.Controls.BerthSplitter
 Berth.Controls.BerthSplitter.BerthSplitter() -> void
 Berth.Controls.BerthThemeKeys
 const Berth.Controls.BerthThemeKeys.ActiveHeader = "BerthActiveHeaderBrush" -> string!
+const Berth.Controls.BerthThemeKeys.DocumentTabStrip = "BerthDocumentTabStripBrush" -> string!
 const Berth.Controls.BerthThemeKeys.DropAreaPreview = "BerthDropAreaPreviewBrush" -> string!
 const Berth.Controls.BerthThemeKeys.DropMarker = "BerthDropMarkerBrush" -> string!
 const Berth.Controls.BerthThemeKeys.HeaderHeight = "BerthHeaderHeight" -> string!

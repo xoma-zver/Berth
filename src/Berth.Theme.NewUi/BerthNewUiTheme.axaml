@@ -30,10 +30,11 @@
                token contract. -->
           <SolidColorBrush x:Key="BerthNewUiStripeHoverBrush" Color="#12000000"/>
           <SolidColorBrush x:Key="BerthNewUiTabHoverBrush" Color="#EBECF0"/>
-          <SolidColorBrush x:Key="BerthNewUiTabSelectedBrush" Color="#D0D4D8"/>
-          <!-- Editor-tab underline of the reference (§7): the inactive shade is
-               per-variant, the focused blue is one hex in both. -->
+          <!-- Tab underline of the reference (§7, editor and tool window tabs alike):
+               the inactive shade is per-variant, the focused blue is one hex in both. -->
           <SolidColorBrush x:Key="BerthNewUiTabInactiveUnderlineBrush" Color="#A8ADBD"/>
+          <!-- Editor tabs sit on their own surface (§7): white / Gray1, not the pane. -->
+          <SolidColorBrush x:Key="BerthDocumentTabStripBrush" Color="#FFFFFF"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
           <SolidColorBrush x:Key="BerthPaneBrush" Color="#2B2D30"/>
@@ -46,8 +47,8 @@
           <SolidColorBrush x:Key="BerthOverlaySurfaceBrush" Color="#2B2D30"/>
           <SolidColorBrush x:Key="BerthNewUiStripeHoverBrush" Color="#16FFFFFF"/>
           <SolidColorBrush x:Key="BerthNewUiTabHoverBrush" Color="#393B40"/>
-          <SolidColorBrush x:Key="BerthNewUiTabSelectedBrush" Color="#343638"/>
           <SolidColorBrush x:Key="BerthNewUiTabInactiveUnderlineBrush" Color="#5A5D63"/>
+          <SolidColorBrush x:Key="BerthDocumentTabStripBrush" Color="#1E1F22"/>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
 
@@ -66,11 +67,13 @@
       <x:Double x:Key="BerthTabStripHeight">41</x:Double>
       <x:Double x:Key="BerthSplitterThickness">1</x:Double>
 
-      <!-- Document tabs are editor tabs of the reference (§7): selection is the bottom
-           underline — blue on the current document of the focused dock host, dimmed on a
-           tab merely selected in its group — never a fill. Panel tabs keep the built-in
-           template and the fills below. Replacing leaf-chrome templates is the legal
-           channel of the styling contract (docs/styling.md). -->
+      <!-- Every tab of the reference speaks the underline (§7): editor tabs and tool
+           window content tabs alike — selection is the bottom underline, never a fill.
+           The underline color rides on the header's BorderBrush (surfaced here by
+           TemplateBinding), so the state styles below the ControlTheme can set it without
+           reaching into the template; heights differ per host kind (editor 4, tool
+           window 3). Replacing leaf-chrome templates is the legal channel of the styling
+           contract (docs/styling.md). -->
       <ControlTheme x:Key="{x:Type berth:DockTabHeader}" TargetType="berth:DockTabHeader">
         <Setter Property="Padding" Value="8,0,2,0"/>
         <Setter Property="Template">
@@ -84,22 +87,19 @@
                 </StackPanel>
               </Border>
               <Border Name="UnderlineBar"
-                      Height="4"
+                      Height="3"
                       CornerRadius="2"
                       VerticalAlignment="Bottom"
+                      Background="{TemplateBinding BorderBrush}"
                       IsVisible="False"/>
             </Panel>
           </ControlTemplate>
         </Setter>
-        <Style Selector="^:document:active /template/ Border#UnderlineBar">
+        <Style Selector="^:active /template/ Border#UnderlineBar">
           <Setter Property="IsVisible" Value="True"/>
-          <Setter Property="Background" Value="{DynamicResource BerthNewUiTabInactiveUnderlineBrush}"/>
         </Style>
-        <!-- Declared after :active — the current document carries both classes and the
-             later rule wins at equal specificity. -->
-        <Style Selector="^:document:current /template/ Border#UnderlineBar">
-          <Setter Property="IsVisible" Value="True"/>
-          <Setter Property="Background" Value="{DynamicResource BerthNewUiTabUnderlineBrush}"/>
+        <Style Selector="^:document /template/ Border#UnderlineBar">
+          <Setter Property="Height" Value="4"/>
         </Style>
       </ControlTheme>
     </ResourceDictionary>
@@ -115,17 +115,30 @@
     <Setter Property="Background" Value="{DynamicResource BerthNewUiStripeActiveBrush}"/>
   </Style>
 
-  <!-- Fills and hover are the language of panel (tool window) tabs only; document tabs
-       speak the editor-tab underline of the ControlTheme above — their background stays
-       the bar's (§7: underlinedTabBackground = the bar, hover alpha 00), so the library's
-       :active/:current token fills are overridden flat. -->
+  <!-- Selection is never a fill (§7: underlinedTabBackground is the bar itself), so the
+       library's :active/:current token fills are overridden flat; the only background
+       state left is the hover of tool window tabs — editor-tab hover is alpha 00. -->
   <Style Selector="berth|DockTabHeader:document">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="berth|DockTabHeader:active">
     <Setter Property="Background" Value="Transparent"/>
   </Style>
   <Style Selector="berth|DockTabHeader:pointerover:not(:document):not(:active)">
     <Setter Property="Background" Value="{DynamicResource BerthNewUiTabHoverBrush}"/>
   </Style>
-  <Style Selector="berth|DockTabHeader:active:not(:document)">
-    <Setter Property="Background" Value="{DynamicResource BerthNewUiTabSelectedBrush}"/>
+
+  <!-- The underline colors, riding on BorderBrush (see the ControlTheme). Order matters —
+       Avalonia resolves equal matches by declaration order: the dimmed base first, then
+       the focused blue of a selected tab inside the active tool window, then the focused
+       blue of the current document (its header carries :active too). -->
+  <Style Selector="berth|DockTabHeader:active">
+    <Setter Property="BorderBrush" Value="{DynamicResource BerthNewUiTabInactiveUnderlineBrush}"/>
+  </Style>
+  <Style Selector="berth|ToolWindowDecorator:active berth|DockTabHeader:active">
+    <Setter Property="BorderBrush" Value="{DynamicResource BerthNewUiTabUnderlineBrush}"/>
+  </Style>
+  <Style Selector="berth|DockTabHeader:current">
+    <Setter Property="BorderBrush" Value="{DynamicResource BerthNewUiTabUnderlineBrush}"/>
   </Style>
 </Styles>

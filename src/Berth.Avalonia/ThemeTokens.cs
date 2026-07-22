@@ -50,6 +50,15 @@ public static class BerthThemeKeys
     /// </summary>
     public const string WorkspaceBackground = "BerthWorkspaceBackgroundBrush";
 
+    /// <summary>
+    /// Background of a dock-host tab strip — the document area and document windows, as
+    /// opposed to the strips of tool window trees, which stay on <see cref="Pane"/>. The
+    /// reference styles editor tabs on their own surface, so the channel is separate;
+    /// the default equals the <see cref="Pane"/> default — without a theme the strips look
+    /// alike.
+    /// </summary>
+    public const string DocumentTabStrip = "BerthDocumentTabStripBrush";
+
     // ---- size tokens (resource values are doubles — x:Double in XAML) ----
 
     /// <summary>Width of a stripe — the vertical icon bar (TW-1.1). Default: 36.</summary>

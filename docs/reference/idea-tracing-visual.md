@@ -168,6 +168,26 @@ LEFT/RIGHT стрипа, причём для New UI **в обратном пор
 `:current` (текущий документ активного хоста при неактивных панелях, DA-6.2) /
 `:active` (выбрана в своей группе): фокус в панели гасит `:current`, оставляя `:active`.
 
+### Вкладки контента тул-окна — тоже подчёркивание
+
+Дотрассировано 2026-07-22 (вопрос владельца «а вкладки терминала?»): вкладки контента
+тул-окна (сессии терминала, вкладки Debug) в New UI красятся **тем же языком
+подчёркивания**, не заливкой. Путь достижимости: `TabContentLayout.paintComponent` →
+`JBTabPainter.getTOOL_WINDOW()` → `ToolWindowTabTheme` → ключи
+`ToolWindow.HeaderTab.*` с фолбэком в те же wildcard-цвета:
+
+| Параметр | Light | Dark | Источник |
+|---|---|---|---|
+| Подчёркивание (панель активна / неактивна) | `#3574F0` / `#A8ADBD` | `#3574F0` / `#5A5D63` | `ToolWindow.HeaderTab.underlineColor`/`.inactiveUnderlineColor` в темах отсутствуют → wildcard, как у редактора |
+| Высота / скругление | **3 px** (java-дефолт `DefaultTabs.underlineHeight`, темой не перекрыт — у редактора 4) / **4 px** | — | `JBUI.CurrentTheme.ToolWindow` |
+| Фон выбранной вкладки | нет заливки: `ToolWindow.HeaderTab.underlinedTabBackground` — `UIManager.getColor` без фолбэка, ключа в темах нет → null | — | `JBUI.java` |
+| Ховер (панель активна / неактивна) | `#EBECF0` (явный ключ) / — | wildcard `#393B40` / `#393B40` (Gray3, явный ключ) | `ToolWindow.HeaderTab.hoverBackground`, `.hoverInactiveBackground` |
+
+**Поправка к §3**: строки «вкладка заголовка — выбрана #D0D4D8 / #343638» — legacy-ключи
+(`selectedBackground`), унаследованные из intellijlaf/darcula; путь отрисовки New UI до
+них не дотягивается (см. выше) — для вкладок контента это мёртвые значения, урок
+«проверять достижимость, не только наличие».
+
 ## Механизмы темизации (важно при переносе значений)
 
 1. **Wildcard-фолбэк.** Любой `JBColor.namedColor("X.borderColor"/"X.background"/…, default)`,

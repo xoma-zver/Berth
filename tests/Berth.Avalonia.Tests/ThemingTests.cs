@@ -301,6 +301,28 @@ public class ThemingTests
     }
 
     [AvaloniaFact]
+    public void The_document_strip_token_defaults_to_the_pane_brush_and_honors_an_override()
+    {
+        var state = LayoutState.Empty with
+        {
+            DockArea = new DockAreaState
+            {
+                Root = new TabGroupNode { Tabs = ["d1"], ActiveTabId = "d1" },
+                CurrentTabId = "d1",
+            },
+        };
+        var window = Show(state, Registry());
+        var strip = (Border)Part(window, "PART_TabStrip");
+        Assert.Same(BerthBrushes.Pane, strip.Background); // equal defaults: no visible split
+
+        // The host-kind channel: a dock-host strip recolors independently of Pane.
+        window.Resources[BerthThemeKeys.DocumentTabStrip] = Red;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Same(Red, strip.Background);
+    }
+
+    [AvaloniaFact]
     public void A_dock_tab_header_carries_the_document_pseudo_class_a_panel_one_does_not()
     {
         // The host-kind styling hook: themes style editor-like tabs and tool window tabs

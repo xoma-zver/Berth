@@ -43,7 +43,14 @@ internal sealed class TabGroupView : DockPanel
             // must not paint over or steal clicks from the neighbouring split cell.
             ClipToBounds = true,
         };
-        ThemeTokens.BindBrush(_stripBar, Border.BackgroundProperty, BerthThemeKeys.Pane, BerthBrushes.Pane);
+        // A dock-host strip (the document area, a document window) resolves its own token:
+        // the reference paints editor tabs on their own surface (§7); panel strips stay on
+        // Pane. The defaults are equal, so the split is invisible without a theme.
+        ThemeTokens.BindBrush(
+            _stripBar,
+            Border.BackgroundProperty,
+            context.PanelId is null ? BerthThemeKeys.DocumentTabStrip : BerthThemeKeys.Pane,
+            BerthBrushes.Pane);
         ThemeTokens.BindBrush(_stripBar, Border.BorderBrushProperty, BerthThemeKeys.Separator, BerthBrushes.Separator);
         ThemeTokens.BindSize(
             _stripBar, Layoutable.HeightProperty, BerthThemeKeys.TabStripHeight, BerthMetrics.TabStripHeight);

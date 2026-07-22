@@ -120,6 +120,7 @@ public class NewUiThemeTests
         var current = Underline(TabHeader(window, "d1"));
         Assert.True(current.IsVisible);
         Assert.Equal(Color.Parse("#3574F0"), ColorOf(current.Background));
+        Assert.Equal(4.0, current.Height); // the editor underline height of the reference
         var active = Underline(TabHeader(window, "d3"));
         Assert.True(active.IsVisible);
         Assert.Equal(Color.Parse("#A8ADBD"), ColorOf(active.Background));
@@ -129,8 +130,11 @@ public class NewUiThemeTests
     }
 
     [AvaloniaFact]
-    public void Panel_tabs_keep_the_selected_fill_without_an_underline()
+    public void Panel_tabs_underline_like_the_reference_tool_window_tabs()
     {
+        // Tool window content tabs of the reference underline too (§7): blue inside the
+        // active tool window, dimmed in an inactive one — never a fill; the tool window
+        // underline is 3 px against the editor's 4.
         var state = LayoutState.Empty with
         {
             ToolWindows =
@@ -140,17 +144,49 @@ public class NewUiThemeTests
                     IsOpen = true,
                     ContentTree = new TabGroupNode { Tabs = ["p1", "p2"], ActiveTabId = "p1" },
                 },
+                Win("b", ToolWindowSide.Right, ToolWindowGroup.Primary) with
+                {
+                    IsOpen = true,
+                    ContentTree = new TabGroupNode { Tabs = ["q1"], ActiveTabId = "q1" },
+                },
             ],
+            ActiveToolWindowId = "a",
         };
-        var window = ShowThemed(state, Registry("a"), ThemeVariant.Light);
+        var window = ShowThemed(state, Registry("a", "b"), ThemeVariant.Light);
 
-        // Tool window tabs keep the reference fill language of the header tabs (§3):
-        // the selected one is filled, no underline shows on either.
-        Assert.Equal(
-            Color.Parse("#D0D4D8"), ColorOf(((DockTabHeader)TabHeader(window, "p1")).Background));
-        Assert.Equal(Colors.Transparent, ColorOf(((DockTabHeader)TabHeader(window, "p2")).Background));
-        Assert.False(Underline(TabHeader(window, "p1")).IsVisible);
+        var focused = Underline(TabHeader(window, "p1"));
+        Assert.True(focused.IsVisible);
+        Assert.Equal(Color.Parse("#3574F0"), ColorOf(focused.Background));
+        Assert.Equal(3.0, focused.Height);
+        var dimmed = Underline(TabHeader(window, "q1"));
+        Assert.True(dimmed.IsVisible);
+        Assert.Equal(Color.Parse("#A8ADBD"), ColorOf(dimmed.Background));
         Assert.False(Underline(TabHeader(window, "p2")).IsVisible);
+        Assert.Equal(Colors.Transparent, ColorOf(((DockTabHeader)TabHeader(window, "p1")).Background));
+    }
+
+    [AvaloniaFact]
+    public void The_document_strip_sits_on_its_own_surface()
+    {
+        var state = LayoutState.Empty with
+        {
+            DockArea = new DockAreaState
+            {
+                Root = new TabGroupNode { Tabs = ["d1", "d2"], ActiveTabId = "d1" },
+                CurrentTabId = "d1",
+            },
+        };
+        var window = ShowThemed(state, Registry(), ThemeVariant.Light);
+
+        // Editor tabs live on their own surface (§7): white in light, Gray1 in dark —
+        // not the pane color of the panel chrome.
+        var strip = (Border)Part(window, "PART_TabStrip");
+        Assert.Equal(Colors.White, ColorOf(strip.Background));
+
+        window.RequestedThemeVariant = ThemeVariant.Dark;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(Color.Parse("#1E1F22"), ColorOf(strip.Background));
     }
 
     [AvaloniaFact]
