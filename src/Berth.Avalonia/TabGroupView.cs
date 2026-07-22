@@ -146,10 +146,14 @@ internal sealed class TabGroupView : DockPanel
 /// the gesture never became a drag. The group's active tab carries the <c>:active</c>
 /// pseudo-class; the active document — the current tab of the effective active host while no
 /// tool window is active (DA-6.2) — additionally carries <c>:current</c>. Headers share the
-/// PART name and are discriminated by <c>Tag</c> holding the tab id.
+/// PART name and are discriminated by <c>Tag</c> holding the tab id. A header living in a
+/// dock host — the main window's dock area or a document window, as opposed to a tool
+/// window's content tree — carries the <c>:document</c> pseudo-class: a pure styling hook
+/// with no built-in default, for themes that style document tabs and panel tabs differently
+/// (the IDEA New UI underlines editor tabs while filling tool window tabs).
 /// </summary>
 [TemplatePart("PART_TabClose", typeof(Button))]
-[PseudoClasses(":active", ":current")]
+[PseudoClasses(":active", ":current", ":document")]
 public sealed class DockTabHeader : TemplatedControl
 {
     /// <summary>Defines the read-only <see cref="Title"/> property.</summary>
@@ -183,6 +187,8 @@ public sealed class DockTabHeader : TemplatedControl
             && string.Equals(state.DockArea.CurrentTabId, tabId, StringComparison.Ordinal);
         PseudoClasses.Set(":active", isActive);
         PseudoClasses.Set(":current", isCurrentDocument);
+        // The host-kind hook: a dock-host tree has no owning panel (TabTreeContext.PanelId).
+        PseudoClasses.Set(":document", context.PanelId is null);
         // The highlight lives on the control's Background at Template priority: the token
         // stays the live default, an application pseudo-class style overrides it, and the
         // default template paints it via TemplateBinding. The inactive header still needs a

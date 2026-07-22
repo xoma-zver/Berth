@@ -1034,6 +1034,10 @@ public sealed class BerthWorkspace : Decorator
         // The drag layer paints above it — its ghost and markers live in workspace
         // coordinates too (TW-5.17).
         var root = new Panel();
+        // The workspace canvas token: transparent by default, so nothing changes without a
+        // theme; an IDE-look theme paints the uniform surface the chrome sits on.
+        ThemeTokens.BindBrush(
+            root, Panel.BackgroundProperty, BerthThemeKeys.WorkspaceBackground, BerthBrushes.WorkspaceBackground);
         root.Children.Add(workspaceRow);
         root.Children.Add(_pseudoLayer);
         root.Children.Add(_dragLayer);

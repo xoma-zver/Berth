@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Xunit;
 
 namespace Berth.Controls.Tests;
@@ -282,6 +283,48 @@ public class ThemingTests
         window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
         window.MouseUp(new Point(stripe.Center.X, stripe.Top + 5), MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void The_workspace_canvas_token_defaults_to_transparent_and_honors_an_override()
+    {
+        var window = Show(OpenPanelState(), Registry("a"));
+        var workspace = window.GetVisualDescendants().OfType<BerthWorkspace>().Single();
+        var canvas = (Panel)workspace.Child!;
+        Assert.Equal(Colors.Transparent, ((ISolidColorBrush)canvas.Background!).Color);
+
+        // The IDE-look channel: a theme paints the uniform surface the chrome sits on.
+        window.Resources[BerthThemeKeys.WorkspaceBackground] = Red;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Same(Red, canvas.Background);
+    }
+
+    [AvaloniaFact]
+    public void A_dock_tab_header_carries_the_document_pseudo_class_a_panel_one_does_not()
+    {
+        // The host-kind styling hook: themes style editor-like tabs and tool window tabs
+        // differently (the IDEA New UI precedent) — no built-in default rides on it.
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with
+                {
+                    IsOpen = true,
+                    ContentTree = new TabGroupNode { Tabs = ["p1", "p2"], ActiveTabId = "p1" },
+                },
+            ],
+            DockArea = new DockAreaState
+            {
+                Root = new TabGroupNode { Tabs = ["d1"], ActiveTabId = "d1" },
+                CurrentTabId = "d1",
+            },
+        };
+        var window = Show(state, Registry("a"));
+
+        Assert.Contains(":document", TabHeader(window, "d1").Classes);
+        Assert.DoesNotContain(":document", TabHeader(window, "p1").Classes);
     }
 
     [AvaloniaFact]

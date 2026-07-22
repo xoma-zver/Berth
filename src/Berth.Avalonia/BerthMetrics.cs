@@ -96,4 +96,7 @@ internal static class BerthBrushes
 
     /// <summary>Opaque backdrop of overlay windows in the dark theme variant (TW-3.3).</summary>
     public static readonly IBrush DarkOverlaySurface = new ImmutableSolidColorBrush(Color.FromRgb(0x1E, 0x1F, 0x22));
+
+    /// <summary>Workspace canvas behind panes and the dock area: transparent by default — the window background shows through.</summary>
+    public static readonly IBrush WorkspaceBackground = new ImmutableSolidColorBrush(Colors.Transparent);
 }

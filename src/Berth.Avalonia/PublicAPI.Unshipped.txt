@@ -16,6 +16,7 @@ const Berth.Controls.BerthThemeKeys.SplitterThickness = "BerthSplitterThickness"
 const Berth.Controls.BerthThemeKeys.StripeButtonSize = "BerthStripeButtonSize" -> string!
 const Berth.Controls.BerthThemeKeys.StripeWidth = "BerthStripeWidth" -> string!
 const Berth.Controls.BerthThemeKeys.TabStripHeight = "BerthTabStripHeight" -> string!
+const Berth.Controls.BerthThemeKeys.WorkspaceBackground = "BerthWorkspaceBackgroundBrush" -> string!
 Berth.Controls.DockTabHeader
 Berth.Controls.DockTabHeader.Title.get -> string!
 static readonly Berth.Controls.DockTabHeader.TitleProperty -> Avalonia.DirectProperty<Berth.Controls.DockTabHeader!, string!>!

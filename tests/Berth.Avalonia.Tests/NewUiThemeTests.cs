@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
@@ -87,8 +88,12 @@ public class NewUiThemeTests
         Assert.Equal(DarkPane, ColorOf(active.Background));
     }
 
+    private static Border Underline(Visual header) =>
+        header.GetVisualDescendants().OfType<Border>().First(b =>
+            string.Equals(b.Name, "UnderlineBar", StringComparison.Ordinal));
+
     [AvaloniaFact]
-    public void The_selected_tab_headers_take_the_selected_fill()
+    public void Document_tabs_speak_the_editor_underline_not_a_fill()
     {
         var state = LayoutState.Empty with
         {
@@ -108,12 +113,61 @@ public class NewUiThemeTests
         };
         var window = ShowThemed(state, Registry(), ThemeVariant.Light);
 
-        // d1 is the current document (:active + :current), d3 is active in its group only
-        // (:active) — both take the selected fill; d2 keeps the transparent template value.
-        var selected = Color.Parse("#D0D4D8");
-        Assert.Equal(selected, ColorOf(((DockTabHeader)TabHeader(window, "d1")).Background));
-        Assert.Equal(selected, ColorOf(((DockTabHeader)TabHeader(window, "d3")).Background));
-        Assert.Equal(Colors.Transparent, ColorOf(((DockTabHeader)TabHeader(window, "d2")).Background));
+        // d1 is the current document (:active + :current) — the focused blue underline;
+        // d3 is merely selected in its group (:active) — the dimmed underline; d2 shows
+        // none. Selection is never a fill: every document tab keeps the transparent
+        // template background (§7 of the reference).
+        var current = Underline(TabHeader(window, "d1"));
+        Assert.True(current.IsVisible);
+        Assert.Equal(Color.Parse("#3574F0"), ColorOf(current.Background));
+        var active = Underline(TabHeader(window, "d3"));
+        Assert.True(active.IsVisible);
+        Assert.Equal(Color.Parse("#A8ADBD"), ColorOf(active.Background));
+        Assert.False(Underline(TabHeader(window, "d2")).IsVisible);
+        Assert.Equal(Colors.Transparent, ColorOf(((DockTabHeader)TabHeader(window, "d1")).Background));
+        Assert.Equal(Colors.Transparent, ColorOf(((DockTabHeader)TabHeader(window, "d3")).Background));
+    }
+
+    [AvaloniaFact]
+    public void Panel_tabs_keep_the_selected_fill_without_an_underline()
+    {
+        var state = LayoutState.Empty with
+        {
+            ToolWindows =
+            [
+                Win("a", ToolWindowSide.Left, ToolWindowGroup.Primary) with
+                {
+                    IsOpen = true,
+                    ContentTree = new TabGroupNode { Tabs = ["p1", "p2"], ActiveTabId = "p1" },
+                },
+            ],
+        };
+        var window = ShowThemed(state, Registry("a"), ThemeVariant.Light);
+
+        // Tool window tabs keep the reference fill language of the header tabs (§3):
+        // the selected one is filled, no underline shows on either.
+        Assert.Equal(
+            Color.Parse("#D0D4D8"), ColorOf(((DockTabHeader)TabHeader(window, "p1")).Background));
+        Assert.Equal(Colors.Transparent, ColorOf(((DockTabHeader)TabHeader(window, "p2")).Background));
+        Assert.False(Underline(TabHeader(window, "p1")).IsVisible);
+        Assert.False(Underline(TabHeader(window, "p2")).IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void The_workspace_canvas_takes_the_uniform_surface()
+    {
+        var window = ShowThemed(TwoOpenPanels(), Registry("a", "b"), ThemeVariant.Light);
+
+        // The IDE-look canvas (§6): one background under the whole workspace, so nothing
+        // dark bleeds through between panes and behind the dock area.
+        var workspace = window.GetVisualDescendants().OfType<BerthWorkspace>().Single();
+        var canvas = (Panel)workspace.Child!;
+        Assert.Equal(LightPane, ColorOf(canvas.Background));
+
+        window.RequestedThemeVariant = ThemeVariant.Dark;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(DarkPane, ColorOf(canvas.Background));
     }
 
     [AvaloniaFact]
@@ -121,10 +175,11 @@ public class NewUiThemeTests
     {
         var window = ShowThemed(TwoOpenPanels(), Registry("a", "b"), ThemeVariant.Light);
 
-        // Splitters: 6 px — the reference grab zone over Berth's one-entity splitter
-        // (owner decision); header 41; the stripe border adds its 1 px edge to the 40 px
-        // content column; the icon face is the 30 px visible highlight of the reference.
-        Assert.Equal(6.0, Part(window, "PART_LeftSideSplitter").Bounds.Width);
+        // Splitters: the 1 px hairline of the reference look — the grab stays narrow until
+        // the split visual/grab entity exists (owner decision, 2026-07-22); header 41; the
+        // stripe border adds its 1 px edge to the 40 px content column; the icon face is
+        // the 30 px visible highlight of the reference.
+        Assert.Equal(1.0, Part(window, "PART_LeftSideSplitter").Bounds.Width);
         var headerRow = (Control)((Border)Part(Decorator(window, "a"), "PART_Header")).Child!;
         Assert.Equal(41.0, headerRow.Bounds.Height);
         Assert.Equal(41.0, Part(window, "PART_LeftStripe").Bounds.Width);

@@ -20,6 +20,9 @@
           <!-- Equals BerthPaneBrush: the New UI accent of the active panel is the stripe
                icon, never the header. -->
           <SolidColorBrush x:Key="BerthActiveHeaderBrush" Color="#F7F8FA"/>
+          <!-- The uniform IDE canvas (§6 of the reference): one background under the whole
+               workspace — the black gaps of the default transparent canvas disappear. -->
+          <SolidColorBrush x:Key="BerthWorkspaceBackgroundBrush" Color="#F7F8FA"/>
           <SolidColorBrush x:Key="BerthDropMarkerBrush" Color="#709CF5"/>
           <SolidColorBrush x:Key="BerthDropAreaPreviewBrush" Color="#4DA0BDF8"/>
           <SolidColorBrush x:Key="BerthOverlaySurfaceBrush" Color="#F7F8FA"/>
@@ -28,32 +31,77 @@
           <SolidColorBrush x:Key="BerthNewUiStripeHoverBrush" Color="#12000000"/>
           <SolidColorBrush x:Key="BerthNewUiTabHoverBrush" Color="#EBECF0"/>
           <SolidColorBrush x:Key="BerthNewUiTabSelectedBrush" Color="#D0D4D8"/>
+          <!-- Editor-tab underline of the reference (§7): the inactive shade is
+               per-variant, the focused blue is one hex in both. -->
+          <SolidColorBrush x:Key="BerthNewUiTabInactiveUnderlineBrush" Color="#A8ADBD"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
           <SolidColorBrush x:Key="BerthPaneBrush" Color="#2B2D30"/>
           <SolidColorBrush x:Key="BerthSeparatorBrush" Color="#1E1F22"/>
           <SolidColorBrush x:Key="BerthOpenIconBrush" Color="#26FFFFFF"/>
           <SolidColorBrush x:Key="BerthActiveHeaderBrush" Color="#2B2D30"/>
+          <SolidColorBrush x:Key="BerthWorkspaceBackgroundBrush" Color="#2B2D30"/>
           <SolidColorBrush x:Key="BerthDropMarkerBrush" Color="#548AF7"/>
           <SolidColorBrush x:Key="BerthDropAreaPreviewBrush" Color="#4D366ACF"/>
           <SolidColorBrush x:Key="BerthOverlaySurfaceBrush" Color="#2B2D30"/>
           <SolidColorBrush x:Key="BerthNewUiStripeHoverBrush" Color="#16FFFFFF"/>
           <SolidColorBrush x:Key="BerthNewUiTabHoverBrush" Color="#393B40"/>
           <SolidColorBrush x:Key="BerthNewUiTabSelectedBrush" Color="#343638"/>
+          <SolidColorBrush x:Key="BerthNewUiTabInactiveUnderlineBrush" Color="#5A5D63"/>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
 
-      <!-- The selected-stripe-icon fill is one hex in both variants (= the reference). -->
+      <!-- The selected-stripe-icon fill and the focused-tab underline are one hex in both
+           variants (= the reference). -->
       <SolidColorBrush x:Key="BerthNewUiStripeActiveBrush" Color="#3574F0"/>
+      <SolidColorBrush x:Key="BerthNewUiTabUnderlineBrush" Color="#3574F0"/>
 
       <!-- Size tokens, variant-independent. Splitters: the reference paints a 0 px divider
-           with a 6 px grab zone; a Berth splitter is one entity, so 6 keeps the reference
-           grab at the cost of a visible low-contrast band (owner decision). -->
+           with an invisible 6 px grab overlay; a Berth splitter is one entity (visual =
+           grab), so the theme keeps the reference hairline look at the cost of a narrow
+           grab — the split entity is a backlog candidate (owner decision, 2026-07-22). -->
       <x:Double x:Key="BerthStripeWidth">40</x:Double>
       <x:Double x:Key="BerthStripeButtonSize">30</x:Double>
       <x:Double x:Key="BerthHeaderHeight">41</x:Double>
       <x:Double x:Key="BerthTabStripHeight">41</x:Double>
-      <x:Double x:Key="BerthSplitterThickness">6</x:Double>
+      <x:Double x:Key="BerthSplitterThickness">1</x:Double>
+
+      <!-- Document tabs are editor tabs of the reference (§7): selection is the bottom
+           underline — blue on the current document of the focused dock host, dimmed on a
+           tab merely selected in its group — never a fill. Panel tabs keep the built-in
+           template and the fills below. Replacing leaf-chrome templates is the legal
+           channel of the styling contract (docs/styling.md). -->
+      <ControlTheme x:Key="{x:Type berth:DockTabHeader}" TargetType="berth:DockTabHeader">
+        <Setter Property="Padding" Value="8,0,2,0"/>
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Border Background="{TemplateBinding Background}"
+                      Padding="{TemplateBinding Padding}">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="{TemplateBinding Title}" VerticalAlignment="Center"/>
+                  <berth:BerthChromeButton Name="PART_TabClose" Content="×"/>
+                </StackPanel>
+              </Border>
+              <Border Name="UnderlineBar"
+                      Height="4"
+                      CornerRadius="2"
+                      VerticalAlignment="Bottom"
+                      IsVisible="False"/>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+        <Style Selector="^:document:active /template/ Border#UnderlineBar">
+          <Setter Property="IsVisible" Value="True"/>
+          <Setter Property="Background" Value="{DynamicResource BerthNewUiTabInactiveUnderlineBrush}"/>
+        </Style>
+        <!-- Declared after :active — the current document carries both classes and the
+             later rule wins at equal specificity. -->
+        <Style Selector="^:document:current /template/ Border#UnderlineBar">
+          <Setter Property="IsVisible" Value="True"/>
+          <Setter Property="Background" Value="{DynamicResource BerthNewUiTabUnderlineBrush}"/>
+        </Style>
+      </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
 
@@ -67,16 +115,17 @@
     <Setter Property="Background" Value="{DynamicResource BerthNewUiStripeActiveBrush}"/>
   </Style>
 
-  <Style Selector="berth|DockTabHeader:pointerover:not(:active):not(:current)">
+  <!-- Fills and hover are the language of panel (tool window) tabs only; document tabs
+       speak the editor-tab underline of the ControlTheme above — their background stays
+       the bar's (§7: underlinedTabBackground = the bar, hover alpha 00), so the library's
+       :active/:current token fills are overridden flat. -->
+  <Style Selector="berth|DockTabHeader:document">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="berth|DockTabHeader:pointerover:not(:document):not(:active)">
     <Setter Property="Background" Value="{DynamicResource BerthNewUiTabHoverBrush}"/>
   </Style>
-
-  <!-- Selected tab of its group; :current is declared after :active so the current
-       document tab — which carries both classes — takes the later rule (docs/styling.md). -->
-  <Style Selector="berth|DockTabHeader:active">
-    <Setter Property="Background" Value="{DynamicResource BerthNewUiTabSelectedBrush}"/>
-  </Style>
-  <Style Selector="berth|DockTabHeader:current">
+  <Style Selector="berth|DockTabHeader:active:not(:document)">
     <Setter Property="Background" Value="{DynamicResource BerthNewUiTabSelectedBrush}"/>
   </Style>
 </Styles>

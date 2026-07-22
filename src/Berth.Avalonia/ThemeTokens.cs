@@ -43,6 +43,13 @@ public static class BerthThemeKeys
     /// </summary>
     public const string OverlaySurface = "BerthOverlaySurfaceBrush";
 
+    /// <summary>
+    /// Background of the whole workspace — the canvas behind the stripes, panes, splitters
+    /// and the dock area. Default: transparent, the window background shows through; a theme
+    /// painting an IDE-like uniform surface sets it to the pane color.
+    /// </summary>
+    public const string WorkspaceBackground = "BerthWorkspaceBackgroundBrush";
+
     // ---- size tokens (resource values are doubles — x:Double in XAML) ----
 
     /// <summary>Width of a stripe — the vertical icon bar (TW-1.1). Default: 36.</summary>

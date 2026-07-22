@@ -142,6 +142,32 @@ LEFT/RIGHT стрипа, причём для New UI **в обратном пор
 Фон **редактора** — отдельная подсистема (`EditorColorsScheme`, XML-схемы, юзер-выбираемые
 независимо от UI-темы), сюда не входит.
 
+## 7. Вкладки редактора (документная зона)
+
+Вкладки документной зоны — **не** вкладки заголовка тул-окна (§3), а подсистема
+`EditorTabs` со своим языком выделения: не заливка, а **подчёркивание** нижней кромки
+выбранной вкладки. Дополнение прослежено 2026-07-22 по тем же `expUI_*.theme.json`
+(EditorTabs-ключи, wildcard-блок) и `JBUI.java` (`CurrentTheme.EditorTabs`,
+`CurrentTheme.DefaultTabs`).
+
+| Параметр | Light | Dark | Источник |
+|---|---|---|---|
+| Подчёркивание выбранной вкладки (окно в фокусе) | `#3574F0` (Blue4) | `#3574F0` (Blue6) | ключей `EditorTabs.underlineColor` в темах **нет** — wildcard `*.underlineColor` (`Blue4`/`Blue6`); java-дефолт `DefaultTabs.underlineColor` (#4083C9/#4A88C7) — old-UI, недостижим |
+| Подчёркивание выбранной вкладки (окно без фокуса) | `#A8ADBD` (Gray8) | `#5A5D63` (Gray6) | wildcard `*.inactiveUnderlineColor` |
+| Высота / скругление подчёркивания | **4 px** / **4 px** | — | `EditorTabs.underlineHeight`, `EditorTabs.underlineArc` (java-дефолты 3 и 0 перекрыты темой) |
+| Фон полосы вкладок и выбранной вкладки | `#FFFFFF` (Gray14) | `#1E1F22` (Gray1) | `EditorTabs.background`, `EditorTabs.underlinedTabBackground` — **не** фон панелей (Gray13/Gray2): полоса редактора темнее (dark) / белее (light) панельного хрома |
+| Ховер вкладки | прозрачный (`#FFFFFF00`) | прозрачный (`#1E1F2200`) | `EditorTabs.hoverBackground` — альфа 00: ховер фона не меняет |
+| Граница под полосой вкладок | — (ключа нет) | `#393B40` (Gray3) | `EditorTabs.underTabsBorderColor` (только dark) |
+| Приглушение невыбранных вкладок | alpha 0.75, blend 0.9 | alpha 0.75, blend 0.7 | `EditorTabs.unselectedAlpha`, `EditorTabs.unselectedBlend` — текст невыбранной вкладки подмешивается к фону |
+| Инсеты вкладки | insets(-7, 8) — по горизонтали 8 | — | `JBUI.CurrentTheme.EditorTabs.tabInsets()` при `isNewUI()` |
+| Высота вкладки | фиксированной константы темы нет: высота выводится из шрифта и инсетов | — | `TabbedPane.tabHeight: 40` — про компонент `TabbedPane`, не про редакторные вкладки |
+
+Семантика фокуса: синее подчёркивание носит выбранная вкладка **сфокусированной** группы
+редактора; при уходе фокуса (в тул-окно, в другое окно) оно сереет до
+`inactiveUnderlineColor`. В терминах Berth это соответствует паре псевдоклассов
+`:current` (текущий документ активного хоста при неактивных панелях, DA-6.2) /
+`:active` (выбрана в своей группе): фокус в панели гасит `:current`, оставляя `:active`.
+
 ## Механизмы темизации (важно при переносе значений)
 
 1. **Wildcard-фолбэк.** Любой `JBColor.namedColor("X.borderColor"/"X.background"/…, default)`,
